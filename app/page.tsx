@@ -51,7 +51,7 @@ type Deployment = {
   startedAt: string;
   completedAt?: string;
   durationMs?: number;
-  service: { name: string };
+  service: { id: string; name: string };
 };
 
 type DeploymentLog = { timestamp: string; message: string };
@@ -681,6 +681,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
   const [pm2Action, setPm2Action] = useState<string | null>(null);
   const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>({});
   const [selectedDeployment, setSelectedDeployment] = useState<string | null>(null);
+  const [historyServiceId, setHistoryServiceId] = useState<string | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([]);
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
   const [pm2Logs, setPm2Logs] = useState('');
@@ -823,13 +824,14 @@ function Dashboard({ token, role }: { token: string; role: string }) {
     window.location.reload();
   }
 
-  async function deploy(serviceId: string) {
+  async function deploy(serviceId: string, force = false) {
     setDeploying(serviceId);
     setError('');
     try {
       const response = await fetch(`${apiUrl}/services/${serviceId}/deploy`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
       });
       const data = await responseJson<{ runId?: string; message?: string }>(response);
       if (!response.ok) throw new Error(data.message || 'Webhook trigger failed');
@@ -1065,9 +1067,31 @@ function Dashboard({ token, role }: { token: string; role: string }) {
                     {pm2Status[service.id].restarts || 0} restarts
                   </p>
                 )}
-                <button className="deploy-button" onClick={() => deploy(service.id)} disabled={!service.enabled || deploying === service.id}>
-                  {!service.enabled ? 'Disabled' : deploying === service.id ? 'Triggering...' : 'Trigger webhook'}
+                <div className="deploy-actions">
+                  <button className="deploy-button" onClick={() => deploy(service.id, false)} disabled={!service.enabled || deploying === service.id}>
+                    {!service.enabled ? 'Disabled' : deploying === service.id ? 'Triggering...' : 'Normal deploy'}
+                  </button>
+                  <button className="secondary" onClick={() => deploy(service.id, true)} disabled={!service.enabled || deploying === service.id}>
+                    Force deploy
+                  </button>
+                </div>
+                <button className="secondary" onClick={() => setHistoryServiceId(historyServiceId === service.id ? null : service.id)}>
+                  {historyServiceId === service.id ? 'Hide project history' : 'View project history'}
                 </button>
+                {historyServiceId === service.id && (
+                  <div className="service-history">
+                    {deployments.filter((deployment) => deployment.service.id === service.id).slice(0, 5).map((deployment) => (
+                      <button className="service-history-row" key={deployment.id} onClick={() => setSelectedDeployment(deployment.id)}>
+                        <span className={`badge ${deployment.status.toLowerCase()}`}>{deployment.status}</span>
+                        <span>{deployment.triggerSource}</span>
+                        <span>{new Date(deployment.startedAt).toLocaleString()}</span>
+                      </button>
+                    ))}
+                    {deployments.filter((deployment) => deployment.service.id === service.id).length === 0 && (
+                      <small className="muted">No deployments recorded for this project.</small>
+                    )}
+                  </div>
+                )}
                 {service.type === 'PM2' && (
                   <>
                     <button className="secondary pm2-log-button" onClick={() => openPm2Logs(service)} disabled={!service.enabled}>
