@@ -85,10 +85,11 @@ button { margin-top: 6px; padding: 13px; border: 0; border-radius: 9px; backgrou
 .history-heading { margin-top: 54px; }
 .history-heading h2 { margin-top: 4px; }
 .history-table { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: rgba(21, 28, 41, .9); }
-.history-row { min-width: 720px; display: grid; grid-template-columns: 1.4fr .8fr .8fr 1.4fr .7fr; gap: 18px; align-items: center; padding: 16px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+.history-row { min-width: 920px; display: grid; grid-template-columns: 1.4fr .8fr .8fr 1.4fr .7fr .1fr 2fr; gap: 18px; align-items: center; padding: 16px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
 .history-row:first-child { border-top: 0; }
 .history-header { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 .history-row strong { color: var(--text); }
+.commit-message { min-width: 0; overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
 .badge { width: fit-content; padding: 4px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
 .badge.success { color: #07140f; background: var(--accent); }
 .badge.failed, .badge.error { color: #260b0b; background: #ff8d8d; }

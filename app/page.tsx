@@ -1146,6 +1146,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
               <span>Started</span>
               <span>Duration</span>
               <span>Commit</span>
+              <span>Commit message</span>
             </div>
             {deployments.map((deployment) => (
               <div className="history-row" key={deployment.id} onClick={() => setSelectedDeployment(deployment.id)}>
@@ -1154,7 +1155,10 @@ function Dashboard({ token, role }: { token: string; role: string }) {
                 <span>{deployment.triggerSource}</span>
                 <span>{new Date(deployment.startedAt).toLocaleString()}</span>
                 <span>{deployment.durationMs ? `${Math.round(deployment.durationMs / 1000)}s` : 'Running'}</span>
-                <span title={deployment.commitMessage || undefined}>{deployment.commitHash ? deployment.commitHash.slice(0, 8) : '—'}</span>
+                <span title={deployment.commitHash || undefined}>{deployment.commitHash ? deployment.commitHash.slice(0, 8) : '—'}</span>
+                <span className="commit-message" title={deployment.commitMessage || undefined}>
+                  {deployment.commitMessage || 'Message not reported'}
+                </span>
               </div>
             ))}
           </div>
