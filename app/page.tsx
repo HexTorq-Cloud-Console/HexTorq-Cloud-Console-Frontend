@@ -16,6 +16,12 @@ function liveRepositorySlug(value: string) {
   return toSlug(match?.[1] || value);
 }
 
+function serviceWebhookUrl(agentBaseUrl: string, projectKey: string) {
+  if (!agentBaseUrl || !projectKey) return '';
+  const pipelineBase = agentBaseUrl.replace(/\/git-agent\/?$/i, '/git').replace(/\/$/, '');
+  return `${pipelineBase}/webhook/${encodeURIComponent(projectKey)}`;
+}
+
 type ServiceType = 'PM2' | 'STATIC_FRONTEND';
 
 type Service = {
@@ -1277,6 +1283,12 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   }, [clients, agents]);
 
   useEffect(() => {
+    const agent = agents.find((item) => item.id === serviceForm.agentId);
+    const webhookUrl = serviceWebhookUrl(agent?.baseUrl || '', serviceForm.projectKey);
+    setServiceForm((current) => current.webhookUrl === webhookUrl ? current : { ...current, webhookUrl });
+  }, [agents, serviceForm.agentId, serviceForm.projectKey]);
+
+  useEffect(() => {
     if (!serviceForm.agentId) {
       setPm2Processes([]);
       return;
@@ -1977,7 +1989,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             </label>
             <label>
               Full webhook URL
-              <input placeholder="https://server.example.com/git/webhook/project" type="url" value={serviceForm.webhookUrl} onChange={(event) => setServiceForm({ ...serviceForm, webhookUrl: event.target.value })} required />
+              <input placeholder="Select an agent and enter a project key" type="url" value={serviceForm.webhookUrl} readOnly required />
             </label>
             <label>
               Working directory
