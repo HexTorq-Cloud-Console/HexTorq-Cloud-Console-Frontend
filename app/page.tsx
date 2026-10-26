@@ -17,6 +17,7 @@ type Service = {
   repositoryUrl: string;
   branch: string;
   projectKey: string;
+  webhookUrl?: string | null;
   workingDirectory: string;
   deployDirectory?: string | null;
   pm2ProcessName?: string | null;
@@ -151,6 +152,7 @@ type AccessForm = {
 };
 type Client = { id: string; name: string; email: string; _count: { services: number; accessEntries: number } };
 type Agent = { id: string; name: string; baseUrl: string; enabled: boolean };
+type Pm2Process = { name: string; id: number; status?: string };
 type Template = { key: string; name: string; type: ServiceType };
 type ServiceForm = {
   name: string;
@@ -159,6 +161,7 @@ type ServiceForm = {
   repositoryUrl: string;
   branch: string;
   projectKey: string;
+  webhookUrl: string;
   workingDirectory: string;
   deployDirectory: string;
   pm2ProcessName: string;
@@ -1215,6 +1218,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
 function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => void }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [pm2Processes, setPm2Processes] = useState<Pm2Process[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [accessEntries, setAccessEntries] = useState<ClientAccess[]>([]);
@@ -1231,8 +1235,9 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
     type: 'PM2',
     repositoryUrl: '',
     branch: 'main',
-    projectKey: '',
-    workingDirectory: '',
+     projectKey: '',
+     webhookUrl: '',
+     workingDirectory: '',
     deployDirectory: '',
     pm2ProcessName: '',
     templateKey: '',
@@ -1251,6 +1256,29 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   const [notice, setNotice] = useState('');
   const [modal, setModal] = useState<'client' | 'agent' | 'service' | 'edit-service' | 'access' | 'edit-access' | 'view-access' | 'settings' | null>(null);
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  useEffect(() => {
+    if (!serviceForm.agentId) {
+      setPm2Processes([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${apiUrl}/admin/agents/${encodeURIComponent(serviceForm.agentId)}/pm2/processes`, { headers })
+      .then((response) => responseJson<{ processes?: Pm2Process[] }>(response))
+      .then((data) => { if (!cancelled) setPm2Processes(data.processes || []); })
+      .catch(() => { if (!cancelled) setPm2Processes([]); });
+    return () => { cancelled = true; };
+  }, [serviceForm.agentId, token]);
+
+  async function loadRepositoryMetadata(repositoryUrl: string) {
+    if (!repositoryUrl) return;
+    try {
+      const response = await fetch(`${apiUrl}/admin/repository-metadata?url=${encodeURIComponent(repositoryUrl)}`, { headers });
+      const data = await responseJson<{ slug?: string; branch?: string }>(response);
+      if (!response.ok) return;
+      setServiceForm((current) => ({ ...current, slug: data.slug || current.slug, branch: data.branch || current.branch || 'main' }));
+    } catch { /* Manual values remain usable if repository metadata is unavailable. */ }
+  }
 
   async function refresh() {
     const [clientResponse, agentResponse, templateResponse, settingsResponse, serviceResponse, accessResponse] = await Promise.all([
@@ -1346,8 +1374,9 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
         method: 'POST',
         headers,
         body: JSON.stringify({
-          ...serviceForm,
-          deployDirectory: serviceForm.type === 'STATIC_FRONTEND' ? serviceForm.deployDirectory : undefined,
+           ...serviceForm,
+           webhookUrl: serviceForm.webhookUrl || undefined,
+           deployDirectory: serviceForm.type === 'STATIC_FRONTEND' ? serviceForm.deployDirectory : undefined,
           pm2ProcessName: serviceForm.type === 'PM2' ? serviceForm.pm2ProcessName : undefined,
         }),
       });
@@ -1358,8 +1387,9 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
         ...serviceForm,
         name: '',
         slug: '',
-        repositoryUrl: '',
-        projectKey: '',
+         repositoryUrl: '',
+         webhookUrl: '',
+         projectKey: '',
         workingDirectory: '',
         deployDirectory: '',
         pm2ProcessName: '',
@@ -1890,7 +1920,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             </label>
             <label>
               Slug
-              <input placeholder="cctv-backend" value={serviceForm.slug} onChange={(event) => setServiceForm({ ...serviceForm, slug: event.target.value })} required />
+              <input placeholder="cctv-backend" value={serviceForm.slug} readOnly required />
             </label>
             <label>
               Service type
@@ -1918,7 +1948,11 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             </label>
             <label>
               Repository URL
-              <input placeholder="https://github.com/..." type="url" value={serviceForm.repositoryUrl} onChange={(event) => setServiceForm({ ...serviceForm, repositoryUrl: event.target.value })} required />
+              <input placeholder="https://github.com/..." type="url" value={serviceForm.repositoryUrl} onChange={(event) => setServiceForm({ ...serviceForm, repositoryUrl: event.target.value })} onBlur={(event) => void loadRepositoryMetadata(event.target.value)} required />
+            </label>
+            <label>
+              Full webhook URL
+              <input placeholder="https://server.example.com/git/webhook/project" type="url" value={serviceForm.webhookUrl} onChange={(event) => setServiceForm({ ...serviceForm, webhookUrl: event.target.value })} required />
             </label>
             <label>
               Working directory
@@ -1926,12 +1960,15 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             </label>
             <label>
               Branch
-              <input value={serviceForm.branch} onChange={(event) => setServiceForm({ ...serviceForm, branch: event.target.value })} required />
+              <input placeholder="Detected default branch" value={serviceForm.branch} onChange={(event) => setServiceForm({ ...serviceForm, branch: event.target.value })} />
             </label>
             {serviceForm.type === 'PM2' ? (
               <label>
                 PM2 process name
-                <input placeholder="R-CCTV-BE" value={serviceForm.pm2ProcessName} onChange={(event) => setServiceForm({ ...serviceForm, pm2ProcessName: event.target.value })} required />
+                <select value={serviceForm.pm2ProcessName} onChange={(event) => setServiceForm({ ...serviceForm, pm2ProcessName: event.target.value })} required>
+                  <option value="">Choose PM2 process</option>
+                  {pm2Processes.map((process) => <option key={process.name} value={process.name}>{process.name} ({process.status || 'unknown'})</option>)}
+                </select>
               </label>
             ) : (
               <label>
