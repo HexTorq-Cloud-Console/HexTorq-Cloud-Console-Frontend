@@ -1267,6 +1267,16 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   useEffect(() => {
+    if (clients.length || agents.length) {
+      setServiceForm((current) => ({
+        ...current,
+        clientId: current.clientId || clients[0]?.id || '',
+        agentId: current.agentId || agents[0]?.id || '',
+      }));
+    }
+  }, [clients, agents]);
+
+  useEffect(() => {
     if (!serviceForm.agentId) {
       setPm2Processes([]);
       return;
