@@ -1,11 +1,474 @@
 ﻿'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import Script from 'next/script';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const TOKEN_KEY = 'hextorq_token';
 
-declare global { interface Window { google?: { accounts: { id: { initialize: (config: { client_id: string; callback: (response: { credential: string }) => void }) => void; renderButton: (element: HTMLElement, options: Record<string, string>) => void } } } } }
+type ServiceType = 'PM2' | 'STATIC_FRONTEND';
+
+type Service = {
+  id: string;
+  name: string;
+  slug: string;
+  type: ServiceType;
+  repositoryUrl: string;
+  branch: string;
+  projectKey: string;
+  workingDirectory: string;
+  deployDirectory?: string | null;
+  pm2ProcessName?: string | null;
+  templateKey?: string | null;
+  customCommands?: Record<string, string> | null;
+  enabled: boolean;
+  client: { id: string; name: string; email: string };
+  agent: { id: string; name: string; baseUrl: string; enabled: boolean };
+};
+
+type Deployment = {
+  id: string;
+  runId: string;
+  status: string;
+  triggerSource: string;
+  startedAt: string;
+  completedAt?: string;
+  durationMs?: number;
+  service: { name: string };
+};
+
+type DeploymentLog = { timestamp: string; message: string };
+
+type Pm2Status = { status?: string; cpu?: number; memory?: number; restarts?: number };
+
+type WebhookHealthService = {
+  id: string;
+  name: string;
+  slug: string;
+  type: ServiceType;
+  pm2ProcessName?: string | null;
+  enabled: boolean;
+};
+
+type WebhookDeployment = {
+  runId: string;
+  status: string;
+  triggerSource: string;
+  startedAt: string;
+  completedAt?: string | null;
+  durationMs?: number | null;
+  failureReason?: string | null;
+};
+
+type WebhookHealthCheck = {
+  id: string;
+  serviceId: string;
+  service: WebhookHealthService;
+  status: 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'FAILED';
+  httpStatus?: number | null;
+  message?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationMs?: number | null;
+  deployment?: WebhookDeployment | null;
+};
+
+type WebhookHealthRun = {
+  id: string;
+  clientId?: string;
+  source: 'MANUAL' | 'SCHEDULED';
+  status: 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  requestedBy?: string | null;
+  totalServices: number;
+  successfulServices: number;
+  failedServices: number;
+  startedAt: string;
+  completedAt?: string | null;
+  checks: WebhookHealthCheck[];
+};
+
+type WebhookSchedule = {
+  clientId: string;
+  enabled: boolean;
+  intervalDays: number | null;
+  nextRunAt?: string | null;
+  lastRunAt?: string | null;
+  timeZone: string;
+  hour: number;
+};
+
+type WebhookRunSummary = {
+  id: string;
+  source: 'MANUAL' | 'SCHEDULED';
+  status: 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  totalServices: number;
+  successfulServices: number;
+  failedServices: number;
+  startedAt: string;
+  completedAt?: string | null;
+};
+
+type WebhookHealthData = {
+  schedule: WebhookSchedule;
+  latestRun?: WebhookHealthRun | null;
+  activeRun?: WebhookHealthRun | null;
+  recentRuns: WebhookRunSummary[];
+};
+
+type AccessType = 'SFTP' | 'DATABASE';
+type ClientAccess = {
+  id: string;
+  clientId: string;
+  type: AccessType;
+  label: string;
+  host: string;
+  port: number;
+  username: string;
+  password: string | null;
+  path?: string | null;
+  databaseName?: string | null;
+  sslMode?: string | null;
+  notes?: string | null;
+  enabled: boolean;
+  client?: { id: string; name: string; email: string };
+  createdAt: string;
+  updatedAt: string;
+};
+type AccessForm = {
+  clientId: string;
+  type: AccessType;
+  label: string;
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  path: string;
+  databaseName: string;
+  sslMode: string;
+  notes: string;
+  enabled: boolean;
+};
+type Client = { id: string; name: string; email: string; _count: { services: number; accessEntries: number } };
+type Agent = { id: string; name: string; baseUrl: string; enabled: boolean };
+type Template = { key: string; name: string; type: ServiceType };
+type ServiceForm = {
+  name: string;
+  slug: string;
+  type: ServiceType;
+  repositoryUrl: string;
+  branch: string;
+  projectKey: string;
+  workingDirectory: string;
+  deployDirectory: string;
+  pm2ProcessName: string;
+  templateKey: string;
+  clientId: string;
+  agentId: string;
+};
+type ServiceEditForm = {
+  name: string;
+  branch: string;
+  enabled: boolean;
+  templateKey: string;
+  pm2ProcessName: string;
+  deployDirectory: string;
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: { client_id: string; callback: (response: { credential: string }) => void }) => void;
+          renderButton: (element: HTMLElement, options: Record<string, string>) => void;
+        };
+      };
+    };
+  }
+}
+
+async function responseJson<T>(response: Response): Promise<T> {
+  return (await response.json().catch(() => ({}))) as T;
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function formatLogEvent(payload: string) {
+  try {
+    const event = JSON.parse(payload) as {
+      type?: string;
+      message?: string;
+      timestamp?: string;
+      stream?: string;
+    };
+    if (event.type === 'connected') return '';
+    if (event.type === 'error') return `ERROR: ${event.message || payload}`;
+    if (event.type === 'pm2-log') {
+      const time = event.timestamp ? `[${new Date(event.timestamp).toLocaleTimeString()}] ` : '';
+      const stream = event.stream === 'stderr' ? 'ERR ' : '';
+      return `${time}${stream}${event.message || ''}`;
+    }
+    if (typeof event.message === 'string') return event.message;
+  } catch {
+    // Plain-text log line.
+  }
+  return payload;
+}
+
+function emptyAccessForm(): AccessForm {
+  return {
+    clientId: '',
+    type: 'SFTP',
+    label: '',
+    host: '',
+    port: 22,
+    username: '',
+    password: '',
+    path: '',
+    databaseName: '',
+    sslMode: 'Prefer',
+    notes: '',
+    enabled: true,
+  };
+}
+
+function AccessEntryCard({ entry }: { entry: ClientAccess }) {
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState('');
+
+  const fields: Array<{ label: string; value: string }> = [
+    { label: 'Host', value: entry.host },
+    { label: 'Port', value: String(entry.port) },
+  ];
+
+  if (entry.type === 'SFTP') {
+    fields.push(
+      { label: 'Protocol', value: 'SFTP' },
+      { label: 'Username', value: entry.username },
+      { label: 'Path', value: entry.path || '/' },
+    );
+  } else {
+    fields.push(
+      { label: 'Maintenance database', value: entry.databaseName || '' },
+      { label: 'Username', value: entry.username },
+      { label: 'SSL mode', value: entry.sslMode || 'Prefer' },
+    );
+  }
+
+  async function copyField(label: string, value: string) {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      window.setTimeout(() => setCopied(''), 1500);
+    } catch {
+      // Clipboard access can be blocked by the browser; the value remains selectable.
+    }
+  }
+
+  return (
+    <article className={`access-card ${entry.type === 'DATABASE' ? 'database' : 'sftp'}`}>
+      <div className="access-card-head">
+        <span className={`access-type-badge ${entry.type === 'DATABASE' ? 'database' : 'sftp'}`}>
+          {entry.type === 'DATABASE' ? 'POSTGRESQL' : 'SFTP'}
+        </span>
+        <span className={`access-state ${entry.enabled ? 'enabled' : 'disabled'}`}>
+          {entry.enabled ? 'Active' : 'Disabled'}
+        </span>
+      </div>
+      <h3>{entry.label}</h3>
+      {entry.client && <p className="access-client">{entry.client.name}</p>}
+      <div className="access-fields">
+        {fields.map((field) => (
+          <div className="access-field" key={field.label}>
+            <span className="access-label">{field.label}</span>
+            <div className="access-value-row">
+              <code>{field.value || 'Not set'}</code>
+              {field.value && (
+                <button type="button" className="mini-button" onClick={() => copyField(field.label, field.value)}>
+                  {copied === field.label ? 'Copied' : 'Copy'}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        <div className="access-field">
+          <span className="access-label">Password</span>
+          <div className="access-value-row">
+            <code>{entry.password ? (revealed ? entry.password : '••••••••') : 'Unavailable'}</code>
+            {entry.password && (
+              <>
+                <button type="button" className="mini-button" onClick={() => setRevealed((current) => !current)}>
+                  {revealed ? 'Hide' : 'Show'}
+                </button>
+                <button type="button" className="mini-button" onClick={() => copyField('Password', entry.password || '')}>
+                  {copied === 'Password' ? 'Copied' : 'Copy'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      {entry.notes && <p className="access-notes">{entry.notes}</p>}
+    </article>
+  );
+}
+
+function intervalLabel(days: number | null | undefined) {
+  if (!days) return 'No interval';
+  if (days === 1) return 'Every day';
+  if (days === 7) return 'Every week';
+  if (days === 30) return 'Every 30 days (monthly)';
+  return `Every ${days} days`;
+}
+
+function scheduleHourLabel(hour: number) {
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  return `${hour % 12 || 12}:00 ${suffix}`;
+}
+
+function scheduleDateTimeLabel(value: string, timeZone: string) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone,
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }).format(new Date(value));
+  } catch {
+    return new Date(value).toLocaleString();
+  }
+}
+
+function healthStatusClass(status: string) {
+  if (status === 'SUCCESS') return 'success';
+  if (status === 'FAILED') return 'failed';
+  if (status === 'RUNNING') return 'deploying';
+  if (status === 'PARTIAL') return 'partial';
+  return 'queued';
+}
+
+function healthStatusLabel(status: string) {
+  if (status === 'RUNNING') return 'In progress';
+  if (status === 'PARTIAL') return 'Partial';
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
+function WebhookHealthPanel({
+  health,
+  loading,
+  error,
+  runLoading,
+  onSettings,
+  onRun,
+}: {
+  health: WebhookHealthData | null;
+  loading: boolean;
+  error: string;
+  runLoading: boolean;
+  onSettings: () => void;
+  onRun: () => void;
+}) {
+  const run = health?.latestRun || null;
+  const active = health?.activeRun || run?.status === 'RUNNING';
+  const completedChecks = run
+    ? run.checks.filter((check) => check.status === 'SUCCESS' || check.status === 'FAILED').length
+    : 0;
+
+  return (
+    <section className="health-panel">
+      <div className="health-panel-head">
+        <div>
+          <p className="eyebrow">WEBHOOK HEALTH</p>
+          <h2>Service health checks</h2>
+          <p className="muted">
+            {health?.schedule.enabled
+              ? `${intervalLabel(health.schedule.intervalDays)} at ${scheduleHourLabel(health.schedule.hour)} ${health.schedule.timeZone}.`
+              : 'Automatic checks are off. Enable a schedule or run every webhook now.'}
+          </p>
+        </div>
+        <div className="health-panel-actions">
+          <button className="secondary" type="button" onClick={onSettings}>
+            Settings
+          </button>
+          <button type="button" onClick={onRun} disabled={runLoading || Boolean(active)}>
+            {runLoading ? 'Starting...' : active ? 'Check running...' : 'Run all now'}
+          </button>
+        </div>
+      </div>
+
+      <div className="health-schedule-meta">
+        <span>{health?.schedule.enabled ? `Next check: ${health.schedule.nextRunAt ? scheduleDateTimeLabel(health.schedule.nextRunAt, health.schedule.timeZone) : 'Waiting for schedule'}` : 'Schedule disabled'}</span>
+        <span>{health?.schedule.lastRunAt ? `Last check: ${scheduleDateTimeLabel(health.schedule.lastRunAt, health.schedule.timeZone)}` : 'No health check has run yet'}</span>
+        {health?.schedule.timeZone && <span>Time zone: {health.schedule.timeZone}</span>}
+      </div>
+
+      {error && <p className="error">{error}</p>}
+      {loading && !health && <p className="muted">Loading webhook health...</p>}
+      {!loading && !run && !error && (
+        <p className="muted health-empty">
+          No health checks have run yet. Use Run all now to verify every enabled service webhook.
+        </p>
+      )}
+
+      {run && (
+        <div className="health-run">
+          <div className="health-run-head">
+            <div>
+              <span className={`badge ${healthStatusClass(run.status)}`}>{healthStatusLabel(run.status)}</span>
+              <strong>{run.source === 'SCHEDULED' ? 'Automatic check' : 'Manual check'}</strong>
+              <span className="row-meta">
+                {completedChecks} / {run.totalServices} services checked
+              </span>
+            </div>
+            <span className="row-meta">
+              {run.completedAt ? `Finished ${new Date(run.completedAt).toLocaleString()}` : `Started ${new Date(run.startedAt).toLocaleString()}`}
+            </span>
+          </div>
+          <div className="health-check-grid">
+            {run.checks.map((check) => {
+              const deployment = check.deployment;
+              const webhookAccepted = check.httpStatus !== null && check.httpStatus !== undefined && check.httpStatus >= 200 && check.httpStatus < 300;
+              return (
+                <article className={`health-check ${healthStatusClass(check.status)}`} key={check.id}>
+                  <div className="health-check-head">
+                    <div>
+                      <strong>{check.service.name}</strong>
+                      <small>{check.service.type.replace('_', ' ')}</small>
+                    </div>
+                    <span className={`badge ${healthStatusClass(check.status)}`}>{healthStatusLabel(check.status)}</span>
+                  </div>
+                  <div className="health-chips">
+                    <span className={`health-chip ${webhookAccepted ? 'ok' : check.status === 'FAILED' ? 'bad' : ''}`}>
+                      Webhook {check.httpStatus ? `HTTP ${check.httpStatus}` : 'pending'}
+                    </span>
+                    <span className={`health-chip ${deployment?.status === 'SUCCESS' ? 'ok' : deployment && ['FAILED', 'ERROR'].includes(deployment.status) ? 'bad' : ''}`}>
+                      Deployment {deployment ? deployment.status.toLowerCase() : 'waiting'}
+                    </span>
+                  </div>
+                  <p className="health-message">{check.message || 'Waiting for the pipeline.'}</p>
+                  <small className="health-check-time">
+                    {check.completedAt
+                      ? `Completed ${new Date(check.completedAt).toLocaleString()}`
+                      : check.startedAt
+                        ? `Started ${new Date(check.startedAt).toLocaleTimeString()}`
+                        : 'Queued'}
+                  </small>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -14,161 +477,1647 @@ export default function LoginPage() {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState('');
   const [forcePasswordChange, setForcePasswordChange] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    const storedToken = window.localStorage.getItem(TOKEN_KEY);
+    if (!storedToken) {
+      setSessionChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${apiUrl}/auth/me`, {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        });
+        const data = await responseJson<{ user?: { role?: string; forcePasswordChange?: boolean }; message?: string }>(response);
+        if (!response.ok || !data.user) throw new Error(data.message || 'Session expired');
+        if (cancelled) return;
+        setToken(storedToken);
+        setRole(data.user.role || '');
+        setForcePasswordChange(Boolean(data.user.forcePasswordChange));
+      } catch {
+        window.localStorage.removeItem(TOKEN_KEY);
+      } finally {
+        if (!cancelled) setSessionChecked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function signInWithGoogle(credential: string) {
-    setMessage('Signing inâ€¦');
-    const response = await fetch(`${apiUrl}/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential }) });
-    const data = await response.json();
-    if (!response.ok) return setMessage(data.message || 'Google sign-in failed');
-    localStorage.setItem('hextorq_token', data.token); setToken(data.token); setRole(data.user.role); setForcePasswordChange(Boolean(data.user.forcePasswordChange));
+    setMessage('Signing in...');
+    try {
+      const response = await fetch(`${apiUrl}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await responseJson<{ token?: string; user?: { role?: string; forcePasswordChange?: boolean }; message?: string }>(response);
+      if (!response.ok || !data.token || !data.user) throw new Error(data.message || 'Google sign-in failed');
+      window.localStorage.setItem(TOKEN_KEY, data.token);
+      setToken(data.token);
+      setRole(data.user.role || '');
+      setForcePasswordChange(Boolean(data.user.forcePasswordChange));
+    } catch (error) {
+      setMessage(errorMessage(error, 'Google sign-in failed'));
+    }
   }
 
   function initializeGoogle() {
     const element = document.getElementById('google-button');
-    if (!element || !window.google || !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return;
-    window.google.accounts.id.initialize({ client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, callback: ({ credential }) => signInWithGoogle(credential) });
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!element || !window.google || !clientId) return;
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: ({ credential }) => signInWithGoogle(credential),
+    });
     window.google.accounts.id.renderButton(element, { theme: 'outline', size: 'large', width: '330' });
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setMessage('Signing inâ€¦');
+    setMessage('Signing in...');
     try {
-      const response = await fetch(`${apiUrl}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Unable to sign in');
-      localStorage.setItem('hextorq_token', data.token);
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await responseJson<{ token?: string; user?: { role?: string; forcePasswordChange?: boolean }; message?: string }>(response);
+      if (!response.ok || !data.token || !data.user) throw new Error(data.message || 'Unable to sign in');
+      window.localStorage.setItem(TOKEN_KEY, data.token);
       setToken(data.token);
-      setRole(data.user.role);
+      setRole(data.user.role || '');
       setForcePasswordChange(Boolean(data.user.forcePasswordChange));
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to sign in'); }
+    } catch (error) {
+      setMessage(errorMessage(error, 'Unable to sign in'));
+    }
   }
 
-  if (token) return forcePasswordChange ? <PasswordChange token={token} onComplete={() => setForcePasswordChange(false)} /> : <Dashboard token={token} role={role} />;
-  return <main className="login-shell"><Script src="https://accounts.google.com/gsi/client" onLoad={initializeGoogle} /><section className="login-card"><p className="eyebrow">HEX TORQ CLOUD</p><h1>Cloud Console</h1><p className="muted">Manage deployments across every connected VPS.</p><form onSubmit={submit}><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label><button type="submit">Sign in</button></form><div id="google-button" className="google-button" />{message && <p className="message">{message}</p>}<p className="help">Need access? Contact your HexTorq administrator.</p></section></main>;
+  if (!sessionChecked) {
+    return (
+      <main className="login-shell">
+        <section className="login-card">
+          <p className="eyebrow">HEX TORQ CLOUD</p>
+          <h1>Cloud Console</h1>
+          <p className="muted">Checking your session...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (token) {
+    return forcePasswordChange ? (
+      <PasswordChange token={token} onComplete={() => setForcePasswordChange(false)} />
+    ) : (
+      <Dashboard token={token} role={role} />
+    );
+  }
+
+  return (
+    <main className="login-shell">
+      <Script src="https://accounts.google.com/gsi/client" onLoad={initializeGoogle} />
+      <section className="login-card">
+        <p className="eyebrow">HEX TORQ CLOUD</p>
+        <h1>Cloud Console</h1>
+        <p className="muted">Manage deployments across every connected VPS.</p>
+        <form onSubmit={submit}>
+          <label>
+            Email
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          </label>
+          <label>
+            Password
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+          </label>
+          <button type="submit">Sign in</button>
+        </form>
+        <div id="google-button" className="google-button" />
+        {message && <p className="message">{message}</p>}
+        <p className="help">Need access? Contact your HexTorq administrator.</p>
+      </section>
+    </main>
+  );
 }
 
 function PasswordChange({ token, onComplete }: { token: string; onComplete: () => void }) {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [message, setMessage] = useState('');
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (password.length < 8 || password !== confirmation) return setMessage('Passwords must match and contain at least 8 characters.');
-    const response = await fetch(`${apiUrl}/auth/change-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ password }) });
-    const data = await response.json();
-    if (!response.ok) return setMessage(data.message || 'Unable to change password');
-    onComplete();
+    if (password.length < 8 || password !== confirmation) {
+      setMessage('Passwords must match and contain at least 8 characters.');
+      return;
+    }
+    try {
+      const response = await fetch(`${apiUrl}/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ password }),
+      });
+      const data = await responseJson<{ message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to change password');
+      onComplete();
+    } catch (error) {
+      setMessage(errorMessage(error, 'Unable to change password'));
+    }
   }
-  return <main className="login-shell"><section className="login-card"><p className="eyebrow">FIRST LOGIN</p><h1>Set your password</h1><p className="muted">Your administrator provided a temporary password. Choose a private password before continuing.</p><form onSubmit={submit}><label>New password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} /></label><label>Confirm password<input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required minLength={8} /></label><button type="submit">Save password</button></form>{message && <p className="error">{message}</p>}</section></main>;
+
+  return (
+    <main className="login-shell">
+      <section className="login-card">
+        <p className="eyebrow">FIRST LOGIN</p>
+        <h1>Set your password</h1>
+        <p className="muted">Your administrator provided a temporary password. Choose a private password before continuing.</p>
+        <form onSubmit={submit}>
+          <label>
+            New password
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} />
+          </label>
+          <label>
+            Confirm password
+            <input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required minLength={8} />
+          </label>
+          <button type="submit">Save password</button>
+        </form>
+        {message && <p className="error">{message}</p>}
+      </section>
+    </main>
+  );
 }
 
 function Dashboard({ token, role }: { token: string; role: string }) {
-  const [services, setServices] = useState<Array<{ id: string; name: string; type: string; client: { name: string }; agent: { name: string } }>>([]);
-  const [deployments, setDeployments] = useState<Array<{ id: string; runId: string; status: string; triggerSource: string; startedAt: string; completedAt?: string; durationMs?: number; service: { name: string } }>>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deploying, setDeploying] = useState<string | null>(null);
   const [pm2Action, setPm2Action] = useState<string | null>(null);
-  const [pm2Status, setPm2Status] = useState<Record<string, { status?: string; cpu?: number; memory?: number; restarts?: number }>>({});
+  const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>({});
   const [selectedDeployment, setSelectedDeployment] = useState<string | null>(null);
-  const [deploymentLogs, setDeploymentLogs] = useState<Array<{ timestamp: string; message: string }>>([]);
+  const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([]);
+  const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
+  const [pm2Logs, setPm2Logs] = useState('');
+  const [pm2LogError, setPm2LogError] = useState('');
+  const [pm2LogLoading, setPm2LogLoading] = useState(false);
+  const [accessEntries, setAccessEntries] = useState<ClientAccess[]>([]);
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [health, setHealth] = useState<WebhookHealthData | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthError, setHealthError] = useState('');
+  const [healthSettingsOpen, setHealthSettingsOpen] = useState(false);
+  const [healthForm, setHealthForm] = useState({ enabled: false, intervalDays: 7 });
+  const [healthSaving, setHealthSaving] = useState(false);
+  const [healthRunLoading, setHealthRunLoading] = useState(false);
+  const pm2LogAbortRef = useRef<AbortController | null>(null);
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const accessRequest = role === 'CLIENT' ? fetch(`${apiUrl}/access`, { headers }) : Promise.resolve(null);
+      const [serviceResponse, deploymentResponse, accessResponse] = await Promise.all([
+        fetch(`${apiUrl}/services`, { headers }),
+        fetch(`${apiUrl}/deployments`, { headers }),
+        accessRequest,
+      ]);
+      const serviceData = await responseJson<{ services?: Service[]; message?: string }>(serviceResponse);
+      const deploymentData = await responseJson<{ deployments?: Deployment[]; message?: string }>(deploymentResponse);
+      const accessData = accessResponse
+        ? await responseJson<{ access?: ClientAccess[]; message?: string }>(accessResponse)
+        : {};
+      if (!serviceResponse.ok) throw new Error(serviceData.message || 'Unable to load services');
+      if (!deploymentResponse.ok) throw new Error(deploymentData.message || 'Unable to load deployments');
+      setServices(serviceData.services || []);
+      setDeployments(deploymentData.deployments || []);
+      setAccessEntries(accessResponse ? accessData.access || [] : []);
+      setError(accessResponse && !accessResponse.ok ? accessData.message || 'Unable to load access credentials' : '');
+    } catch (reason) {
+      setError(errorMessage(reason, 'Unable to load console data'));
+    } finally {
+      setLoading(false);
+    }
+  }, [role, token]);
+
+  const loadHealth = useCallback(async (silent = false) => {
+    if (role !== 'CLIENT') return;
+    if (!silent) setHealthLoading(true);
+    try {
+      const response = await fetch(`${apiUrl}/webhook-health`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await responseJson<WebhookHealthData & { message?: string }>(response);
+      if (!response.ok || !data.schedule) throw new Error(data.message || 'Unable to load webhook health');
+      setHealth(data);
+      setHealthError('');
+    } catch (reason) {
+      setHealthError(errorMessage(reason, 'Unable to load webhook health'));
+    } finally {
+      if (!silent) setHealthLoading(false);
+    }
+  }, [role, token]);
 
   useEffect(() => {
-    const headers = { Authorization: `Bearer ${token}` };
-    Promise.all([fetch(`${apiUrl}/services`, { headers }), fetch(`${apiUrl}/deployments`, { headers })])
-      .then(async ([serviceResponse, deploymentResponse]) => {
-        const serviceData = await serviceResponse.json();
-        const deploymentData = await deploymentResponse.json();
-        if (!serviceResponse.ok) throw new Error(serviceData.message);
-        if (!deploymentResponse.ok) throw new Error(deploymentData.message);
-        setServices(serviceData.services);
-        setDeployments(deploymentData.deployments);
-      })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load services'));
-  }, [token]);
+    void loadDashboard();
+  }, [loadDashboard]);
 
   useEffect(() => {
-    services.filter((service) => service.type === 'PM2').forEach(async (service) => {
-      const response = await fetch(`${apiUrl}/services/${service.id}/pm2/status`, { headers: { Authorization: `Bearer ${token}` } });
-      if (response.ok) { const data = await response.json(); setPm2Status((current) => ({ ...current, [service.id]: data })); }
-    });
+    void loadHealth();
+  }, [loadHealth]);
+
+  useEffect(() => {
+    if (role !== 'CLIENT') return;
+    const timer = window.setInterval(() => {
+      void loadHealth(true);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [loadHealth, role]);
+
+  useEffect(() => {
+    let cancelled = false;
+    services
+      .filter((service) => service.type === 'PM2')
+      .forEach(async (service) => {
+        try {
+          const response = await fetch(`${apiUrl}/services/${service.id}/pm2/status`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!response.ok) return;
+          const data = await responseJson<Pm2Status>(response);
+          if (!cancelled) setPm2Status((current) => ({ ...current, [service.id]: data }));
+        } catch {
+          // Status is supplementary; the service card still works without it.
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [services, token]);
 
   useEffect(() => {
-    if (!selectedDeployment) return;
+    if (!selectedDeployment) {
+      setDeploymentLogs([]);
+      return;
+    }
     let active = true;
-    const load = async () => { const response = await fetch(`${apiUrl}/deployments/${selectedDeployment}/logs`, { headers: { Authorization: `Bearer ${token}` } }); if (response.ok && active) { const data = await response.json(); setDeploymentLogs(data.logs); } };
-    load(); const timer = window.setInterval(load, 2000);
-    return () => { active = false; window.clearInterval(timer); };
+    const load = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/deployments/${selectedDeployment}/logs`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await responseJson<{ logs?: DeploymentLog[] }>(response);
+        if (active) setDeploymentLogs(data.logs || []);
+      } catch {
+        // Keep the last successful log snapshot if polling fails temporarily.
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, 2000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [selectedDeployment, token]);
 
-  function signOut() { localStorage.removeItem('hextorq_token'); window.location.reload(); }
+  useEffect(
+    () => () => {
+      pm2LogAbortRef.current?.abort();
+    },
+    [],
+  );
+
+  function signOut() {
+    window.localStorage.removeItem(TOKEN_KEY);
+    window.location.reload();
+  }
+
   async function deploy(serviceId: string) {
     setDeploying(serviceId);
     setError('');
     try {
-      const response = await fetch(`${apiUrl}/services/${serviceId}/deploy`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Deployment request failed');
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Deployment request failed'); }
-    finally { setDeploying(null); }
+      const response = await fetch(`${apiUrl}/services/${serviceId}/deploy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await responseJson<{ runId?: string; message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Webhook trigger failed');
+      await loadDashboard();
+
+      if (data.runId) {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const deploymentResponse = await fetch(`${apiUrl}/deployments`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (deploymentResponse.ok) {
+            const deploymentData = await responseJson<{ deployments?: Deployment[] }>(deploymentResponse);
+            const currentDeployments = deploymentData.deployments || [];
+            setDeployments(currentDeployments);
+            const deployment = currentDeployments.find((item) => item.runId === data.runId);
+            if (deployment) {
+              setSelectedDeployment(deployment.id);
+              break;
+            }
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+        }
+      }
+    } catch (reason) {
+      setError(errorMessage(reason, 'Webhook trigger failed'));
+    } finally {
+      setDeploying(null);
+    }
   }
+
+  function openHealthSettings() {
+    setHealthError('');
+    setHealthForm({
+      enabled: health?.schedule.enabled ?? false,
+      intervalDays: health?.schedule.intervalDays ?? 7,
+    });
+    setHealthSettingsOpen(true);
+  }
+
+  async function saveHealthSchedule(event: FormEvent) {
+    event.preventDefault();
+    setHealthSaving(true);
+    setHealthError('');
+    try {
+      const response = await fetch(`${apiUrl}/webhook-health/schedule`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(healthForm),
+      });
+      const data = await responseJson<{ schedule?: WebhookSchedule; message?: string }>(response);
+      if (!response.ok || !data.schedule) throw new Error(data.message || 'Unable to save webhook schedule');
+      setHealth((current) => current ? { ...current, schedule: data.schedule as WebhookSchedule } : current);
+      setHealthSettingsOpen(false);
+      await loadHealth(true);
+    } catch (reason) {
+      setHealthError(errorMessage(reason, 'Unable to save webhook schedule'));
+    } finally {
+      setHealthSaving(false);
+    }
+  }
+
+  async function runWebhookHealth() {
+    setHealthRunLoading(true);
+    setHealthError('');
+    try {
+      const response = await fetch(`${apiUrl}/webhook-health/run`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await responseJson<{ run?: WebhookHealthRun; message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to start webhook health check');
+      await loadHealth(true);
+    } catch (reason) {
+      setHealthError(errorMessage(reason, 'Unable to start webhook health check'));
+    } finally {
+      setHealthRunLoading(false);
+    }
+  }
+
   async function controlPm2(serviceId: string, action: string) {
     if (!window.confirm(`Confirm PM2 ${action}?`)) return;
     setPm2Action(`${serviceId}:${action}`);
     setError('');
     try {
-      const response = await fetch(`${apiUrl}/services/${serviceId}/pm2/${action}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-      const data = await response.json();
+      const response = await fetch(`${apiUrl}/services/${serviceId}/pm2/${action}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await responseJson<{ message?: string }>(response);
       if (!response.ok) throw new Error(data.message || 'PM2 action failed');
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'PM2 action failed'); }
-    finally { setPm2Action(null); }
+      const statusResponse = await fetch(`${apiUrl}/services/${serviceId}/pm2/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (statusResponse.ok) {
+        const status = await responseJson<Pm2Status>(statusResponse);
+        setPm2Status((current) => ({ ...current, [serviceId]: status }));
+      }
+    } catch (reason) {
+      setError(errorMessage(reason, 'PM2 action failed'));
+    } finally {
+      setPm2Action(null);
+    }
   }
-  return <main className="console-shell"><header className="topbar"><div><p className="eyebrow">HEX TORQ CLOUD</p><h1>Cloud Console</h1></div><button className="secondary" onClick={signOut}>Sign out</button></header>{role === 'SUPER_ADMIN' && <AdminPanel token={token} /> }<section className="welcome"><p className="muted">Connected services</p><h2>Service overview</h2>{error && <p className="error">{error}</p>}{services.length === 0 && !error ? <p className="muted">No services have been configured yet.</p> : <div className="service-grid">{services.map((service) => <article className="service-card" key={service.id}><div className="service-status" /><h3>{service.name}</h3><p>{service.type.replace('_', ' ')} Â· {service.agent.name}</p><small>{service.client.name}</small>{service.type === 'PM2' && pm2Status[service.id] && <p className="pm2-status">{pm2Status[service.id].status || 'unknown'} · CPU {pm2Status[service.id].cpu ?? 0}% · {Math.round((pm2Status[service.id].memory || 0) / 1024 / 1024)} MB · {pm2Status[service.id].restarts || 0} restarts</p>}<button className="deploy-button" onClick={() => deploy(service.id)} disabled={deploying === service.id}>{deploying === service.id ? 'Requestingâ€¦' : 'Redeploy'}</button>{service.type === 'PM2' && <div className="pm2-actions">{['start', 'stop', 'restart', 'reload'].map((action) => <button className="pm2-button" key={action} onClick={() => controlPm2(service.id, action)} disabled={pm2Action === `${service.id}:${action}`}>{pm2Action === `${service.id}:${action}` ? 'â€¦' : action}</button>)}</div>}</article>)}</div>}<div className="history-heading"><p className="muted">Permanent deployment metadata</p><h2>Deployment history</h2></div>{deployments.length === 0 ? <p className="muted">No deployments recorded yet.</p> : <div className="history-table"><div className="history-row history-header"><span>Service</span><span>Status</span><span>Trigger</span><span>Started</span><span>Duration</span></div>{deployments.map((deployment) => <div className="history-row" key={deployment.id} onClick={() => setSelectedDeployment(deployment.id)}><strong>{deployment.service.name}</strong><span className={`badge ${deployment.status.toLowerCase()}`}>{deployment.status}</span><span>{deployment.triggerSource}</span><span>{new Date(deployment.startedAt).toLocaleString()}</span><span>{deployment.durationMs ? `${Math.round(deployment.durationMs / 1000)}s` : 'Running'}</span></div>)}</div>}{selectedDeployment && <div className="deployment-detail"><div className="detail-header"><h3>Deployment details</h3><button className="secondary" onClick={() => setSelectedDeployment(null)}>Close</button></div><pre>{deploymentLogs.map((log) => `[${new Date(log.timestamp).toLocaleTimeString()}] ${log.message}`).join("\\n") || "Waiting for deployment logs…"}</pre></div>}</section></main>;
+
+  function closePm2Logs() {
+    pm2LogAbortRef.current?.abort();
+    pm2LogAbortRef.current = null;
+    setPm2LogService(null);
+    setPm2Logs('');
+    setPm2LogError('');
+    setPm2LogLoading(false);
+  }
+
+  async function openPm2Logs(service: Service) {
+    pm2LogAbortRef.current?.abort();
+    const controller = new AbortController();
+    pm2LogAbortRef.current = controller;
+    setPm2LogService(service);
+    setPm2Logs('');
+    setPm2LogError('');
+    setPm2LogLoading(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/services/${service.id}/pm2/logs/stream?lines=200`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const data = await responseJson<{ message?: string }>(response);
+        throw new Error(data.message || 'Unable to open PM2 logs');
+      }
+      if (!response.body) throw new Error('The PM2 log stream returned no data');
+
+      setPm2LogLoading(false);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      const append = (chunk: string, flush = false) => {
+        buffer += chunk;
+        const lines = buffer.split(/\r?\n/);
+        buffer = flush ? '' : lines.pop() || '';
+        const output = lines
+          .filter((line) => line && !line.startsWith(':') && !line.startsWith('event:') && !line.startsWith('id:') && !line.startsWith('retry:'))
+          .map((line) => (line.startsWith('data:') ? formatLogEvent(line.slice(5).replace(/^ /, '')) : line))
+          .filter(Boolean)
+          .join('\n');
+        if (output) {
+          setPm2Logs((current) => (current + output + '\n').slice(-100000));
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        append(decoder.decode(value, { stream: true }));
+      }
+      append(decoder.decode(), true);
+    } catch (reason) {
+      if (controller.signal.aborted) return;
+      setPm2LogError(errorMessage(reason, 'Unable to open PM2 logs'));
+    } finally {
+      if (pm2LogAbortRef.current === controller) setPm2LogLoading(false);
+    }
+  }
+
+  return (
+    <main className="console-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">HEX TORQ CLOUD</p>
+          <h1>Cloud Console</h1>
+        </div>
+        <button className="secondary" onClick={signOut}>
+          Sign out
+        </button>
+      </header>
+
+      {role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
+
+      {role === 'CLIENT' && (
+        <section className="access-banner">
+          <div>
+            <p className="eyebrow">CLIENT ACCESS</p>
+            <h2>FileZilla & database credentials</h2>
+            <p className="muted">
+              {accessEntries.length === 0
+                ? 'No access credentials have been assigned to your account yet.'
+                : `${accessEntries.length} active access ${accessEntries.length === 1 ? 'entry is' : 'entries are'} available.`}
+            </p>
+          </div>
+          <button className="secondary" onClick={() => setAccessOpen(true)}>
+            View access
+          </button>
+        </section>
+      )}
+
+      {role === 'CLIENT' && (
+        <WebhookHealthPanel
+          health={health}
+          loading={healthLoading}
+          error={healthError}
+          runLoading={healthRunLoading}
+          onSettings={openHealthSettings}
+          onRun={runWebhookHealth}
+        />
+      )}
+
+      <section className="welcome">
+        <p className="muted">Connected services</p>
+        <h2>Service overview</h2>
+        {error && <p className="error">{error}</p>}
+        {loading ? (
+          <p className="muted">Loading services...</p>
+        ) : services.length === 0 && !error ? (
+          <p className="muted">No services have been configured yet.</p>
+        ) : (
+          <div className="service-grid">
+            {services.map((service) => (
+              <article className="service-card" key={service.id}>
+                <div className={`service-status ${service.enabled ? '' : 'offline'}`} />
+                <h3>{service.name}</h3>
+                <p>
+                  {service.type.replace('_', ' ')} / {service.agent.name}
+                  {service.enabled ? '' : ' / disabled'}
+                </p>
+                <small>{service.client.name}</small>
+                {service.type === 'PM2' && pm2Status[service.id] && (
+                  <p className="pm2-status">
+                    {pm2Status[service.id].status || 'unknown'} / CPU {pm2Status[service.id].cpu ?? 0}% /{' '}
+                    {Math.round((pm2Status[service.id].memory || 0) / 1024 / 1024)} MB /{' '}
+                    {pm2Status[service.id].restarts || 0} restarts
+                  </p>
+                )}
+                <button className="deploy-button" onClick={() => deploy(service.id)} disabled={!service.enabled || deploying === service.id}>
+                  {!service.enabled ? 'Disabled' : deploying === service.id ? 'Triggering...' : 'Trigger webhook'}
+                </button>
+                {service.type === 'PM2' && (
+                  <>
+                    <button className="secondary pm2-log-button" onClick={() => openPm2Logs(service)} disabled={!service.enabled}>
+                      View live PM2 logs
+                    </button>
+                    <div className="pm2-actions">
+                      {['start', 'stop', 'restart', 'reload'].map((action) => (
+                        <button
+                          className="pm2-button"
+                          key={action}
+                          onClick={() => controlPm2(service.id, action)}
+                          disabled={!service.enabled || pm2Action === `${service.id}:${action}`}
+                        >
+                          {pm2Action === `${service.id}:${action}` ? '...' : action}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+
+        <div className="history-heading">
+          <p className="muted">Permanent deployment metadata</p>
+          <h2>Deployment history</h2>
+        </div>
+        {deployments.length === 0 ? (
+          <p className="muted">No deployments recorded yet.</p>
+        ) : (
+          <div className="history-table">
+            <div className="history-row history-header">
+              <span>Service</span>
+              <span>Status</span>
+              <span>Trigger</span>
+              <span>Started</span>
+              <span>Duration</span>
+            </div>
+            {deployments.map((deployment) => (
+              <div className="history-row" key={deployment.id} onClick={() => setSelectedDeployment(deployment.id)}>
+                <strong>{deployment.service.name}</strong>
+                <span className={`badge ${deployment.status.toLowerCase()}`}>{deployment.status}</span>
+                <span>{deployment.triggerSource}</span>
+                <span>{new Date(deployment.startedAt).toLocaleString()}</span>
+                <span>{deployment.durationMs ? `${Math.round(deployment.durationMs / 1000)}s` : 'Running'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {selectedDeployment && (
+          <div className="deployment-detail">
+            <div className="detail-header">
+               <h3>Live deployment logs</h3>
+              <button className="secondary" onClick={() => setSelectedDeployment(null)}>
+                Close
+              </button>
+            </div>
+            <pre>
+              {deploymentLogs.map((log) => `[${new Date(log.timestamp).toLocaleTimeString()}] ${log.message}`).join('\n') ||
+                'Waiting for deployment logs.'}
+            </pre>
+          </div>
+        )}
+      </section>
+
+      {pm2LogService && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closePm2Logs();
+          }}
+        >
+          <section className="modal-card pm2-log-card" role="dialog" aria-modal="true" aria-label={`PM2 logs for ${pm2LogService.name}`}>
+            <button className="modal-close" aria-label="Close" onClick={closePm2Logs}>
+              x
+            </button>
+            <p className="eyebrow">LIVE PM2 LOGS</p>
+            <h2>{pm2LogService.name}</h2>
+            <p className="modal-subtitle">
+              Process {pm2LogService.pm2ProcessName} on {pm2LogService.agent.name}
+            </p>
+            {pm2LogError && <p className="error">{pm2LogError}</p>}
+            <pre className="pm2-log-output">
+              {pm2Logs || (pm2LogLoading ? 'Connecting to log stream...' : 'Waiting for log output...')}
+            </pre>
+            <div className="modal-actions">
+              <button className="secondary" onClick={closePm2Logs}>
+                Close
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <Modal
+        open={accessOpen}
+        title="Your access credentials"
+        subtitle="FileZilla/SFTP and PostgreSQL connection details assigned to your account."
+        onClose={() => setAccessOpen(false)}
+      >
+        {accessEntries.length === 0 ? (
+          <p className="muted access-empty">No access credentials have been assigned to your account yet. Contact your administrator if you need access.</p>
+        ) : (
+          <div className="access-grid">
+            {accessEntries.map((entry) => (
+              <AccessEntryCard key={entry.id} entry={entry} />
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={healthSettingsOpen}
+        title="Webhook health settings"
+        subtitle="Run every enabled service webhook on a recurring schedule."
+        onClose={() => setHealthSettingsOpen(false)}
+      >
+        <form className="modal-form" onSubmit={saveHealthSchedule}>
+          <label>
+            Automatic checks
+            <select
+              value={healthForm.enabled ? 'true' : 'false'}
+              onChange={(event) => setHealthForm({ ...healthForm, enabled: event.target.value === 'true' })}
+            >
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </label>
+          <label>
+            Interval
+            <select
+              value={healthForm.intervalDays}
+              onChange={(event) => setHealthForm({ ...healthForm, intervalDays: Number(event.target.value) })}
+            >
+              {![1, 3, 7, 14, 30, 90].includes(healthForm.intervalDays) && (
+                <option value={healthForm.intervalDays}>{intervalLabel(healthForm.intervalDays)}</option>
+              )}
+              <option value={1}>Every day</option>
+              <option value={3}>Every 3 days</option>
+              <option value={7}>Every week</option>
+              <option value={14}>Every 2 weeks</option>
+              <option value={30}>Every 30 days (monthly)</option>
+              <option value={90}>Every 90 days</option>
+            </select>
+          </label>
+          <p className="form-hint">
+            {health?.schedule.enabled
+              ? `Checks run at ${scheduleHourLabel(health.schedule.hour)} ${health.schedule.timeZone} on the selected interval. Every enabled service is called one by one, and each webhook result is paired with its pipeline deployment.`
+              : `Enabling the schedule runs the first check at the next ${scheduleHourLabel(health?.schedule.hour ?? 3)} ${health?.schedule.timeZone || 'Asia/Kolkata'}, then at the end of each interval. Every enabled service is called one by one, and each webhook result is paired with its pipeline deployment.`}
+          </p>
+          {healthError && <p className="error">{healthError}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={() => setHealthSettingsOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" disabled={healthSaving}>
+              {healthSaving ? 'Saving...' : 'Save settings'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </main>
+  );
 }
 
-function AdminPanel({ token }: { token: string }) {
-  const [clients, setClients] = useState<Array<{ id: string; name: string; email: string; _count: { services: number } }>>([]);
-  const [agents, setAgents] = useState<Array<{ id: string; name: string; baseUrl: string; enabled: boolean }>>([]);
-  const [templates, setTemplates] = useState<Array<{ key: string; name: string; type: string }>>([]);
+function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => void }) {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [accessEntries, setAccessEntries] = useState<ClientAccess[]>([]);
+  const [accessError, setAccessError] = useState('');
+  const [accessForm, setAccessForm] = useState<AccessForm>(emptyAccessForm);
+  const [editingAccess, setEditingAccess] = useState<ClientAccess | null>(null);
+  const [viewingAccess, setViewingAccess] = useState<ClientAccess | null>(null);
   const [retention, setRetention] = useState(30);
   const [clientForm, setClientForm] = useState({ name: '', email: '', temporaryPassword: '' });
   const [agentForm, setAgentForm] = useState({ name: '', baseUrl: '' });
-  const [serviceForm, setServiceForm] = useState({ name: '', slug: '', type: 'PM2', repositoryUrl: '', branch: 'main', projectKey: '', workingDirectory: '', deployDirectory: '', pm2ProcessName: '', templateKey: '', clientId: '', agentId: '' });
+  const [serviceForm, setServiceForm] = useState<ServiceForm>({
+    name: '',
+    slug: '',
+    type: 'PM2',
+    repositoryUrl: '',
+    branch: 'main',
+    projectKey: '',
+    workingDirectory: '',
+    deployDirectory: '',
+    pm2ProcessName: '',
+    templateKey: '',
+    clientId: '',
+    agentId: '',
+  });
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [serviceEdit, setServiceEdit] = useState<ServiceEditForm>({
+    name: '',
+    branch: '',
+    enabled: true,
+    templateKey: '',
+    pm2ProcessName: '',
+    deployDirectory: '',
+  });
   const [notice, setNotice] = useState('');
-  const [modal, setModal] = useState<'client' | 'agent' | 'service' | 'settings' | null>(null);
+  const [modal, setModal] = useState<'client' | 'agent' | 'service' | 'edit-service' | 'access' | 'edit-access' | 'view-access' | 'settings' | null>(null);
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   async function refresh() {
-    const [clientResponse, agentResponse, templateResponse, settingsResponse] = await Promise.all([fetch(`${apiUrl}/admin/clients`, { headers }), fetch(`${apiUrl}/admin/agents`, { headers }), fetch(`${apiUrl}/templates`, { headers }), fetch(`${apiUrl}/admin/settings`, { headers })]);
-    const clientData = await clientResponse.json(); const agentData = await agentResponse.json(); const templateData = await templateResponse.json(); const settingsData = await settingsResponse.json();
-    if (!clientResponse.ok) throw new Error(clientData.message); if (!agentResponse.ok) throw new Error(agentData.message);
-    setClients(clientData.clients); setAgents(agentData.agents); setTemplates(templateData.templates || []); setRetention(settingsData.logRetentionDays || 30);
+    const [clientResponse, agentResponse, templateResponse, settingsResponse, serviceResponse, accessResponse] = await Promise.all([
+      fetch(`${apiUrl}/admin/clients`, { headers }),
+      fetch(`${apiUrl}/admin/agents`, { headers }),
+      fetch(`${apiUrl}/templates`, { headers }),
+      fetch(`${apiUrl}/admin/settings`, { headers }),
+      fetch(`${apiUrl}/services`, { headers }),
+      fetch(`${apiUrl}/admin/access`, { headers }),
+    ]);
+    const clientData = await responseJson<{ clients?: Client[]; message?: string }>(clientResponse);
+    const agentData = await responseJson<{ agents?: Agent[]; message?: string }>(agentResponse);
+    const templateData = await responseJson<{ templates?: Template[]; message?: string }>(templateResponse);
+    const settingsData = await responseJson<{ logRetentionDays?: number; message?: string }>(settingsResponse);
+    const serviceData = await responseJson<{ services?: Service[]; message?: string }>(serviceResponse);
+    const accessData = await responseJson<{ access?: ClientAccess[]; message?: string }>(accessResponse);
+    if (!clientResponse.ok) throw new Error(clientData.message || 'Unable to load clients');
+    if (!agentResponse.ok) throw new Error(agentData.message || 'Unable to load agents');
+    if (!templateResponse.ok) throw new Error(templateData.message || 'Unable to load templates');
+    if (!settingsResponse.ok) throw new Error(settingsData.message || 'Unable to load settings');
+    if (!serviceResponse.ok) throw new Error(serviceData.message || 'Unable to load services');
+    setClients(clientData.clients || []);
+    setAgents(agentData.agents || []);
+    setTemplates(templateData.templates || []);
+    setRetention(settingsData.logRetentionDays || 30);
+    setServices(serviceData.services || []);
+    setAccessEntries(accessResponse.ok ? accessData.access || [] : []);
+    setAccessError(accessResponse.ok ? '' : accessData.message || 'Unable to load access credentials');
   }
-  useEffect(() => { refresh().catch((reason) => setNotice(reason instanceof Error ? reason.message : 'Unable to load administration data')); }, []);
-  async function createClient(event: FormEvent) { event.preventDefault(); const response = await fetch(`${apiUrl}/admin/clients`, { method: 'POST', headers, body: JSON.stringify(clientForm) }); const data = await response.json(); if (!response.ok) return setNotice(data.message); setNotice(`Client created. Temporary password: ${data.temporaryPassword}`); setClientForm({ name: '', email: '', temporaryPassword: '' }); setModal(null); refresh(); }
-  async function createAgent(event: FormEvent) { event.preventDefault(); const response = await fetch(`${apiUrl}/admin/agents`, { method: 'POST', headers, body: JSON.stringify(agentForm) }); const data = await response.json(); if (!response.ok) return setNotice(data.message); setNotice(`Agent created. Enrollment token: ${data.enrollmentToken}`); setAgentForm({ name: '', baseUrl: '' }); setModal(null); refresh(); }
-  async function createService(event: FormEvent) { event.preventDefault(); const response = await fetch(`${apiUrl}/admin/services`, { method: 'POST', headers, body: JSON.stringify({ ...serviceForm, deployDirectory: serviceForm.type === 'STATIC_FRONTEND' ? serviceForm.deployDirectory : undefined, pm2ProcessName: serviceForm.type === 'PM2' ? serviceForm.pm2ProcessName : undefined }) }); const data = await response.json(); if (!response.ok) return setNotice(data.message); setNotice(`Service ${data.service.name} created.`); setServiceForm({ ...serviceForm, name: '', slug: '', repositoryUrl: '', projectKey: '', workingDirectory: '', deployDirectory: '', pm2ProcessName: '' }); setModal(null); }
-  async function saveRetention(event: FormEvent) { event.preventDefault(); const response = await fetch(`${apiUrl}/admin/settings`, { method: 'PATCH', headers, body: JSON.stringify({ logRetentionDays: retention }) }); const data = await response.json(); setNotice(response.ok ? `Log retention set to ${data.logRetentionDays} days.` : data.message); if (response.ok) setModal(null); }
-    return <section className="admin-panel">
-    <div className="admin-heading"><div><p className="eyebrow">SUPER ADMIN</p><h2>Administration</h2><p className="muted">Manage your active clients, agents, and services from one place.</p></div><div className="admin-actions"><button onClick={() => setModal('client')}>+ Client</button><button onClick={() => setModal('agent')}>+ VPS agent</button><button onClick={() => setModal('service')}>+ Service</button><button className="secondary" onClick={() => setModal('settings')}>Settings</button></div></div>
-    {notice && <p className="message admin-notice">{notice}</p>}
-    <div className="admin-lists">
-      <div className="active-list"><div className="list-heading"><div><span className="list-kicker">ACCOUNTS</span><h3>Clients</h3></div><span className="list-count">{clients.length}</span></div>{clients.length === 0 ? <p className="muted">No clients yet.</p> : clients.map((client) => <div className="active-row" key={client.id}><div className="avatar">{client.name.slice(0, 1).toUpperCase()}</div><div><strong>{client.name}</strong><small>{client.email}</small></div><span className="row-meta">{client._count.services} services</span></div>)}</div>
-      <div className="active-list"><div className="list-heading"><div><span className="list-kicker">INFRASTRUCTURE</span><h3>VPS agents</h3></div><span className="list-count">{agents.length}</span></div>{agents.length === 0 ? <p className="muted">No agents registered.</p> : agents.map((agent) => <div className="active-row" key={agent.id}><div className={`status-dot ${agent.enabled ? 'online' : ''}`} /><div><strong>{agent.name}</strong><small>{agent.baseUrl}</small></div><span className="row-meta">{agent.enabled ? 'Enabled' : 'Disabled'}</span></div>)}</div>
-    </div>
-    <Modal open={modal === 'client'} title="Create client" subtitle="Issue a secure temporary login for a new client." onClose={() => setModal(null)}><form className="modal-form" onSubmit={createClient}><label>Client name<input placeholder="Rathinam College" value={clientForm.name} onChange={(event) => setClientForm({ ...clientForm, name: event.target.value })} required /></label><label>Email address<input placeholder="admin@client.com" type="email" value={clientForm.email} onChange={(event) => setClientForm({ ...clientForm, email: event.target.value })} required /></label><label>Temporary password <span>(optional)</span><input placeholder="Auto-generate securely" value={clientForm.temporaryPassword} onChange={(event) => setClientForm({ ...clientForm, temporaryPassword: event.target.value })} /></label><div className="modal-actions"><button type="button" className="secondary" onClick={() => setModal(null)}>Cancel</button><button type="submit">Create client</button></div></form></Modal>
-    <Modal open={modal === 'agent'} title="Register VPS agent" subtitle="Connect a managed VPS to the HexTorq control plane." onClose={() => setModal(null)}><form className="modal-form" onSubmit={createAgent}><label>Agent name<input placeholder="Production VPS 01" value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label><label>Agent base URL<input placeholder="https://agent.example.com" type="url" value={agentForm.baseUrl} onChange={(event) => setAgentForm({ ...agentForm, baseUrl: event.target.value })} required /></label><p className="form-hint">The enrollment token will be shown once after creation.</p><div className="modal-actions"><button type="button" className="secondary" onClick={() => setModal(null)}>Cancel</button><button type="submit">Register agent</button></div></form></Modal>
-    <Modal open={modal === 'service'} title="Register service" subtitle="Assign a deployment service to a client and VPS agent." onClose={() => setModal(null)}><form className="modal-form" onSubmit={createService}><div className="form-columns"><label>Service name<input placeholder="CCTV Backend" value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} required /></label><label>Slug<input placeholder="cctv-backend" value={serviceForm.slug} onChange={(event) => setServiceForm({ ...serviceForm, slug: event.target.value })} required /></label><label>Service type<select value={serviceForm.type} onChange={(event) => setServiceForm({ ...serviceForm, type: event.target.value })}><option value="PM2">PM2 backend</option><option value="STATIC_FRONTEND">Static frontend</option></select></label><label>Template<select value={serviceForm.templateKey} onChange={(event) => setServiceForm({ ...serviceForm, templateKey: event.target.value })}><option value="">Custom commands</option>{templates.filter((template) => template.type === serviceForm.type).map((template) => <option key={template.key} value={template.key}>{template.name}</option>)}</select></label><label>Project key / webhook<input placeholder="Rathinam_CCTV_Backend" value={serviceForm.projectKey} onChange={(event) => setServiceForm({ ...serviceForm, projectKey: event.target.value })} required /></label><label>Repository URL<input placeholder="https://github.com/..." type="url" value={serviceForm.repositoryUrl} onChange={(event) => setServiceForm({ ...serviceForm, repositoryUrl: event.target.value })} required /></label><label>Working directory<input placeholder="/home/mohan/SERVER/app" value={serviceForm.workingDirectory} onChange={(event) => setServiceForm({ ...serviceForm, workingDirectory: event.target.value })} required /></label><label>Branch<input value={serviceForm.branch} onChange={(event) => setServiceForm({ ...serviceForm, branch: event.target.value })} required /></label>{serviceForm.type === 'PM2' ? <label>PM2 process name<input placeholder="R-CCTV-BE" value={serviceForm.pm2ProcessName} onChange={(event) => setServiceForm({ ...serviceForm, pm2ProcessName: event.target.value })} required /></label> : <label>Static deploy directory<input placeholder="/usr/share/nginx/html/site" value={serviceForm.deployDirectory} onChange={(event) => setServiceForm({ ...serviceForm, deployDirectory: event.target.value })} required /></label>}<label>Client<select value={serviceForm.clientId} onChange={(event) => setServiceForm({ ...serviceForm, clientId: event.target.value })} required><option value="">Choose client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label><label>VPS agent<select value={serviceForm.agentId} onChange={(event) => setServiceForm({ ...serviceForm, agentId: event.target.value })} required><option value="">Choose agent</option>{agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label></div><div className="modal-actions"><button type="button" className="secondary" onClick={() => setModal(null)}>Cancel</button><button type="submit">Register service</button></div></form></Modal>
-    <Modal open={modal === 'settings'} title="Console settings" subtitle="Control deployment log retention for all services." onClose={() => setModal(null)}><form className="modal-form" onSubmit={saveRetention}><label>Deployment log retention <span>(days)</span><input type="number" min="1" max="3650" value={retention} onChange={(event) => setRetention(Number(event.target.value))} required /></label><p className="form-hint">Deployment metadata remains permanent. Only log entries are removed.</p><div className="modal-actions"><button type="button" className="secondary" onClick={() => setModal(null)}>Cancel</button><button type="submit">Save settings</button></div></form></Modal>
-  </section>;
+
+  useEffect(() => {
+    void refresh().catch((reason) => setNotice(errorMessage(reason, 'Unable to load administration data')));
+  }, []);
+
+  async function createClient(event: FormEvent) {
+    event.preventDefault();
+    try {
+      const response = await fetch(`${apiUrl}/admin/clients`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(clientForm),
+      });
+      const data = await responseJson<{ temporaryPassword?: string; message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to create client');
+      setNotice(`Client created. Temporary password: ${data.temporaryPassword}`);
+      setClientForm({ name: '', email: '', temporaryPassword: '' });
+      setModal(null);
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to create client'));
+    }
+  }
+
+  async function createAgent(event: FormEvent) {
+    event.preventDefault();
+    try {
+      const response = await fetch(`${apiUrl}/admin/agents`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(agentForm),
+      });
+      const data = await responseJson<{ agent?: { id?: string }; enrollmentToken?: string; message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to register agent');
+      setNotice(`Agent created. Agent ID: ${data.agent?.id || 'unavailable'}. Enrollment token: ${data.enrollmentToken}`);
+      setAgentForm({ name: '', baseUrl: '' });
+      setModal(null);
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to register agent'));
+    }
+  }
+
+  async function regenerateAgentToken(agentId: string) {
+    try {
+      const response = await fetch(`${apiUrl}/admin/agents/${agentId}/enrollment-token`, {
+        method: 'POST',
+        headers,
+      });
+      const data = await responseJson<{ enrollmentToken?: string; message?: string }>(response);
+      if (!response.ok || !data.enrollmentToken) throw new Error(data.message || 'Unable to generate enrollment token');
+      setNotice(`Enrollment token regenerated for ${agentId}: ${data.enrollmentToken}`);
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to generate enrollment token'));
+    }
+  }
+
+  async function createService(event: FormEvent) {
+    event.preventDefault();
+    try {
+      const response = await fetch(`${apiUrl}/admin/services`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...serviceForm,
+          deployDirectory: serviceForm.type === 'STATIC_FRONTEND' ? serviceForm.deployDirectory : undefined,
+          pm2ProcessName: serviceForm.type === 'PM2' ? serviceForm.pm2ProcessName : undefined,
+        }),
+      });
+      const data = await responseJson<{ service?: Service; message?: string }>(response);
+      if (!response.ok || !data.service) throw new Error(data.message || 'Unable to create service');
+      setNotice(`Service ${data.service.name} created.`);
+      setServiceForm({
+        ...serviceForm,
+        name: '',
+        slug: '',
+        repositoryUrl: '',
+        projectKey: '',
+        workingDirectory: '',
+        deployDirectory: '',
+        pm2ProcessName: '',
+      });
+      setModal(null);
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to create service'));
+    }
+  }
+
+  function openEditService(service: Service) {
+    setEditingService(service);
+    setServiceEdit({
+      name: service.name,
+      branch: service.branch,
+      enabled: service.enabled,
+      templateKey: service.templateKey || '',
+      pm2ProcessName: service.pm2ProcessName || '',
+      deployDirectory: service.deployDirectory || '',
+    });
+    setModal('edit-service');
+  }
+
+  function closeEditService() {
+    setModal(null);
+    setEditingService(null);
+  }
+
+  async function saveService(event: FormEvent) {
+    event.preventDefault();
+    if (!editingService) return;
+    try {
+      const payload: Record<string, unknown> = {
+        name: serviceEdit.name,
+        branch: serviceEdit.branch,
+        enabled: serviceEdit.enabled,
+        templateKey: serviceEdit.templateKey,
+      };
+      if (editingService.type === 'PM2') payload.pm2ProcessName = serviceEdit.pm2ProcessName;
+      else payload.deployDirectory = serviceEdit.deployDirectory;
+
+      const response = await fetch(`${apiUrl}/admin/services/${editingService.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const data = await responseJson<{ service?: Service; message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to update service');
+      setNotice(`Service ${data.service?.name || serviceEdit.name} updated.`);
+      closeEditService();
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to update service'));
+    }
+  }
+
+  async function deleteService(service: Service) {
+    if (!window.confirm(`Delete ${service.name}? Its deployment history will also be removed.`)) return;
+    try {
+      const response = await fetch(`${apiUrl}/admin/services/${service.id}`, { method: 'DELETE', headers });
+      const data = await responseJson<{ message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to delete service');
+      setNotice(`Service ${service.name} deleted.`);
+      if (editingService?.id === service.id) closeEditService();
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to delete service'));
+    }
+  }
+
+  function openCreateAccess() {
+    setEditingAccess(null);
+    setAccessForm(emptyAccessForm());
+    setModal('access');
+  }
+
+  function changeAccessType(type: AccessType) {
+    setAccessForm((current) => ({
+      ...current,
+      type,
+      port: type === 'SFTP' ? 22 : 5432,
+      sslMode: type === 'DATABASE' ? current.sslMode || 'Prefer' : '',
+    }));
+  }
+
+  function buildAccessPayload() {
+    const payload: Record<string, unknown> = {
+      clientId: accessForm.clientId,
+      type: accessForm.type,
+      label: accessForm.label,
+      host: accessForm.host,
+      port: accessForm.port,
+      username: accessForm.username,
+      notes: accessForm.notes,
+      enabled: accessForm.enabled,
+    };
+    if (accessForm.type === 'SFTP') {
+      payload.path = accessForm.path;
+    } else {
+      payload.databaseName = accessForm.databaseName;
+      payload.sslMode = accessForm.sslMode || 'Prefer';
+    }
+    return payload;
+  }
+
+  async function createAccess(event: FormEvent) {
+    event.preventDefault();
+    try {
+      const response = await fetch(`${apiUrl}/admin/access`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...buildAccessPayload(), password: accessForm.password }),
+      });
+      const data = await responseJson<{ access?: ClientAccess; message?: string }>(response);
+      if (!response.ok || !data.access) throw new Error(data.message || 'Unable to create access credentials');
+      setNotice(`Access ${data.access.label} created for ${data.access.client?.name || 'client'}.`);
+      setModal(null);
+      setAccessForm(emptyAccessForm());
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to create access credentials'));
+    }
+  }
+
+  function openEditAccess(access: ClientAccess) {
+    setEditingAccess(access);
+    setAccessForm({
+      clientId: access.clientId,
+      type: access.type,
+      label: access.label,
+      host: access.host,
+      port: access.port,
+      username: access.username,
+      password: '',
+      path: access.path || '',
+      databaseName: access.databaseName || '',
+      sslMode: access.sslMode || 'Prefer',
+      notes: access.notes || '',
+      enabled: access.enabled,
+    });
+    setModal('edit-access');
+  }
+
+  async function saveAccess(event: FormEvent) {
+    event.preventDefault();
+    if (!editingAccess) return;
+    try {
+      const payload = buildAccessPayload();
+      delete payload.clientId;
+      if (accessForm.password) payload.password = accessForm.password;
+      const response = await fetch(`${apiUrl}/admin/access/${editingAccess.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const data = await responseJson<{ access?: ClientAccess; message?: string }>(response);
+      if (!response.ok || !data.access) throw new Error(data.message || 'Unable to update access credentials');
+      setNotice(`Access ${data.access.label} updated.`);
+      closeAccessModal();
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to update access credentials'));
+    }
+  }
+
+  function viewAccess(access: ClientAccess) {
+    setViewingAccess(access);
+    setModal('view-access');
+  }
+
+  function closeAccessModal() {
+    setModal(null);
+    setEditingAccess(null);
+    setViewingAccess(null);
+  }
+
+  async function deleteAccess(access: ClientAccess) {
+    if (!window.confirm(`Delete ${access.label} for ${access.client?.name || 'this client'}?`)) return;
+    try {
+      const response = await fetch(`${apiUrl}/admin/access/${access.id}`, { method: 'DELETE', headers });
+      const data = await responseJson<{ message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to delete access credentials');
+      setNotice(`Access ${access.label} deleted.`);
+      if (editingAccess?.id === access.id) closeAccessModal();
+      await refresh();
+      onChanged?.();
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to delete access credentials'));
+    }
+  }
+
+  function renderAccessFields(mode: 'create' | 'edit') {
+    const isCreate = mode === 'create';
+    return (
+      <div className="form-columns">
+        <label>
+          Client
+          <select
+            value={accessForm.clientId}
+            onChange={(event) => setAccessForm({ ...accessForm, clientId: event.target.value })}
+            required={isCreate}
+            disabled={!isCreate}
+          >
+            <option value="">Choose client</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Access type
+          <select value={accessForm.type} onChange={(event) => changeAccessType(event.target.value as AccessType)}>
+            <option value="SFTP">FileZilla / SFTP</option>
+            <option value="DATABASE">PostgreSQL database</option>
+          </select>
+        </label>
+        <label>
+          Label
+          <input
+            placeholder={accessForm.type === 'SFTP' ? 'FileZilla SFTP' : 'PostgreSQL read/write'}
+            value={accessForm.label}
+            onChange={(event) => setAccessForm({ ...accessForm, label: event.target.value })}
+            required
+          />
+        </label>
+        <label>
+          Host
+          <input placeholder="187.127.189.231" value={accessForm.host} onChange={(event) => setAccessForm({ ...accessForm, host: event.target.value })} required />
+        </label>
+        <label>
+          Port
+          <input
+            type="number"
+            min="1"
+            max="65535"
+            value={accessForm.port}
+            onChange={(event) => setAccessForm({ ...accessForm, port: Number(event.target.value) })}
+            required
+          />
+        </label>
+        <label>
+          Username
+          <input
+            placeholder={accessForm.type === 'SFTP' ? 'rathinam_client' : 'rathinam_pgadmin'}
+            value={accessForm.username}
+            onChange={(event) => setAccessForm({ ...accessForm, username: event.target.value })}
+            required
+          />
+        </label>
+        <label>
+          Password {!isCreate && <span>(leave blank to keep current)</span>}
+          <input
+            type="password"
+            placeholder={isCreate ? 'Set a password' : 'Keep the current password'}
+            value={accessForm.password}
+            onChange={(event) => setAccessForm({ ...accessForm, password: event.target.value })}
+            required={isCreate}
+          />
+        </label>
+        {accessForm.type === 'SFTP' ? (
+          <label>
+            Path
+            <input
+              placeholder="/rathinam-projects/"
+              value={accessForm.path}
+              onChange={(event) => setAccessForm({ ...accessForm, path: event.target.value })}
+              required
+            />
+          </label>
+        ) : (
+          <>
+            <label>
+              Maintenance database
+              <input
+                placeholder="nextup_db"
+                value={accessForm.databaseName}
+                onChange={(event) => setAccessForm({ ...accessForm, databaseName: event.target.value })}
+                required
+              />
+            </label>
+            <label>
+              SSL mode
+              <input
+                placeholder="Prefer"
+                value={accessForm.sslMode}
+                onChange={(event) => setAccessForm({ ...accessForm, sslMode: event.target.value })}
+              />
+            </label>
+          </>
+        )}
+        <label>
+          Status
+          <select
+            value={accessForm.enabled ? 'true' : 'false'}
+            onChange={(event) => setAccessForm({ ...accessForm, enabled: event.target.value === 'true' })}
+          >
+            <option value="true">Enabled</option>
+            <option value="false">Disabled</option>
+          </select>
+        </label>
+        <label className="form-wide">
+          Notes <span>(optional)</span>
+          <textarea
+            rows={3}
+            placeholder="Read/write access to the client project folder."
+            value={accessForm.notes}
+            onChange={(event) => setAccessForm({ ...accessForm, notes: event.target.value })}
+          />
+        </label>
+      </div>
+    );
+  }
+
+  async function saveRetention(event: FormEvent) {
+    event.preventDefault();
+    try {
+      const response = await fetch(`${apiUrl}/admin/settings`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ logRetentionDays: retention }),
+      });
+      const data = await responseJson<{ logRetentionDays?: number; message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to save settings');
+      setNotice(`Log retention set to ${data.logRetentionDays} days.`);
+      setModal(null);
+    } catch (reason) {
+      setNotice(errorMessage(reason, 'Unable to save settings'));
+    }
+  }
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-heading">
+        <div>
+          <p className="eyebrow">SUPER ADMIN</p>
+          <h2>Administration</h2>
+          <p className="muted">Manage your active clients, agents, and services from one place.</p>
+        </div>
+        <div className="admin-actions">
+          <button onClick={() => setModal('client')}>+ Client</button>
+          <button onClick={() => setModal('agent')}>+ VPS agent</button>
+          <button onClick={() => setModal('service')}>+ Service</button>
+          <button onClick={openCreateAccess}>+ Access</button>
+          <button className="secondary" onClick={() => setModal('settings')}>
+            Settings
+          </button>
+        </div>
+      </div>
+      {notice && <p className="message admin-notice">{notice}</p>}
+      <div className="admin-lists">
+        <div className="active-list">
+          <div className="list-heading">
+            <div>
+              <span className="list-kicker">ACCOUNTS</span>
+              <h3>Clients</h3>
+            </div>
+            <span className="list-count">{clients.length}</span>
+          </div>
+          {clients.length === 0 ? (
+            <p className="muted">No clients yet.</p>
+          ) : (
+            clients.map((client) => (
+              <div className="active-row" key={client.id}>
+                <div className="avatar">{client.name.slice(0, 1).toUpperCase()}</div>
+                <div>
+                  <strong>{client.name}</strong>
+                  <small>{client.email}</small>
+                </div>
+                <span className="row-meta">
+                  {client._count.services} services / {client._count.accessEntries ?? 0} access
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="active-list">
+          <div className="list-heading">
+            <div>
+              <span className="list-kicker">INFRASTRUCTURE</span>
+              <h3>VPS agents</h3>
+            </div>
+            <span className="list-count">{agents.length}</span>
+          </div>
+          {agents.length === 0 ? (
+            <p className="muted">No agents registered.</p>
+          ) : (
+            agents.map((agent) => (
+              <div className="active-row" key={agent.id}>
+                <div className={`status-dot ${agent.enabled ? 'online' : ''}`} />
+                <div>
+                  <strong>{agent.name}</strong>
+                  <small>{agent.baseUrl}</small>
+                  <small className="agent-id">Agent ID: {agent.id}</small>
+                </div>
+                <span className="row-meta">{agent.enabled ? 'Enabled' : 'Disabled'}</span>
+                <button className="secondary row-action" onClick={() => regenerateAgentToken(agent.id)}>
+                  New token
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="active-list admin-services">
+          <div className="list-heading">
+            <div>
+              <span className="list-kicker">DEPLOYMENTS</span>
+              <h3>Services</h3>
+            </div>
+            <span className="list-count">{services.length}</span>
+          </div>
+          {services.length === 0 ? (
+            <p className="muted">No services registered.</p>
+          ) : (
+            services.map((service) => (
+              <div className="active-row" key={service.id}>
+                <div className={`status-dot ${service.enabled ? 'online' : ''}`} />
+                <div>
+                  <strong>{service.name}</strong>
+                  <small>
+                    {service.client?.name || 'No client'} / {service.agent?.name || 'No agent'} /{' '}
+                    {service.type.replace('_', ' ')} / {service.branch}
+                  </small>
+                </div>
+                <span className="row-meta">{service.enabled ? 'Enabled' : 'Disabled'}</span>
+                <div className="row-actions">
+                  <button onClick={() => openEditService(service)}>Edit</button>
+                  <button onClick={() => deleteService(service)}>Delete</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="active-list admin-access">
+          <div className="list-heading">
+            <div>
+              <span className="list-kicker">CLIENT ACCESS</span>
+              <h3>FileZilla & database credentials</h3>
+            </div>
+            <span className="list-count">{accessEntries.length}</span>
+          </div>
+          {accessError && <p className="error">{accessError}</p>}
+          {accessEntries.length === 0 ? (
+            <p className="muted">No client access credentials have been created.</p>
+          ) : (
+            accessEntries.map((access) => (
+              <div className="active-row" key={access.id}>
+                <span className={`access-type-badge ${access.type === 'DATABASE' ? 'database' : 'sftp'}`}>
+                  {access.type === 'DATABASE' ? 'DB' : 'SFTP'}
+                </span>
+                <div>
+                  <strong>{access.label}</strong>
+                  <small>
+                    {access.client?.name || 'Unknown client'} / {access.host}:{access.port} / {access.username}
+                  </small>
+                </div>
+                <span className="row-meta">{access.enabled ? 'Enabled' : 'Disabled'}</span>
+                <div className="row-actions">
+                  <button onClick={() => viewAccess(access)}>View</button>
+                  <button onClick={() => openEditAccess(access)}>Edit</button>
+                  <button onClick={() => deleteAccess(access)}>Delete</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <Modal open={modal === 'client'} title="Create client" subtitle="Issue a secure temporary login for a new client." onClose={() => setModal(null)}>
+        <form className="modal-form" onSubmit={createClient}>
+          <label>
+            Client name
+            <input placeholder="Rathinam College" value={clientForm.name} onChange={(event) => setClientForm({ ...clientForm, name: event.target.value })} required />
+          </label>
+          <label>
+            Email address
+            <input placeholder="admin@client.com" type="email" value={clientForm.email} onChange={(event) => setClientForm({ ...clientForm, email: event.target.value })} required />
+          </label>
+          <label>
+            Temporary password <span>(optional)</span>
+            <input placeholder="Auto-generate securely" value={clientForm.temporaryPassword} onChange={(event) => setClientForm({ ...clientForm, temporaryPassword: event.target.value })} />
+          </label>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={() => setModal(null)}>
+              Cancel
+            </button>
+            <button type="submit">Create client</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={modal === 'agent'} title="Register VPS agent" subtitle="Connect a managed VPS to the HexTorq control plane." onClose={() => setModal(null)}>
+        <form className="modal-form" onSubmit={createAgent}>
+          <label>
+            Agent name
+            <input placeholder="Production VPS 01" value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required />
+          </label>
+          <label>
+            Agent base URL
+            <input placeholder="https://agent.example.com" type="url" value={agentForm.baseUrl} onChange={(event) => setAgentForm({ ...agentForm, baseUrl: event.target.value })} required />
+          </label>
+          <p className="form-hint">The enrollment token will be shown once after creation.</p>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={() => setModal(null)}>
+              Cancel
+            </button>
+            <button type="submit">Register agent</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={modal === 'service'} title="Register service" subtitle="Assign a deployment service to a client and VPS agent." onClose={() => setModal(null)}>
+        <form className="modal-form" onSubmit={createService}>
+          <div className="form-columns">
+            <label>
+              Service name
+              <input placeholder="CCTV Backend" value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} required />
+            </label>
+            <label>
+              Slug
+              <input placeholder="cctv-backend" value={serviceForm.slug} onChange={(event) => setServiceForm({ ...serviceForm, slug: event.target.value })} required />
+            </label>
+            <label>
+              Service type
+              <select value={serviceForm.type} onChange={(event) => setServiceForm({ ...serviceForm, type: event.target.value as ServiceType })}>
+                <option value="PM2">PM2 backend</option>
+                <option value="STATIC_FRONTEND">Static frontend</option>
+              </select>
+            </label>
+            <label>
+              Template
+              <select value={serviceForm.templateKey} onChange={(event) => setServiceForm({ ...serviceForm, templateKey: event.target.value })}>
+                <option value="">Custom commands</option>
+                {templates
+                  .filter((template) => template.type === serviceForm.type)
+                  .map((template) => (
+                    <option key={template.key} value={template.key}>
+                      {template.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              Project key / webhook
+              <input placeholder="Rathinam_CCTV_Backend" value={serviceForm.projectKey} onChange={(event) => setServiceForm({ ...serviceForm, projectKey: event.target.value })} required />
+            </label>
+            <label>
+              Repository URL
+              <input placeholder="https://github.com/..." type="url" value={serviceForm.repositoryUrl} onChange={(event) => setServiceForm({ ...serviceForm, repositoryUrl: event.target.value })} required />
+            </label>
+            <label>
+              Working directory
+              <input placeholder="/home/mohan/SERVER/app" value={serviceForm.workingDirectory} onChange={(event) => setServiceForm({ ...serviceForm, workingDirectory: event.target.value })} required />
+            </label>
+            <label>
+              Branch
+              <input value={serviceForm.branch} onChange={(event) => setServiceForm({ ...serviceForm, branch: event.target.value })} required />
+            </label>
+            {serviceForm.type === 'PM2' ? (
+              <label>
+                PM2 process name
+                <input placeholder="R-CCTV-BE" value={serviceForm.pm2ProcessName} onChange={(event) => setServiceForm({ ...serviceForm, pm2ProcessName: event.target.value })} required />
+              </label>
+            ) : (
+              <label>
+                Static deploy directory
+                <input placeholder="/usr/share/nginx/html/site" value={serviceForm.deployDirectory} onChange={(event) => setServiceForm({ ...serviceForm, deployDirectory: event.target.value })} required />
+              </label>
+            )}
+            <label>
+              Client
+              <select value={serviceForm.clientId} onChange={(event) => setServiceForm({ ...serviceForm, clientId: event.target.value })} required>
+                <option value="">Choose client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              VPS agent
+              <select value={serviceForm.agentId} onChange={(event) => setServiceForm({ ...serviceForm, agentId: event.target.value })} required>
+                <option value="">Choose agent</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={() => setModal(null)}>
+              Cancel
+            </button>
+            <button type="submit">Register service</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={modal === 'edit-service'} title="Edit service" subtitle="Update the service metadata used for deployment." onClose={closeEditService}>
+        <form className="modal-form" onSubmit={saveService}>
+          <div className="form-columns">
+            <label>
+              Service name
+              <input value={serviceEdit.name} onChange={(event) => setServiceEdit({ ...serviceEdit, name: event.target.value })} required minLength={2} />
+            </label>
+            <label>
+              Branch
+              <input value={serviceEdit.branch} onChange={(event) => setServiceEdit({ ...serviceEdit, branch: event.target.value })} required />
+            </label>
+            <label>
+              Template
+              <select value={serviceEdit.templateKey} onChange={(event) => setServiceEdit({ ...serviceEdit, templateKey: event.target.value })}>
+                <option value="">Custom commands</option>
+                {templates
+                  .filter((template) => template.type === editingService?.type)
+                  .map((template) => (
+                    <option key={template.key} value={template.key}>
+                      {template.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              Status
+              <select value={serviceEdit.enabled ? 'true' : 'false'} onChange={(event) => setServiceEdit({ ...serviceEdit, enabled: event.target.value === 'true' })}>
+                <option value="true">Enabled</option>
+                <option value="false">Disabled</option>
+              </select>
+            </label>
+            {editingService?.type === 'PM2' ? (
+              <label>
+                PM2 process name
+                <input value={serviceEdit.pm2ProcessName} onChange={(event) => setServiceEdit({ ...serviceEdit, pm2ProcessName: event.target.value })} required />
+              </label>
+            ) : (
+              <label>
+                Static deploy directory
+                <input value={serviceEdit.deployDirectory} onChange={(event) => setServiceEdit({ ...serviceEdit, deployDirectory: event.target.value })} required />
+              </label>
+            )}
+          </div>
+          <p className="form-hint">Repository URL, project key, service type, client, and VPS agent are fixed after registration.</p>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={closeEditService}>
+              Cancel
+            </button>
+            <button type="submit">Save changes</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={modal === 'access'}
+        title="Add client access"
+        subtitle="Create a FileZilla/SFTP or PostgreSQL credential entry for a client."
+        onClose={closeAccessModal}
+      >
+        <form className="modal-form" onSubmit={createAccess}>
+          {renderAccessFields('create')}
+          <p className="form-hint">The client can view this entry from their console. Passwords are encrypted at rest.</p>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={closeAccessModal}>
+              Cancel
+            </button>
+            <button type="submit">Add access</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={modal === 'edit-access'}
+        title="Edit client access"
+        subtitle="Update the connection details shown to this client."
+        onClose={closeAccessModal}
+      >
+        <form className="modal-form" onSubmit={saveAccess}>
+          {renderAccessFields('edit')}
+          <p className="form-hint">Leave the password blank to keep the existing password. The client and access owner cannot be changed.</p>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={closeAccessModal}>
+              Cancel
+            </button>
+            <button type="submit">Save changes</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={modal === 'view-access'}
+        title="Client access credentials"
+        subtitle="Connection details visible to this client."
+        onClose={closeAccessModal}
+      >
+        {viewingAccess ? (
+          <div className="access-grid single">
+            <AccessEntryCard entry={viewingAccess} />
+          </div>
+        ) : (
+          <p className="muted">Access entry not found.</p>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="secondary" onClick={closeAccessModal}>
+            Close
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={modal === 'settings'} title="Console settings" subtitle="Control deployment log retention for all services." onClose={() => setModal(null)}>
+        <form className="modal-form" onSubmit={saveRetention}>
+          <label>
+            Deployment log retention <span>(days)</span>
+            <input type="number" min="1" max="3650" value={retention} onChange={(event) => setRetention(Number(event.target.value))} required />
+          </label>
+          <p className="form-hint">Deployment metadata remains permanent. Only log entries are removed.</p>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={() => setModal(null)}>
+              Cancel
+            </button>
+            <button type="submit">Save settings</button>
+          </div>
+        </form>
+      </Modal>
+    </section>
+  );
 }
 
-function Modal({ open, title, subtitle, onClose, children }: { open: boolean; title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ open, title, subtitle, onClose, children }: { open: boolean; title: string; subtitle: string; onClose: () => void; children: ReactNode }) {
   if (!open) return null;
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true" aria-label={title}><button className="modal-close" aria-label="Close" onClick={onClose}>×</button><p className="eyebrow">HEX TORQ CLOUD</p><h2>{title}</h2><p className="modal-subtitle">{subtitle}</p>{children}</section></div>;
+  return (
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="modal-card" role="dialog" aria-modal="true" aria-label={title}>
+        <button className="modal-close" aria-label="Close" onClick={onClose}>
+          x
+        </button>
+        <p className="eyebrow">HEX TORQ CLOUD</p>
+        <h2>{title}</h2>
+        <p className="modal-subtitle">{subtitle}</p>
+        {children}
+      </section>
+    </div>
+  );
 }
-
-
-
-
