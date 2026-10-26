@@ -108,6 +108,8 @@ button { margin-top: 6px; padding: 13px; border: 0; border-radius: 9px; backgrou
 .row-actions button:hover { border-color: var(--accent); color: var(--text); }
 .pm2-log-card { width: min(920px, 100%); }
 .pm2-log-output { max-height: 58vh; overflow: auto; margin: 18px 0 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: #05080d; color: #b8f7dc; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+.pm2-log-line { display: block; }
+.pm2-log-line.error { color: #ff7d91; }
 .admin-access { grid-column: 1 / -1; }
 .access-banner { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 34px; padding: 22px 24px; border: 1px solid #65e6b155; border-radius: 14px; background: linear-gradient(120deg, #65e6b114, #151c2999 55%); }
 .access-banner h2 { margin: 4px 0 6px; font-size: 22px; }

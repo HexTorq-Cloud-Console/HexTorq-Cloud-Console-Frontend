@@ -217,26 +217,27 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function formatLogEvent(payload: string) {
+type Pm2LogEntry = { message: string; stream?: string; timestamp?: string; live?: boolean; error?: boolean };
+
+function parseLogEvent(payload: string): Pm2LogEntry | null {
   try {
     const event = JSON.parse(payload) as {
       type?: string;
       message?: string;
       timestamp?: string;
       stream?: string;
+      live?: boolean;
     };
-    if (event.type === 'connected') return '';
-    if (event.type === 'error') return `ERROR: ${event.message || payload}`;
+    if (event.type === 'connected') return null;
+    if (event.type === 'error') return { message: `ERROR: ${event.message || payload}`, error: true };
     if (event.type === 'pm2-log') {
-      const time = event.timestamp ? `[${new Date(event.timestamp).toLocaleTimeString()}] ` : '';
-      const stream = event.stream === 'stderr' ? 'ERR ' : '';
-      return `${time}${stream}${event.message || ''}`;
+      return { message: event.message || '', stream: event.stream, timestamp: event.timestamp, live: event.live, error: event.stream === 'stderr' };
     }
-    if (typeof event.message === 'string') return event.message;
+    if (typeof event.message === 'string') return { message: event.message };
   } catch {
     // Plain-text log line.
   }
-  return payload;
+  return { message: payload };
 }
 
 function emptyAccessForm(): AccessForm {
@@ -687,7 +688,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
   const [historyServiceId, setHistoryServiceId] = useState<string | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([]);
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
-  const [pm2Logs, setPm2Logs] = useState('');
+  const [pm2LogEntries, setPm2LogEntries] = useState<Pm2LogEntry[]>([]);
   const [pm2LogError, setPm2LogError] = useState('');
   const [pm2LogLoading, setPm2LogLoading] = useState(false);
   const [accessEntries, setAccessEntries] = useState<ClientAccess[]>([]);
@@ -944,7 +945,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
     pm2LogAbortRef.current?.abort();
     pm2LogAbortRef.current = null;
     setPm2LogService(null);
-    setPm2Logs('');
+    setPm2LogEntries([]);
     setPm2LogError('');
     setPm2LogLoading(false);
   }
@@ -954,7 +955,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
     const controller = new AbortController();
     pm2LogAbortRef.current = controller;
     setPm2LogService(service);
-    setPm2Logs('');
+    setPm2LogEntries([]);
     setPm2LogError('');
     setPm2LogLoading(true);
 
@@ -978,14 +979,11 @@ function Dashboard({ token, role }: { token: string; role: string }) {
         buffer += chunk;
         const lines = buffer.split(/\r?\n/);
         buffer = flush ? '' : lines.pop() || '';
-        const output = lines
+        const entries = lines
           .filter((line) => line && !line.startsWith(':') && !line.startsWith('event:') && !line.startsWith('id:') && !line.startsWith('retry:'))
-          .map((line) => (line.startsWith('data:') ? formatLogEvent(line.slice(5).replace(/^ /, '')) : line))
-          .filter(Boolean)
-          .join('\n');
-        if (output) {
-          setPm2Logs((current) => (current + output + '\n').slice(-100000));
-        }
+          .map((line) => parseLogEvent(line.startsWith('data:') ? line.slice(5).replace(/^ /, '') : line))
+          .filter((entry): entry is Pm2LogEntry => Boolean(entry));
+        if (entries.length) setPm2LogEntries((current) => [...entries.reverse(), ...current].slice(0, 500));
       };
 
       while (true) {
@@ -1196,7 +1194,12 @@ function Dashboard({ token, role }: { token: string; role: string }) {
             </p>
             {pm2LogError && <p className="error">{pm2LogError}</p>}
             <pre className="pm2-log-output">
-              {pm2Logs || (pm2LogLoading ? 'Connecting to log stream...' : 'Waiting for log output...')}
+              {pm2LogEntries.length ? pm2LogEntries.map((entry, index) => (
+                <span className={`pm2-log-line${entry.error ? ' error' : ''}`} key={`${index}-${entry.message}`}>
+                  {entry.live && entry.timestamp ? `[${new Date(entry.timestamp).toLocaleTimeString()}] ` : ''}
+                  {entry.error ? 'ERR ' : ''}{entry.message}
+                </span>
+              )) : (pm2LogLoading ? 'Connecting to log stream...' : 'Waiting for log output...')}
             </pre>
             <div className="modal-actions">
               <button className="secondary" onClick={closePm2Logs}>
