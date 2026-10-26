@@ -761,22 +761,27 @@ function Dashboard({ token, role }: { token: string; role: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    services
-      .filter((service) => service.type === 'PM2')
-      .forEach(async (service) => {
-        try {
-          const response = await fetch(`${apiUrl}/services/${service.id}/pm2/status`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!response.ok) return;
-          const data = await responseJson<Pm2Status>(response);
-          if (!cancelled) setPm2Status((current) => ({ ...current, [service.id]: data }));
-        } catch {
-          // Status is supplementary; the service card still works without it.
-        }
-      });
+    const loadPm2Statuses = async () => {
+      await Promise.all(services
+        .filter((service) => service.type === 'PM2')
+        .map(async (service) => {
+          try {
+            const response = await fetch(`${apiUrl}/services/${service.id}/pm2/status`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) return;
+            const data = await responseJson<Pm2Status>(response);
+            if (!cancelled) setPm2Status((current) => ({ ...current, [service.id]: data }));
+          } catch {
+            // Status is supplementary; the service card still works without it.
+          }
+        }));
+    };
+    void loadPm2Statuses();
+    const timer = window.setInterval(() => { void loadPm2Statuses(); }, 5000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [services, token]);
 
