@@ -52,6 +52,9 @@ type Deployment = {
   completedAt?: string;
   durationMs?: number;
   service: { id: string; name: string };
+  commitHash?: string | null;
+  commitMessage?: string | null;
+  branch?: string | null;
 };
 
 type DeploymentLog = { timestamp: string; message: string };
@@ -1060,6 +1063,20 @@ function Dashboard({ token, role }: { token: string; role: string }) {
                   {service.enabled ? '' : ' / disabled'}
                 </p>
                 <small>{service.client.name}</small>
+                {(() => {
+                  const latestDeployment = deployments.find((deployment) => deployment.service.id === service.id);
+                  return latestDeployment ? (
+                    <div className="service-commit">
+                      <small>
+                        Latest commit: {latestDeployment.commitHash ? latestDeployment.commitHash.slice(0, 8) : 'not reported'}
+                        {latestDeployment.commitMessage ? ` — ${latestDeployment.commitMessage}` : ''}
+                      </small>
+                      <a href={service.repositoryUrl} target="_blank" rel="noreferrer">View Git repository</a>
+                    </div>
+                  ) : (
+                    <a className="service-repository-link" href={service.repositoryUrl} target="_blank" rel="noreferrer">View Git repository</a>
+                  );
+                })()}
                 {service.type === 'PM2' && pm2Status[service.id] && (
                   <p className="pm2-status">
                     {pm2Status[service.id].status || 'unknown'} / CPU {pm2Status[service.id].cpu ?? 0}% /{' '}
@@ -1130,6 +1147,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
               <span>Trigger</span>
               <span>Started</span>
               <span>Duration</span>
+              <span>Commit</span>
             </div>
             {deployments.map((deployment) => (
               <div className="history-row" key={deployment.id} onClick={() => setSelectedDeployment(deployment.id)}>
@@ -1138,6 +1156,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
                 <span>{deployment.triggerSource}</span>
                 <span>{new Date(deployment.startedAt).toLocaleString()}</span>
                 <span>{deployment.durationMs ? `${Math.round(deployment.durationMs / 1000)}s` : 'Running'}</span>
+                <span title={deployment.commitMessage || undefined}>{deployment.commitHash ? deployment.commitHash.slice(0, 8) : '—'}</span>
               </div>
             ))}
           </div>
