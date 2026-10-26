@@ -7,6 +7,15 @@ import Script from 'next/script';
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 const TOKEN_KEY = 'hextorq_token';
 
+function toSlug(value: string) {
+  return value.toLowerCase().trim().replace(/(?:\.git|[^a-z0-9]+)+$/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function liveRepositorySlug(value: string) {
+  const match = value.match(/github\.com\/[^/]+\/([^/#?]+)/i);
+  return toSlug(match?.[1] || value);
+}
+
 type ServiceType = 'PM2' | 'STATIC_FRONTEND';
 
 type Service = {
@@ -1916,7 +1925,10 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
           <div className="form-columns">
             <label>
               Service name
-              <input placeholder="CCTV Backend" value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} required />
+              <input placeholder="CCTV Backend" value={serviceForm.name} onChange={(event) => {
+                const name = event.target.value;
+                setServiceForm((current) => ({ ...current, name, slug: current.repositoryUrl ? liveRepositorySlug(current.repositoryUrl) : toSlug(name) }));
+              }} required />
             </label>
             <label>
               Slug
@@ -1948,7 +1960,10 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             </label>
             <label>
               Repository URL
-              <input placeholder="https://github.com/..." type="url" value={serviceForm.repositoryUrl} onChange={(event) => setServiceForm({ ...serviceForm, repositoryUrl: event.target.value })} onBlur={(event) => void loadRepositoryMetadata(event.target.value)} required />
+              <input placeholder="https://github.com/..." type="url" value={serviceForm.repositoryUrl} onChange={(event) => {
+                const repositoryUrl = event.target.value;
+                setServiceForm((current) => ({ ...current, repositoryUrl, slug: liveRepositorySlug(repositoryUrl) || toSlug(current.name) }));
+              }} onBlur={(event) => void loadRepositoryMetadata(event.target.value)} required />
             </label>
             <label>
               Full webhook URL
