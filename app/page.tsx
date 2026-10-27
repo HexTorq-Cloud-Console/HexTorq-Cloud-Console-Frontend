@@ -55,6 +55,7 @@ type Deployment = {
   commitHash?: string | null;
   commitMessage?: string | null;
   branch?: string | null;
+  failureReason?: string | null;
 };
 
 type DeploymentLog = { timestamp: string; message: string };
@@ -1080,6 +1081,8 @@ function Dashboard({ token, role }: { token: string; role: string }) {
     }
   }
 
+  const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
+
   return (
     <main className="console-shell">
       <header className="topbar">
@@ -1266,21 +1269,51 @@ function Dashboard({ token, role }: { token: string; role: string }) {
             ))}
           </div>
         )}
-        {selectedDeployment && (
-          <div className="deployment-detail">
-            <div className="detail-header">
-               <h3>Live deployment logs</h3>
-              <button className="secondary" onClick={() => setSelectedDeployment(null)}>
-                Close
-              </button>
+      </section>
+
+      {selectedDeploymentRecord && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedDeployment(null);
+          }}
+        >
+          <section className="modal-card deployment-modal" role="dialog" aria-modal="true" aria-label={`Deployment details for ${selectedDeploymentRecord.service.name}`}>
+            <button className="modal-close" aria-label="Close" onClick={() => setSelectedDeployment(null)}>x</button>
+            <p className="eyebrow">DEPLOYMENT DETAILS</p>
+            <h2>{selectedDeploymentRecord.service.name}</h2>
+            <div className="deployment-metadata">
+              <div><span>Status</span><strong className={`badge ${selectedDeploymentRecord.status.toLowerCase()}`}>{selectedDeploymentRecord.status}</strong></div>
+              <div><span>Trigger</span><strong>{selectedDeploymentRecord.triggerSource}</strong></div>
+              <div><span>Started</span><strong>{new Date(selectedDeploymentRecord.startedAt).toLocaleString()}</strong></div>
+              <div><span>Completed</span><strong>{selectedDeploymentRecord.completedAt ? new Date(selectedDeploymentRecord.completedAt).toLocaleString() : 'Running'}</strong></div>
+              <div><span>Duration</span><strong>{selectedDeploymentRecord.durationMs ? `${Math.round(selectedDeploymentRecord.durationMs / 1000)}s` : 'Running'}</strong></div>
+              <div><span>Branch</span><strong>{selectedDeploymentRecord.branch || 'Not reported'}</strong></div>
+              <div><span>Commit</span><strong>{selectedDeploymentRecord.commitHash || 'Not reported'}</strong></div>
+              <div><span>Commit message</span><strong>{selectedDeploymentRecord.commitMessage || 'Message not reported'}</strong></div>
+              <div><span>Run ID</span><code>{selectedDeploymentRecord.runId}</code></div>
             </div>
-            <pre>
-              {deploymentLogs.map((log) => `[${new Date(log.timestamp).toLocaleTimeString()}] ${log.message}`).join('\n') ||
+            {selectedDeploymentRecord.failureReason && (
+              <div className="deployment-failure-reason">
+                <strong>Failure reason</strong>
+                <p>{selectedDeploymentRecord.failureReason}</p>
+              </div>
+            )}
+            <div className="detail-header deployment-log-heading">
+              <h3>Full deployment log</h3>
+              <span className="muted">{deploymentLogs.length} log entries</span>
+            </div>
+            <pre className="deployment-detail-log">
+              {deploymentLogs.map((log) => `[${new Date(log.timestamp).toLocaleString()}] ${log.message}`).join('\n') ||
                 'Waiting for deployment logs.'}
             </pre>
-          </div>
-        )}
-      </section>
+            <div className="modal-actions">
+              <button className="secondary" onClick={() => setSelectedDeployment(null)}>Close</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {pm2LogService && (
         <div

@@ -102,6 +102,16 @@ button { margin-top: 6px; padding: 13px; border: 0; border-radius: 9px; backgrou
 .detail-header h3 { margin: 0; }
 .detail-header button { margin: 0; padding: 8px 14px; }
 .deployment-detail pre { max-height: 360px; overflow: auto; margin: 16px 0 0; color: #b8f7dc; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; }
+.deployment-modal { width: min(1080px, 100%); }
+.deployment-metadata { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
+.deployment-metadata > div { min-width: 0; display: grid; gap: 5px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 9px; background: #0d131e; }
+.deployment-metadata span { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.deployment-metadata strong, .deployment-metadata code { overflow-wrap: anywhere; color: var(--text); font: inherit; font-size: 12px; }
+.deployment-failure-reason { margin-top: 16px; padding: 13px 15px; border-left: 3px solid #ff8d8d; border-radius: 8px; background: #ff8d8d12; color: #ffd7d7; }
+.deployment-failure-reason p { margin: 6px 0 0; white-space: pre-wrap; }
+.deployment-log-heading { margin-top: 22px; }
+.deployment-log-heading h3 { margin: 0; }
+.deployment-detail-log { max-height: 52vh; overflow: auto; margin: 12px 0 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: #05080d; color: #b8f7dc; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .pm2-log-button { width: 100%; margin-top: 8px; padding: 9px; font-size: 12px; }
 .admin-services { grid-column: 1 / -1; }
 .row-actions { display: flex; flex: 0 0 auto; gap: 6px; }
@@ -175,4 +185,4 @@ select { padding: 12px 13px; border: 1px solid var(--line); border-radius: 9px; 
 .health-chip.bad { border-color: #ff8d8d55; color: #ff8d8d; }
 .health-message { min-height: 32px; margin: 12px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .health-check-time { color: var(--muted); font-size: 10px; }
-@media (max-width: 720px) { .admin-heading { display: block; } .admin-actions { justify-content: flex-start; margin-top: 20px; } .admin-lists { grid-template-columns: 1fr; gap: 22px; } .modal-card { padding: 26px 20px; } .form-columns { grid-template-columns: 1fr; } .admin-services, .admin-access, .form-wide { grid-column: auto; } .row-actions { width: 100%; margin-left: 46px; } .access-banner { display: block; padding: 20px; } .access-banner button { margin-top: 16px; } .access-grid { grid-template-columns: 1fr; } .health-panel { padding: 20px; } .health-panel-head { display: block; } .health-panel-actions { justify-content: flex-start; margin-top: 16px; } .health-check-grid { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .admin-heading { display: block; } .admin-actions { justify-content: flex-start; margin-top: 20px; } .admin-lists { grid-template-columns: 1fr; gap: 22px; } .modal-card { padding: 26px 20px; } .deployment-metadata { grid-template-columns: 1fr; } .form-columns { grid-template-columns: 1fr; } .admin-services, .admin-access, .form-wide { grid-column: auto; } .row-actions { width: 100%; margin-left: 46px; } .access-banner { display: block; padding: 20px; } .access-banner button { margin-top: 16px; } .access-grid { grid-template-columns: 1fr; } .health-panel { padding: 20px; } .health-panel-head { display: block; } .health-panel-actions { justify-content: flex-start; margin-top: 16px; } .health-check-grid { grid-template-columns: 1fr; } }
