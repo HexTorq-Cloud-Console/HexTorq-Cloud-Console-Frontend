@@ -111,6 +111,15 @@ button { margin-top: 6px; padding: 13px; border: 0; border-radius: 9px; backgrou
 .pm2-log-output { max-height: 58vh; overflow: auto; margin: 18px 0 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: #05080d; color: #b8f7dc; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .pm2-log-line { display: block; }
 .pm2-log-line.error { color: #ff7d91; }
+.failure-alert-panel { margin-top: 28px; padding: 22px 24px; border: 1px solid #ff8d8d88; border-radius: 16px; background: linear-gradient(120deg, #ff8d8d14, #151c2999 55%); }
+.failure-alert-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.failure-alert-heading h2 { margin: 4px 0 0; color: #ffb0b0; }
+.failure-alert-heading button { margin: 0; }
+.failure-alert-list { display: grid; gap: 12px; margin-top: 18px; }
+.failure-alert { padding: 14px; border-left: 3px solid #ff8d8d; border-radius: 8px; background: #090d14; }
+.failure-alert-meta { display: flex; justify-content: space-between; gap: 14px; color: #ffb0b0; font-size: 13px; }
+.failure-alert-meta span { color: var(--muted); font-size: 11px; }
+.failure-alert pre { max-height: 420px; overflow: auto; margin: 12px 0 0; color: #ffd7d7; font: 12px/1.55 Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .admin-access { grid-column: 1 / -1; }
 .access-banner { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 34px; padding: 22px 24px; border: 1px solid #65e6b155; border-radius: 14px; background: linear-gradient(120deg, #65e6b114, #151c2999 55%); }
 .access-banner h2 { margin: 4px 0 6px; font-size: 22px; }

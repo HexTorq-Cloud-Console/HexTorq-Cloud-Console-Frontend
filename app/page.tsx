@@ -71,6 +71,7 @@ type WebhookHealthService = {
 };
 
 type WebhookDeployment = {
+  id: string;
   runId: string;
   status: string;
   triggerSource: string;
@@ -133,6 +134,13 @@ type WebhookHealthData = {
   latestRun?: WebhookHealthRun | null;
   activeRun?: WebhookHealthRun | null;
   recentRuns: WebhookRunSummary[];
+};
+
+type FailureAlert = {
+  id: string;
+  title: string;
+  timestamp: string;
+  details: string;
 };
 
 type AccessType = 'SFTP' | 'DATABASE';
@@ -700,7 +708,9 @@ function Dashboard({ token, role }: { token: string; role: string }) {
   const [healthForm, setHealthForm] = useState({ enabled: false, intervalDays: 7 });
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthRunLoading, setHealthRunLoading] = useState(false);
+  const [failureAlerts, setFailureAlerts] = useState<FailureAlert[]>([]);
   const pm2LogAbortRef = useRef<AbortController | null>(null);
+  const healthRunStatusesRef = useRef<Record<string, string>>({});
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -730,6 +740,44 @@ function Dashboard({ token, role }: { token: string; role: string }) {
     }
   }, [role, token]);
 
+  function addFailureAlert(alert: FailureAlert) {
+    setFailureAlerts((current) => current.some((item) => item.id === alert.id) ? current : [alert, ...current].slice(0, 10));
+  }
+
+  async function deploymentFailureLogs(deploymentId: string | undefined) {
+    if (!deploymentId) return '';
+    try {
+      const response = await fetch(`${apiUrl}/deployments/${deploymentId}/logs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return '';
+      const data = await responseJson<{ logs?: DeploymentLog[] }>(response);
+      return (data.logs || []).map((log) => `[${new Date(log.timestamp).toLocaleString()}] ${log.message}`).join('\n');
+    } catch {
+      return '';
+    }
+  }
+
+  async function alertHealthRunFailure(run: WebhookHealthRun) {
+    const failedChecks = run.checks.filter((check) => check.status === 'FAILED');
+    const sections = await Promise.all(failedChecks.map(async (check) => {
+      const deploymentLogs = await deploymentFailureLogs(check.deployment?.id);
+      return [
+        `Service: ${check.service.name}`,
+        `Time: ${new Date(check.completedAt || check.startedAt || run.completedAt || run.startedAt).toLocaleString()}`,
+        `Webhook HTTP status: ${check.httpStatus ?? 'not received'}`,
+        `Webhook error: ${check.message || 'Webhook check failed'}`,
+        deploymentLogs ? `Full deployment log:\n${deploymentLogs}` : 'Full deployment log: unavailable (webhook was rejected before deployment started)',
+      ].join('\n');
+    }));
+    addFailureAlert({
+      id: `health-${run.id}`,
+      title: `${run.source === 'MANUAL' ? 'Manual' : 'Scheduled'} webhook test failed (${run.failedServices} service${run.failedServices === 1 ? '' : 's'})`,
+      timestamp: run.completedAt || new Date().toISOString(),
+      details: sections.join('\n\n'),
+    });
+  }
+
   const loadHealth = useCallback(async (silent = false) => {
     if (role !== 'CLIENT') return;
     if (!silent) setHealthLoading(true);
@@ -740,6 +788,14 @@ function Dashboard({ token, role }: { token: string; role: string }) {
       const data = await responseJson<WebhookHealthData & { message?: string }>(response);
       if (!response.ok || !data.schedule) throw new Error(data.message || 'Unable to load webhook health');
       setHealth(data);
+      const latestRun = data.latestRun;
+      if (latestRun) {
+        const previousStatus = healthRunStatusesRef.current[latestRun.id];
+        healthRunStatusesRef.current[latestRun.id] = latestRun.status;
+        if (previousStatus === 'RUNNING' && (latestRun.status === 'FAILED' || latestRun.status === 'PARTIAL')) {
+          void alertHealthRunFailure(latestRun);
+        }
+      }
       setHealthError('');
     } catch (reason) {
       setHealthError(errorMessage(reason, 'Unable to load webhook health'));
@@ -837,12 +893,21 @@ function Dashboard({ token, role }: { token: string; role: string }) {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ force }),
       });
-      const data = await responseJson<{ runId?: string; message?: string }>(response);
-      if (!response.ok) throw new Error(data.message || 'Webhook trigger failed');
+      const data = await responseJson<{ runId?: string; message?: string; upstreamStatus?: number; upstreamBody?: string }>(response);
+      if (!response.ok) {
+        addFailureAlert({
+          id: `manual-webhook-${serviceId}-${Date.now()}`,
+          title: `Manual webhook trigger failed for ${services.find((service) => service.id === serviceId)?.name || 'service'}`,
+          timestamp: new Date().toISOString(),
+          details: [`Webhook HTTP status: ${data.upstreamStatus ?? response.status}`, `Error: ${data.message || 'Webhook trigger failed'}`, data.upstreamBody ? `Full webhook response:\n${data.upstreamBody}` : ''].filter(Boolean).join('\n'),
+        });
+        throw new Error(data.message || 'Webhook trigger failed');
+      }
       await loadDashboard();
 
       if (data.runId) {
-        for (let attempt = 0; attempt < 20; attempt += 1) {
+        let finishedDeployment: Deployment | undefined;
+        for (let attempt = 0; attempt < 60; attempt += 1) {
           const deploymentResponse = await fetch(`${apiUrl}/deployments`, {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -853,10 +918,24 @@ function Dashboard({ token, role }: { token: string; role: string }) {
             const deployment = currentDeployments.find((item) => item.runId === data.runId);
             if (deployment) {
               setSelectedDeployment(deployment.id);
-              break;
+              finishedDeployment = deployment.status === 'DEPLOYING' ? undefined : deployment;
+              if (finishedDeployment) break;
             }
           }
           await new Promise((resolve) => window.setTimeout(resolve, 500));
+        }
+        if (finishedDeployment && (finishedDeployment.status === 'FAILED' || finishedDeployment.status === 'ERROR')) {
+          const logs = await deploymentFailureLogs(finishedDeployment.id);
+          addFailureAlert({
+            id: `deployment-${finishedDeployment.id}`,
+            title: `Manual deployment failed for ${finishedDeployment.service.name}`,
+            timestamp: finishedDeployment.completedAt || new Date().toISOString(),
+            details: [
+              `Time: ${new Date(finishedDeployment.completedAt || finishedDeployment.startedAt).toLocaleString()}`,
+              `Status: ${finishedDeployment.status}`,
+              logs || 'No deployment log was recorded.',
+            ].join('\n'),
+          });
         }
       }
     } catch (reason) {
@@ -908,6 +987,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
       });
       const data = await responseJson<{ run?: WebhookHealthRun; message?: string }>(response);
       if (!response.ok) throw new Error(data.message || 'Unable to start webhook health check');
+      if (data.run) healthRunStatusesRef.current[data.run.id] = data.run.status;
       await loadHealth(true);
     } catch (reason) {
       setHealthError(errorMessage(reason, 'Unable to start webhook health check'));
@@ -1013,6 +1093,29 @@ function Dashboard({ token, role }: { token: string; role: string }) {
       </header>
 
       {role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
+
+      {failureAlerts.length > 0 && (
+        <section className="failure-alert-panel" aria-live="assertive">
+          <div className="failure-alert-heading">
+            <div>
+              <p className="eyebrow">DEPLOYMENT ALERTS</p>
+              <h2>Action required</h2>
+            </div>
+            <button className="secondary" type="button" onClick={() => setFailureAlerts([])}>Dismiss all</button>
+          </div>
+          <div className="failure-alert-list">
+            {failureAlerts.map((alert) => (
+              <article className="failure-alert" key={alert.id}>
+                <div className="failure-alert-meta">
+                  <strong>{alert.title}</strong>
+                  <span>{new Date(alert.timestamp).toLocaleString()}</span>
+                </div>
+                <pre>{alert.details}</pre>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {role === 'CLIENT' && (
         <section className="access-banner">
