@@ -1255,7 +1255,16 @@ function Dashboard({ token, role }: { token: string; role: string }) {
               <span>Commit message</span>
             </div>
             {deployments.map((deployment) => (
-              <div className="history-row" key={deployment.id} onClick={() => setSelectedDeployment(deployment.id)}>
+              <div
+                className="history-row"
+                key={deployment.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedDeployment(deployment.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') setSelectedDeployment(deployment.id);
+                }}
+              >
                 <strong>{deployment.service.name}</strong>
                 <span className={`badge ${deployment.status.toLowerCase()}`}>{deployment.status}</span>
                 <span>{deployment.triggerSource}</span>
