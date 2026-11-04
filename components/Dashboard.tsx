@@ -4,8 +4,10 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import AccessEntryCard from './AccessEntryCard';
 import AdminPanel from './AdminPanel';
 import AppShell from './AppShell';
+import CommandPalette from './CommandPalette';
 import Modal from './Modal';
 import OverviewView from './OverviewView';
+import ServiceDetailDrawer from './ServiceDetailDrawer';
 import ServicesView from './ServicesView';
 import DeploymentsView from './DeploymentsView';
 import WebhookHealthView from './WebhookHealthView';
@@ -17,6 +19,7 @@ import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
 import type {
+  AnalyticsData,
   ClientAccess,
   Deployment,
   DeploymentLog,
@@ -31,11 +34,17 @@ import type {
 function Dashboard({ token, role, email }: { token: string; role: string; email?: string }) {
   const [services, setServices] = useState<Service[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [deploymentHasMore, setDeploymentHasMore] = useState(false);
+  const [deploymentNextCursor, setDeploymentNextCursor] = useState<string | null>(null);
+  const [deploymentLoadingMore, setDeploymentLoadingMore] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deploying, setDeploying] = useState<string | null>(null);
   const [pm2Action, setPm2Action] = useState<string | null>(null);
   const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>({});
+  const [pm2FetchedAt, setPm2FetchedAt] = useState<Record<string, string>>({});
   const [selectedDeployment, setSelectedDeployment] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [pm2Confirm, setPm2Confirm] = useState<{ serviceId: string; action: string } | null>(null);
@@ -61,18 +70,20 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
   const pm2LogAbortRef = useRef<AbortController | null>(null);
   const healthRunStatusesRef = useRef<Record<string, string>>({});
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true);
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const accessRequest = role === 'CLIENT' ? fetch(`${apiUrl}/access`, { headers }) : Promise.resolve(null);
-      const [serviceResponse, deploymentResponse, accessResponse] = await Promise.all([
+      const analyticsRequest = fetch(`${apiUrl}/analytics?days=7`, { headers }).catch(() => null);
+      const [serviceResponse, deploymentResponse, accessResponse, analyticsResult] = await Promise.all([
         fetch(`${apiUrl}/services`, { headers }),
-        fetch(`${apiUrl}/deployments`, { headers }),
+        fetch(`${apiUrl}/deployments?limit=100`, { headers }),
         accessRequest,
+        analyticsRequest,
       ]);
       const serviceData = await responseJson<{ services?: Service[]; message?: string }>(serviceResponse);
-      const deploymentData = await responseJson<{ deployments?: Deployment[]; message?: string }>(deploymentResponse);
+      const deploymentData = await responseJson<{ deployments?: Deployment[]; message?: string; hasMore?: boolean; nextCursor?: string | null }>(deploymentResponse);
       const accessData = accessResponse
         ? await responseJson<{ access?: ClientAccess[]; message?: string }>(accessResponse)
         : {};
@@ -80,14 +91,61 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
       if (!deploymentResponse.ok) throw new Error(deploymentData.message || 'Unable to load deployments');
       setServices(serviceData.services || []);
       setDeployments(deploymentData.deployments || []);
+      setDeploymentHasMore(Boolean(deploymentData.hasMore));
+      setDeploymentNextCursor(deploymentData.nextCursor || null);
       setAccessEntries(accessResponse ? accessData.access || [] : []);
       setError(accessResponse && !accessResponse.ok ? accessData.message || 'Unable to load access credentials' : '');
+      if (analyticsResult?.ok) {
+        const analyticsData = await responseJson<AnalyticsData>(analyticsResult);
+        setAnalytics(analyticsData);
+      }
     } catch (reason) {
       setError(errorMessage(reason, 'Unable to load console data'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [role, token]);
+
+  const loadMoreDeployments = useCallback(async () => {
+    if (!deploymentNextCursor || deploymentLoadingMore) return;
+    setDeploymentLoadingMore(true);
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const response = await fetch(`${apiUrl}/deployments?limit=100&cursor=${encodeURIComponent(deploymentNextCursor)}`, { headers });
+      const data = await responseJson<{ deployments?: Deployment[]; message?: string; hasMore?: boolean; nextCursor?: string | null }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to load more deployments');
+      const existingIds = new Set(deployments.map((deployment) => deployment.id));
+      const appended = (data.deployments || []).filter((deployment) => !existingIds.has(deployment.id));
+      setDeployments((current) => [...current, ...appended]);
+      setDeploymentHasMore(Boolean(data.hasMore));
+      setDeploymentNextCursor(data.nextCursor || null);
+    } catch {
+      // Keep the already-loaded history; a failed background load must not
+      // replace the current deployment list with an error screen.
+    } finally {
+      setDeploymentLoadingMore(false);
+    }
+  }, [deploymentNextCursor, deploymentLoadingMore, deployments, token]);
+
+  useEffect(() => {
+    function onPaletteKey(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((current) => !current);
+      }
+    }
+    window.addEventListener('keydown', onPaletteKey);
+    return () => window.removeEventListener('keydown', onPaletteKey);
+  }, []);
+
+  async function revealClientAccess(accessId: string) {
+    const response = await fetch(`${apiUrl}/access/${encodeURIComponent(accessId)}/reveal`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await responseJson<{ password?: string | null; message?: string }>(response);
+    if (!response.ok || data.password == null) throw new Error(data.message || 'Unable to reveal password');
+    return data.password;
+  }
 
   function addFailureAlert(alert: FailureAlert) {
     setFailureAlerts((current) => current.some((item) => item.id === alert.id) ? current : [alert, ...current].slice(0, 10));
@@ -181,7 +239,10 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
             });
             if (!response.ok) return;
             const data = await responseJson<Pm2Status>(response);
-            if (!cancelled) setPm2Status((current) => ({ ...current, [service.id]: data }));
+            if (!cancelled) {
+              setPm2Status((current) => ({ ...current, [service.id]: data }));
+              setPm2FetchedAt((current) => ({ ...current, [service.id]: new Date().toISOString() }));
+            }
           } catch {
             // Status is supplementary; the service card still works without it.
           }
@@ -252,7 +313,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         });
         throw new Error(data.message || 'Webhook trigger failed');
       }
-      await loadDashboard();
+      await loadDashboard(true);
 
       if (data.runId) {
         let finishedDeployment: Deployment | undefined;
@@ -440,6 +501,10 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
     setForceDeployService(services.find((service) => service.id === serviceId) || null);
   }
 
+  function onCloseServiceDetails() {
+    setSelectedService(null);
+  }
+
   const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
 
   return (
@@ -455,6 +520,9 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         healthLoading={healthLoading}
         healthError={healthError}
         healthRunLoading={healthRunLoading}
+        analytics={analytics}
+        email={email}
+        role={role}
         failureAlerts={failureAlerts}
         onDeploy={deploy}
         onForceDeploy={requestForceDeploy}
@@ -478,13 +546,15 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         onDetails={setSelectedService}
       />
 
-      <DeploymentsView deployments={deployments} services={services} onOpen={setSelectedDeployment} />
+      <DeploymentsView deployments={deployments} services={services} hasMore={deploymentHasMore} loadingMore={deploymentLoadingMore} onLoadMore={() => void loadMoreDeployments()} onOpen={setSelectedDeployment} />
 
-      <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={runWebhookHealth} />
+      {role === 'CLIENT' && <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={runWebhookHealth} />}
 
-      {role === 'CLIENT' && <AccessView entries={accessEntries} />}
+      {role === 'CLIENT' && <AccessView entries={accessEntries} token={token} />}
       <AlertsView alerts={failureAlerts} onDismiss={(id) => setFailureAlerts((current) => current.filter((alert) => alert.id !== id))} onDismissAll={() => setFailureAlerts([])} />
       </>}
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} role={role} services={services} />
 
       {pm2Confirm && (() => {
         const service = services.find((item) => item.id === pm2Confirm.serviceId);
@@ -512,29 +582,18 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
       </div>}
 
       {selectedService && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedService(null); }}>
-          <section className="modal-card" role="dialog" aria-modal="true" aria-label={`Details for ${selectedService.name}`}>
-            <button className="modal-close" aria-label="Close" onClick={() => setSelectedService(null)}>x</button>
-            <p className="eyebrow">SERVICE DETAILS</p>
-            <h2>{selectedService.name}</h2>
-            <p className="modal-subtitle">{selectedService.type === 'PM2' ? 'PM2 runtime service' : 'Static frontend service'} · {selectedService.enabled ? 'Enabled' : 'Disabled'}</p>
-            <div className="service-detail-grid">
-              <div className="service-detail-item"><span>Type</span><strong>{selectedService.type === 'STATIC_FRONTEND' ? 'Static frontend' : 'PM2 process'}</strong></div>
-              <div className="service-detail-item"><span>Branch</span><code>{selectedService.branch}</code></div>
-              <div className="service-detail-item"><span>Project key</span><code>{selectedService.projectKey}</code></div>
-              <div className="service-detail-item"><span>Working directory</span><code>{selectedService.workingDirectory}</code></div>
-              <div className="service-detail-item"><span>Deploy directory</span><code>{selectedService.deployDirectory || 'Not configured'}</code></div>
-              <div className="service-detail-item"><span>PM2 process</span><code>{selectedService.pm2ProcessName || 'Not applicable'}</code></div>
-              <div className="service-detail-item"><span>Assigned agent</span><strong>{selectedService.agent.name}</strong></div>
-              <div className="service-detail-item"><span>Repository</span><code>{selectedService.repositoryUrl}</code></div>
-            </div>
-            <div className="service-detail-actions">
-              <button className="ht-btn ht-btn--primary" type="button" onClick={() => { setSelectedService(null); void deploy(selectedService.id); }}>Normal deploy</button>
-              <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { const service = selectedService; setSelectedService(null); requestForceDeploy(service.id); }}>Force deploy</button>
-              {selectedService.type === 'PM2' && <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { setSelectedService(null); void openPm2Logs(selectedService); }}>View live logs</button>}
-            </div>
-          </section>
-        </div>
+        <ServiceDetailDrawer
+          service={selectedService}
+          deployments={deployments}
+          pm2Status={pm2Status[selectedService.id]}
+          pm2FetchedAt={pm2FetchedAt[selectedService.id] || null}
+          deploying={deploying === selectedService.id}
+          onDeploy={(serviceId) => { onCloseServiceDetails(); void deploy(serviceId); }}
+          onForceDeploy={(serviceId) => { onCloseServiceDetails(); requestForceDeploy(serviceId); }}
+          onLogs={(service) => { onCloseServiceDetails(); void openPm2Logs(service); }}
+          onDeployment={setSelectedDeployment}
+          onClose={onCloseServiceDetails}
+        />
       )}
       {selectedDeploymentRecord && (
         <div
@@ -637,7 +696,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         ) : (
           <div className="access-grid">
             {accessEntries.map((entry) => (
-              <AccessEntryCard key={entry.id} entry={entry} />
+              <AccessEntryCard key={entry.id} entry={entry} onReveal={revealClientAccess} />
             ))}
           </div>
         )}

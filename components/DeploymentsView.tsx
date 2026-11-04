@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { Deployment, Service } from '../types/api';
 
-type DeploymentsViewProps = { deployments: Deployment[]; services: Service[]; onOpen: (deploymentId: string) => void };
+type DeploymentsViewProps = { deployments: Deployment[]; services: Service[]; hasMore: boolean; loadingMore: boolean; onLoadMore: () => void; onOpen: (deploymentId: string) => void };
 type StatusFilter = 'ALL' | 'SUCCESS' | 'FAILED' | 'ERROR' | 'DEPLOYING';
 
 function duration(value?: number) {
@@ -22,7 +22,7 @@ function pillStatus(status: string) {
   return 'danger';
 }
 
-export default function DeploymentsView({ deployments, services, onOpen }: DeploymentsViewProps) {
+export default function DeploymentsView({ deployments, services, hasMore, loadingMore, onLoadMore, onOpen }: DeploymentsViewProps) {
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [serviceId, setServiceId] = useState('ALL');
   const [query, setQuery] = useState('');
@@ -51,7 +51,7 @@ export default function DeploymentsView({ deployments, services, onOpen }: Deplo
         <div>
           <p className="overview-kicker"><span className="overview-kicker__dot" /> PRODUCTION PIPELINE</p>
           <h2 id="deployments-title">Deployments</h2>
-          <p>Last {deployments.length} deployments across active services.</p>
+          <p>Records are retrieved in batches of up to 100; {deployments.length} loaded{hasMore ? ' so far' : ''}.</p>
         </div>
         <span className="deployments-total">{deployments.length} recorded</span>
       </header>
@@ -92,7 +92,17 @@ export default function DeploymentsView({ deployments, services, onOpen }: Deplo
           <div className="deployment-mobile-card__meta"><time>{dateLabel(deployment.startedAt)}</time><span>{deployment.triggerSource}</span><code>{duration(deployment.durationMs)}</code></div>
         </button>)}
       </div>
-      <footer className="deployments-pagination"><span>Showing {filtered.length ? (page - 1) * perPage + 1 : 0}–{Math.min(page * perPage, filtered.length)} of {filtered.length}</span><div><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>← Previous</button><strong>{page} / {pageCount}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Next →</button></div></footer>
+      <footer className="deployments-pagination"><span>Showing {filtered.length ? (page - 1) * perPage + 1 : 0}–{Math.min(page * perPage, filtered.length)} of {filtered.length} loaded</span><div><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>← Previous</button><strong>{page} / {pageCount}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Next →</button></div></footer>
+      {hasMore && (
+        <div className="deployments-load-more">
+          <button type="button" onClick={onLoadMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading…' : 'Load older deployments ↓'}
+          </button>
+        </div>
+      )}
+      {!hasMore && deployments.length > 0 && (
+        <p className="deployments-all-loaded">All deployment history has been loaded.</p>
+      )}
     </section>
   );
 }

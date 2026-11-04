@@ -1,6 +1,8 @@
 // Shared API types for the console.
 export type ServiceType = 'PM2' | 'STATIC_FRONTEND';
 
+export type AgentStatus = 'online' | 'offline' | 'disabled' | 'unknown';
+
 export type Service = {
   id: string;
   name: string;
@@ -17,7 +19,7 @@ export type Service = {
   customCommands?: Record<string, string> | null;
   enabled: boolean;
   client: { id: string; name: string; email: string };
-  agent: { id: string; name: string; baseUrl: string; enabled: boolean };
+  agent: { id: string; name: string; baseUrl: string; enabled: boolean; lastSeenAt?: string | null; status?: AgentStatus };
 };
 
 export type Deployment = {
@@ -36,6 +38,28 @@ export type Deployment = {
 };
 
 export type DeploymentLog = { timestamp: string; message: string };
+
+export type DeploymentPage = {
+  deployments: Deployment[];
+  hasMore: boolean;
+  nextCursor: string | null;
+  limit: number;
+};
+
+export type DailyDeploymentBucket = {
+  date: string;
+  total: number;
+  successful: number;
+  failed: number;
+  running: number;
+};
+
+export type AnalyticsData = {
+  window: { from: string; to: string; days: number };
+  summary: { total: number; successful: number; failed: number; running: number; successRate: number | null };
+  daily: DailyDeploymentBucket[];
+  services: { total: number; enabled: number; disabled: number; pm2: number; static: number };
+};
 
 export type Pm2Status = { status?: string; cpu?: number; memory?: number; restarts?: number };
 
@@ -155,7 +179,7 @@ export type AccessForm = {
   enabled: boolean;
 };
 export type Client = { id: string; name: string; email: string; _count: { services: number; accessEntries: number } };
-export type Agent = { id: string; name: string; baseUrl: string; enabled: boolean };
+export type Agent = { id: string; name: string; baseUrl: string; enabled: boolean; lastSeenAt?: string | null; status?: AgentStatus };
 export type Pm2Process = { name: string; id: number; status?: string };
 export type Template = { key: string; name: string; type: ServiceType };
 export type ServiceForm = {

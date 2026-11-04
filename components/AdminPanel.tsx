@@ -22,6 +22,9 @@ import type {
 function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => void }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [adminLoading, setAdminLoading] = useState(true);
+  const [adminError, setAdminError] = useState('');
+  const [pendingSecret, setPendingSecret] = useState<{ title: string; value: string; note?: string } | null>(null);
   const [pm2Processes, setPm2Processes] = useState<Pm2Process[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -102,36 +105,43 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   }
 
   async function refresh() {
-    const [clientResponse, agentResponse, templateResponse, settingsResponse, serviceResponse, accessResponse] = await Promise.all([
-      fetch(`${apiUrl}/admin/clients`, { headers }),
-      fetch(`${apiUrl}/admin/agents`, { headers }),
-      fetch(`${apiUrl}/templates`, { headers }),
-      fetch(`${apiUrl}/admin/settings`, { headers }),
-      fetch(`${apiUrl}/services`, { headers }),
-      fetch(`${apiUrl}/admin/access`, { headers }),
-    ]);
-    const clientData = await responseJson<{ clients?: Client[]; message?: string }>(clientResponse);
-    const agentData = await responseJson<{ agents?: Agent[]; message?: string }>(agentResponse);
-    const templateData = await responseJson<{ templates?: Template[]; message?: string }>(templateResponse);
-    const settingsData = await responseJson<{ logRetentionDays?: number; message?: string }>(settingsResponse);
-    const serviceData = await responseJson<{ services?: Service[]; message?: string }>(serviceResponse);
-    const accessData = await responseJson<{ access?: ClientAccess[]; message?: string }>(accessResponse);
-    if (!clientResponse.ok) throw new Error(clientData.message || 'Unable to load clients');
-    if (!agentResponse.ok) throw new Error(agentData.message || 'Unable to load agents');
-    if (!templateResponse.ok) throw new Error(templateData.message || 'Unable to load templates');
-    if (!settingsResponse.ok) throw new Error(settingsData.message || 'Unable to load settings');
-    if (!serviceResponse.ok) throw new Error(serviceData.message || 'Unable to load services');
-    setClients(clientData.clients || []);
-    setAgents(agentData.agents || []);
-    setTemplates(templateData.templates || []);
-    setRetention(settingsData.logRetentionDays || 30);
-    setServices(serviceData.services || []);
-    setAccessEntries(accessResponse.ok ? accessData.access || [] : []);
-    setAccessError(accessResponse.ok ? '' : accessData.message || 'Unable to load access credentials');
+    setAdminError('');
+    try {
+      const [clientResponse, agentResponse, templateResponse, settingsResponse, serviceResponse, accessResponse] = await Promise.all([
+        fetch(`${apiUrl}/admin/clients`, { headers }),
+        fetch(`${apiUrl}/admin/agents`, { headers }),
+        fetch(`${apiUrl}/templates`, { headers }),
+        fetch(`${apiUrl}/admin/settings`, { headers }),
+        fetch(`${apiUrl}/services`, { headers }),
+        fetch(`${apiUrl}/admin/access`, { headers }),
+      ]);
+      const clientData = await responseJson<{ clients?: Client[]; message?: string }>(clientResponse);
+      const agentData = await responseJson<{ agents?: Agent[]; message?: string }>(agentResponse);
+      const templateData = await responseJson<{ templates?: Template[]; message?: string }>(templateResponse);
+      const settingsData = await responseJson<{ logRetentionDays?: number; message?: string }>(settingsResponse);
+      const serviceData = await responseJson<{ services?: Service[]; message?: string }>(serviceResponse);
+      const accessData = await responseJson<{ access?: ClientAccess[]; message?: string }>(accessResponse);
+      if (!clientResponse.ok) throw new Error(clientData.message || 'Unable to load clients');
+      if (!agentResponse.ok) throw new Error(agentData.message || 'Unable to load agents');
+      if (!templateResponse.ok) throw new Error(templateData.message || 'Unable to load templates');
+      if (!settingsResponse.ok) throw new Error(settingsData.message || 'Unable to load settings');
+      if (!serviceResponse.ok) throw new Error(serviceData.message || 'Unable to load services');
+      setClients(clientData.clients || []);
+      setAgents(agentData.agents || []);
+      setTemplates(templateData.templates || []);
+      setRetention(settingsData.logRetentionDays || 30);
+      setServices(serviceData.services || []);
+      setAccessEntries(accessResponse.ok ? accessData.access || [] : []);
+      setAccessError(accessResponse.ok ? '' : accessData.message || 'Unable to load access credentials');
+    } catch (reason) {
+      setAdminError(errorMessage(reason, 'Unable to load administration data'));
+    } finally {
+      setAdminLoading(false);
+    }
   }
 
   useEffect(() => {
-    void refresh().catch((reason) => setNotice(errorMessage(reason, 'Unable to load administration data')));
+    void refresh();
   }, []);
 
   async function createClient(event: FormEvent) {
@@ -144,7 +154,8 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       });
       const data = await responseJson<{ temporaryPassword?: string; message?: string }>(response);
       if (!response.ok) throw new Error(data.message || 'Unable to create client');
-      setNotice(`Client created. Temporary password: ${data.temporaryPassword}`);
+      setNotice(`Client ${clientForm.name || 'created'} created.`);
+      if (data.temporaryPassword) setPendingSecret({ title: `Temporary password for ${clientForm.name || 'client'}`, value: data.temporaryPassword, note: 'Shown once. Share it privately and have the client set their own password on first sign-in.' });
       setClientForm({ name: '', email: '', temporaryPassword: '' });
       setModal(null);
       await refresh();
@@ -164,7 +175,8 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       });
       const data = await responseJson<{ agent?: { id?: string }; enrollmentToken?: string; message?: string }>(response);
       if (!response.ok) throw new Error(data.message || 'Unable to register agent');
-      setNotice(`Agent created. Agent ID: ${data.agent?.id || 'unavailable'}. Enrollment token: ${data.enrollmentToken}`);
+      setNotice(`Agent ${agentForm.name || 'registered'} registered.`);
+      if (data.enrollmentToken) setPendingSecret({ title: `Enrollment token for ${agentForm.name || 'agent'}`, value: data.enrollmentToken, note: 'Shown once. Paste it into the pipeline agent environment to connect this VPS.' });
       setAgentForm({ name: '', baseUrl: '' });
       setModal(null);
       await refresh();
@@ -182,7 +194,8 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       });
       const data = await responseJson<{ enrollmentToken?: string; message?: string }>(response);
       if (!response.ok || !data.enrollmentToken) throw new Error(data.message || 'Unable to generate enrollment token');
-      setNotice(`Enrollment token regenerated for ${agentId}: ${data.enrollmentToken}`);
+      setNotice(`Enrollment token regenerated.`);
+      setPendingSecret({ title: `New enrollment token for ${agents.find((agent) => agent.id === agentId)?.name || agentId}`, value: data.enrollmentToken, note: 'Shown once. This replaces the previous token; reconfigure the agent to use it.' });
     } catch (reason) {
       setNotice(errorMessage(reason, 'Unable to generate enrollment token'));
     }
@@ -400,6 +413,13 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
     setDeleteTarget({ kind: 'access', id: access.id, label: access.label });
   }
 
+  async function revealAdminAccess(accessId: string) {
+    const response = await fetch(`${apiUrl}/admin/access/${encodeURIComponent(accessId)}/reveal`, { headers });
+    const data = await responseJson<{ password?: string | null; message?: string }>(response);
+    if (!response.ok || data.password == null) throw new Error(data.message || 'Unable to reveal password');
+    return data.password;
+  }
+
   async function confirmDeleteAccess(access: ClientAccess) {
     try {
       const response = await fetch(`${apiUrl}/admin/access/${access.id}`, { method: 'DELETE', headers });
@@ -574,6 +594,14 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
         </div>
       </div>
       {notice && <p className="message admin-notice">{notice}</p>}
+      {adminLoading && <p className="muted admin-loading">Loading administration data…</p>}
+      {adminError && (
+        <div className="admin-error" role="alert">
+          <span className="admin-error__icon" aria-hidden="true">!</span>
+          <div><strong>Administration data could not be loaded</strong><p>{adminError}</p></div>
+          <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { setAdminLoading(true); void refresh(); }}>↻ Retry</button>
+        </div>
+      )}
       <div className="admin-metrics" aria-label="Administration summary">
         <div className="admin-metric"><span className="admin-metric__icon">◉</span><div><strong>{clients.length}</strong><span>Active clients</span></div></div>
         <div className="admin-metric"><span className="admin-metric__icon admin-metric__icon--blue">▣</span><div><strong>{agents.length}</strong><span>VPS agents</span></div></div>
@@ -620,13 +648,17 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
           ) : (
             agents.map((agent) => (
               <div className="active-row" key={agent.id}>
-                <div className={`status-dot ${agent.enabled ? 'online' : ''}`} />
+                <div className={`status-dot ${agent.status === 'online' ? 'online' : agent.status === 'disabled' ? 'disabled' : ''}`} />
                 <div>
                   <strong>{agent.name}</strong>
                   <small>{agent.baseUrl}</small>
                   <small className="agent-id">Agent ID: {agent.id}</small>
+                  {agent.lastSeenAt && <small className="agent-seen">Last seen: {new Date(agent.lastSeenAt).toLocaleString()}</small>}
                 </div>
-                <span className="row-meta">{agent.enabled ? 'Enabled' : 'Disabled'}</span>
+                <div className="row-meta">
+                  <span className="admin-agent-status" data-status={agent.status || 'unknown'}>{agent.status || 'unknown'}</span>
+                  <span className="admin-agent-services">{services.filter((service) => service.agent?.id === agent.id).length} service{services.filter((service) => service.agent?.id === agent.id).length === 1 ? '' : 's'}</span>
+                </div>
                 <button className="secondary row-action" onClick={() => regenerateAgentToken(agent.id)}>
                   New token
                 </button>
@@ -969,7 +1001,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       >
         {viewingAccess ? (
           <div className="access-grid single">
-            <AccessEntryCard entry={viewingAccess} />
+            <AccessEntryCard entry={viewingAccess} onReveal={revealAdminAccess} />
           </div>
         ) : (
           <p className="muted">Access entry not found.</p>
@@ -995,6 +1027,30 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             <button type="submit">Save settings</button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(pendingSecret)}
+        title={pendingSecret?.title || 'Secret'}
+        subtitle="Shown once — record it securely before closing."
+        onClose={() => setPendingSecret(null)}
+      >
+        {pendingSecret && (
+          <div className="secret-dialog">
+            <pre className="secret-dialog__value">{pendingSecret.value}</pre>
+            {pendingSecret.note && <p className="form-hint">{pendingSecret.note}</p>}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary copy-secret-button"
+                onClick={() => { void navigator.clipboard?.writeText(pendingSecret.value); }}
+              >
+                Copy to clipboard
+              </button>
+              <button type="button" onClick={() => setPendingSecret(null)}>Done</button>
+            </div>
+          </div>
+        )}
       </Modal>
     </section>
   );
