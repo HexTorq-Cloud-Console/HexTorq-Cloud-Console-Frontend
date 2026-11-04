@@ -10,6 +10,7 @@ type ServicesViewProps = {
   deploying: string | null;
   pm2Action: string | null;
   onDeploy: (serviceId: string, force?: boolean) => void;
+  onForceDeploy: (serviceId: string) => void;
   onPm2: (serviceId: string, action: string) => void;
   onLogs: (service: Service) => void;
   onDetails: (service: Service) => void;
@@ -21,7 +22,7 @@ function latestFor(service: Service, deployments: Deployment[]) {
   return deployments.find((deployment) => deployment.service.id === service.id);
 }
 
-export default function ServicesView({ services, deployments, pm2Status, deploying, pm2Action, onDeploy, onPm2, onLogs, onDetails }: ServicesViewProps) {
+export default function ServicesView({ services, deployments, pm2Status, deploying, pm2Action, onDeploy, onForceDeploy, onPm2, onLogs, onDetails }: ServicesViewProps) {
   const [filter, setFilter] = useState<Filter>('ALL');
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
@@ -91,7 +92,7 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
                 </div>
                 <div className="service-tile__actions">
                   <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={!service.enabled || busy}>{busy ? 'Deploying…' : service.type === 'PM2' && status?.status === 'stopped' ? 'Start & deploy' : 'Normal deploy'}</button>
-                  <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onDeploy(service.id, true)} disabled={!service.enabled || busy}>Force</button>
+                  <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={!service.enabled || busy}>Force</button>
                   {service.type === 'PM2' && <button className="ht-btn ht-btn--icon" type="button" onClick={() => onLogs(service)} aria-label={`View live logs for ${service.name}`}>▤</button>}
                 </div>
                 {service.type === 'PM2' && <div className="service-tile__pm2-actions">

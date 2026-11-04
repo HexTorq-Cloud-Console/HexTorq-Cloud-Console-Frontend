@@ -14,6 +14,7 @@ type OverviewViewProps = {
   healthRunLoading: boolean;
   failureAlerts: Array<{ id: string; title: string; timestamp: string; details: string }>;
   onDeploy: (serviceId: string, force?: boolean) => void;
+  onForceDeploy: (serviceId: string) => void;
   deploying: string | null;
   onHealthSettings: () => void;
   onRunHealth: () => void;
@@ -58,6 +59,7 @@ export default function OverviewView({
   healthRunLoading,
   failureAlerts,
   onDeploy,
+  onForceDeploy,
   deploying,
   onHealthSettings,
   onRunHealth,
@@ -170,7 +172,7 @@ export default function OverviewView({
                   </div>
                   <div className="overview-service__actions">
                     <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={isDeploying || !service.enabled}>{isDeploying ? 'Deploying…' : 'Normal deploy'}</button>
-                    <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onDeploy(service.id, true)} disabled={isDeploying || !service.enabled}>Force deploy</button>
+                    <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={isDeploying || !service.enabled}>Force deploy</button>
                   </div>
                 </article>
               );

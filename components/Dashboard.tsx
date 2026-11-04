@@ -34,6 +34,10 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
   const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>({});
   const [selectedDeployment, setSelectedDeployment] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [pm2Confirm, setPm2Confirm] = useState<{ serviceId: string; action: string } | null>(null);
+  const [forceDeployService, setForceDeployService] = useState<Service | null>(null);
+  const [pm2LogFilter, setPm2LogFilter] = useState('');
+  const [pm2LogPausedAt, setPm2LogPausedAt] = useState<number | null>(null);
   const [historyServiceId, setHistoryServiceId] = useState<string | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([]);
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
@@ -338,7 +342,6 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
   }
 
   async function controlPm2(serviceId: string, action: string) {
-    if (!window.confirm(`Confirm PM2 ${action}?`)) return;
     setPm2Action(`${serviceId}:${action}`);
     setError('');
     try {
@@ -369,6 +372,8 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
     setPm2LogEntries([]);
     setPm2LogError('');
     setPm2LogLoading(false);
+    setPm2LogFilter('');
+    setPm2LogPausedAt(null);
   }
 
   async function openPm2Logs(service: Service) {
@@ -379,6 +384,8 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
     setPm2LogEntries([]);
     setPm2LogError('');
     setPm2LogLoading(true);
+    setPm2LogFilter('');
+    setPm2LogPausedAt(null);
 
     try {
       const response = await fetch(`${apiUrl}/services/${service.id}/pm2/logs/stream?lines=200`, {
@@ -421,6 +428,14 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
     }
   }
 
+  function requestPm2Action(serviceId: string, action: string) {
+    setPm2Confirm({ serviceId, action });
+  }
+
+  function requestForceDeploy(serviceId: string) {
+    setForceDeployService(services.find((service) => service.id === serviceId) || null);
+  }
+
   const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
 
   return (
@@ -437,6 +452,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         healthRunLoading={healthRunLoading}
         failureAlerts={failureAlerts}
         onDeploy={deploy}
+        onForceDeploy={requestForceDeploy}
         deploying={deploying}
         onHealthSettings={openHealthSettings}
         onRunHealth={runWebhookHealth}
@@ -451,12 +467,38 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         deploying={deploying}
         pm2Action={pm2Action}
         onDeploy={deploy}
-        onPm2={controlPm2}
+        onForceDeploy={requestForceDeploy}
+        onPm2={requestPm2Action}
         onLogs={openPm2Logs}
         onDetails={setSelectedService}
       />
 
       <DeploymentsView deployments={deployments} services={services} onOpen={setSelectedDeployment} />
+
+      {pm2Confirm && (() => {
+        const service = services.find((item) => item.id === pm2Confirm.serviceId);
+        if (!service) return null;
+        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPm2Confirm(null); }}>
+          <section className="confirm-card" role="dialog" aria-modal="true" aria-labelledby="pm2-confirm-title">
+            <div className="confirm-card__icon">↻</div>
+            <p className="confirm-card__eyebrow">PM2 INSTANCE ACTION</p>
+            <h2 id="pm2-confirm-title">{pm2Confirm.action.charAt(0).toUpperCase() + pm2Confirm.action.slice(1)} {service.pm2ProcessName || service.name}?</h2>
+            <p>This will send the {pm2Confirm.action} action to the selected PM2 process.</p>
+            <div className="confirm-card__actions"><button className="ht-btn ht-btn--ghost" type="button" onClick={() => setPm2Confirm(null)}>Cancel</button><button className="ht-btn ht-btn--primary" type="button" onClick={() => { const current = pm2Confirm; setPm2Confirm(null); void controlPm2(current.serviceId, current.action); }}>{pm2Confirm.action.charAt(0).toUpperCase() + pm2Confirm.action.slice(1)} process</button></div>
+          </section>
+        </div>;
+      })()}
+
+      {forceDeployService && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setForceDeployService(null); }}>
+        <section className="confirm-card confirm-card--warning" role="dialog" aria-modal="true" aria-labelledby="force-confirm-title">
+          <div className="confirm-card__icon confirm-card__icon--warning">⚡</div>
+          <p className="confirm-card__eyebrow">PIPELINE OVERRIDE</p>
+          <h2 id="force-confirm-title">Force deploy {forceDeployService.name}?</h2>
+          <p>This runs the full deployment pipeline even if no application files or Git commits changed since the last release.</p>
+          <div className="confirm-card__warning">⚠ Force deployment may restart the service.</div>
+          <div className="confirm-card__actions"><button className="ht-btn ht-btn--ghost" type="button" onClick={() => setForceDeployService(null)}>Cancel</button><button className="ht-btn ht-btn--primary" type="button" onClick={() => { const service = forceDeployService; setForceDeployService(null); void deploy(service.id, true); }}>⚡ Force deploy</button></div>
+        </section>
+      </div>}
 
       {selectedService && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedService(null); }}>
@@ -477,7 +519,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
             </div>
             <div className="service-detail-actions">
               <button className="ht-btn ht-btn--primary" type="button" onClick={() => { setSelectedService(null); void deploy(selectedService.id); }}>Normal deploy</button>
-              <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { setSelectedService(null); void deploy(selectedService.id, true); }}>Force deploy</button>
+              <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { const service = selectedService; setSelectedService(null); requestForceDeploy(service.id); }}>Force deploy</button>
               {selectedService.type === 'PM2' && <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { setSelectedService(null); void openPm2Logs(selectedService); }}>View live logs</button>}
             </div>
           </section>
@@ -545,14 +587,25 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
               Process {pm2LogService.pm2ProcessName} on {pm2LogService.agent.name}
             </p>
             {pm2LogError && <p className="error">{pm2LogError}</p>}
+            <div className="pm2-log-toolbar">
+              <span className="pm2-live-pill"><span className="ht-dot ht-dot--live" /> {pm2LogLoading ? 'CONNECTING' : 'STREAMING'}</span>
+              <span className="pm2-log-count">Last {pm2LogEntries.length}</span>
+              <button type="button" onClick={() => setPm2LogPausedAt((current) => current === null ? pm2LogEntries.length : null)}>{pm2LogPausedAt === null ? 'Ⅱ Pause' : '▶ Resume'}</button>
+              <button type="button" onClick={() => setPm2LogEntries([])}>⌫ Clear</button>
+              <label className="pm2-log-search">⌕<input value={pm2LogFilter} onChange={(event) => setPm2LogFilter(event.target.value)} placeholder="Filter logs…" aria-label="Filter logs" /></label>
+              <button type="button" onClick={() => { const text = pm2LogEntries.map((entry) => entry.message).join('\n'); void navigator.clipboard?.writeText(text); }}>▣ Copy</button>
+            </div>
             <pre className="pm2-log-output">
-              {pm2LogEntries.length ? pm2LogEntries.map((entry, index) => (
+              {pm2LogEntries.length ? pm2LogEntries.slice(0, pm2LogPausedAt ?? pm2LogEntries.length).filter((entry) => !pm2LogFilter || entry.message.toLowerCase().includes(pm2LogFilter.toLowerCase())).map((entry, index) => (
                 <span className={`pm2-log-line${entry.error ? ' error' : ''}`} key={`${index}-${entry.message}`}>
-                  {entry.live && entry.timestamp ? `[${new Date(entry.timestamp).toLocaleTimeString()}] ` : ''}
+                  <span className="pm2-line-number">{String(index + 1).padStart(3, '0')}</span>
+                  <span className="pm2-line-time">{entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : '—'}</span>
+                  <span className={`pm2-line-stream pm2-line-stream--${entry.stream || 'stdout'}`}>{entry.error ? 'stderr' : entry.stream || 'stdout'}</span>
                   {entry.error ? 'ERR ' : ''}{entry.message}
                 </span>
               )) : (pm2LogLoading ? 'Connecting to log stream...' : 'Waiting for log output...')}
             </pre>
+            <div className="pm2-log-footer"><span><span className="ht-dot" /> Connected · stream closes when this window closes</span></div>
             <div className="modal-actions">
               <button className="secondary" onClick={closePm2Logs}>
                 Close
