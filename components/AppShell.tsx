@@ -137,7 +137,7 @@ const CLIENT_GROUPS: NavGroup[] = [
       { id: 'services-list', label: 'Services', icon: 'services' },
       { id: 'deployments-list', label: 'Deployments', icon: 'deployments' },
       { id: 'health-list', label: 'Webhook Health', icon: 'health' },
-      { id: 'access', label: 'Access Credentials', icon: 'access' },
+      { id: 'access-list', label: 'Access Credentials', icon: 'access' },
     ],
   },
 ];
@@ -172,7 +172,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, child
     : [
         {
           label: 'Workspace',
-          items: [...CLIENT_GROUPS[0].items, { id: 'alerts', label: 'Alerts', icon: 'alerts', badge: alertCount }],
+          items: [...CLIENT_GROUPS[0].items, { id: 'alerts-list', label: 'Alerts', icon: 'alerts', badge: alertCount }],
         },
       ];
 

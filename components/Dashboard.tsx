@@ -9,6 +9,8 @@ import OverviewView from './OverviewView';
 import ServicesView from './ServicesView';
 import DeploymentsView from './DeploymentsView';
 import WebhookHealthView from './WebhookHealthView';
+import AccessView from './AccessView';
+import AlertsView from './AlertsView';
 import WebhookHealthPanel from './WebhookHealthPanel';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
@@ -477,6 +479,9 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
       <DeploymentsView deployments={deployments} services={services} onOpen={setSelectedDeployment} />
 
       <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={runWebhookHealth} />
+
+      {role === 'CLIENT' && <AccessView entries={accessEntries} />}
+      <AlertsView alerts={failureAlerts} onDismiss={(id) => setFailureAlerts((current) => current.filter((alert) => alert.id !== id))} onDismissAll={() => setFailureAlerts([])} />
 
       {pm2Confirm && (() => {
         const service = services.find((item) => item.id === pm2Confirm.serviceId);
