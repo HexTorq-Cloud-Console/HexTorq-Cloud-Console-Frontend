@@ -136,7 +136,7 @@ const CLIENT_GROUPS: NavGroup[] = [
       { id: 'overview', label: 'Overview', icon: 'overview' },
       { id: 'services-list', label: 'Services', icon: 'services' },
       { id: 'deployments-list', label: 'Deployments', icon: 'deployments' },
-      { id: 'health', label: 'Webhook Health', icon: 'health' },
+      { id: 'health-list', label: 'Webhook Health', icon: 'health' },
       { id: 'access', label: 'Access Credentials', icon: 'access' },
     ],
   },

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-function Modal({ open, title, subtitle, onClose, children }: { open: boolean; title: string; subtitle: string; onClose: () => void; children: ReactNode }) {
+function Modal({ open, title, subtitle, onClose, children, className }: { open: boolean; title: string; subtitle: string; onClose: () => void; children: ReactNode; className?: string }) {
   if (!open) return null;
   return (
     <div
@@ -9,7 +9,7 @@ function Modal({ open, title, subtitle, onClose, children }: { open: boolean; ti
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="modal-card" role="dialog" aria-modal="true" aria-label={title}>
+      <section className={`modal-card${className ? ` ${className}` : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <button className="modal-close" aria-label="Close" onClick={onClose}>
           x
         </button>
