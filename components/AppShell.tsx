@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import Logo from './Logo';
 
 type IconName =
@@ -16,7 +18,7 @@ type IconName =
   | 'agents'
   | 'shield';
 
-type NavItem = { id: string; label: string; icon: IconName; badge?: number };
+type NavItem = { id: string; label: string; icon: IconName; href: string; badge?: number };
 type NavGroup = { label: string; items: NavItem[] };
 
 type AppShellProps = {
@@ -133,72 +135,69 @@ const CLIENT_GROUPS: NavGroup[] = [
   {
     label: 'Workspace',
     items: [
-      { id: 'overview', label: 'Overview', icon: 'overview' },
-      { id: 'services-list', label: 'Services', icon: 'services' },
-      { id: 'deployments-list', label: 'Deployments', icon: 'deployments' },
-      { id: 'health-list', label: 'Webhook Health', icon: 'health' },
-      { id: 'access-list', label: 'Access Credentials', icon: 'access' },
+      { id: 'overview', label: 'Overview', icon: 'overview', href: '/overview' },
+      { id: 'services', label: 'Services', icon: 'services', href: '/services' },
+      { id: 'deployments', label: 'Deployments', icon: 'deployments', href: '/deployments' },
+      { id: 'health', label: 'Webhook Health', icon: 'health', href: '/health' },
+      { id: 'access', label: 'Access Credentials', icon: 'access', href: '/access' },
     ],
   },
 ];
 
 export default function AppShell({ role, email, alertCount = 0, onSignOut, children }: AppShellProps) {
   const isAdmin = role === 'SUPER_ADMIN';
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [active, setActive] = useState('overview');
+  const [hash, setHash] = useState('');
 
   const groups: NavGroup[] = isAdmin
     ? [
         {
           label: 'Workspace',
           items: [
-            { id: 'overview', label: 'Overview', icon: 'overview' },
-            { id: 'services-list', label: 'Services', icon: 'services' },
-            { id: 'deployments-list', label: 'Deployments', icon: 'deployments' },
+            { id: 'overview', label: 'Overview', icon: 'overview', href: '/overview' },
+            { id: 'services', label: 'Services', icon: 'services', href: '/services' },
+            { id: 'deployments', label: 'Deployments', icon: 'deployments', href: '/deployments' },
           ],
         },
         {
           label: 'Administration',
           items: [
-            { id: 'admin', label: 'Admin Overview', icon: 'admin' },
-            { id: 'admin-clients', label: 'Clients', icon: 'clients' },
-            { id: 'admin-agents', label: 'VPS Agents', icon: 'agents' },
-            { id: 'admin-services', label: 'All Services', icon: 'services' },
-            { id: 'admin-access', label: 'Access Management', icon: 'access' },
+            { id: 'admin', label: 'Admin Overview', icon: 'admin', href: '/admin' },
+            { id: 'admin-clients', label: 'Clients', icon: 'clients', href: '/admin#admin-clients' },
+            { id: 'admin-agents', label: 'VPS Agents', icon: 'agents', href: '/admin#admin-agents' },
+            { id: 'admin-services', label: 'All Services', icon: 'services', href: '/admin#admin-services' },
+            { id: 'admin-access', label: 'Access Management', icon: 'access', href: '/admin#admin-access' },
           ],
         },
       ]
     : [
         {
           label: 'Workspace',
-          items: [...CLIENT_GROUPS[0].items, { id: 'alerts-list', label: 'Alerts', icon: 'alerts', badge: alertCount }],
+          items: [...CLIENT_GROUPS[0].items, { id: 'alerts', label: 'Alerts', icon: 'alerts', href: '/alerts', badge: alertCount }],
         },
       ];
 
-  const activeLabel = groups.flatMap((group) => group.items).find((item) => item.id === active)?.label || 'Overview';
-
   useEffect(() => {
-    const targets = groups
-      .flatMap((group) => group.items)
-      .map((item) => document.getElementById(item.id))
-      .filter((element): element is HTMLElement => Boolean(element));
-    if (!targets.length) return;
+    const syncHash = () => setHash(window.location.hash);
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, [pathname]);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActive(visible.target.id);
-      },
-      { rootMargin: '-72px 0px -55% 0px', threshold: 0 },
-    );
+  function isActive(item: NavItem) {
+    const [path, itemHash] = item.href.split('#');
+    if (path !== pathname) return false;
+    if (pathname === '/admin') {
+      const current = hash && hash !== '#admin' ? hash : '';
+      return itemHash ? current === `#${itemHash}` : current === '';
+    }
+    return true;
+  }
 
-    targets.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  const activeItem = groups.flatMap((group) => group.items).find(isActive);
+  const activeLabel = activeItem?.label || (isAdmin ? 'Admin Overview' : 'Overview');
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
@@ -222,11 +221,6 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, child
     } else {
       setCollapsed((current) => !current);
     }
-  }
-
-  function navigate(id: string) {
-    setActive(id);
-    setMobileOpen(false);
   }
 
   const roleLabel = isAdmin ? 'Super Admin' : 'Client';
@@ -264,19 +258,19 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, child
               <ul>
                 {group.items.map((item) => (
                   <li key={item.id}>
-                    <a
-                      href={`#${item.id}`}
-                      className={`shell-link${active === item.id ? ' is-active' : ''}`}
-                      aria-current={active === item.id ? 'page' : undefined}
+                    <Link
+                      href={item.href}
+                      className={`shell-link${isActive(item) ? ' is-active' : ''}`}
+                      aria-current={isActive(item) ? 'page' : undefined}
                       title={collapsed ? item.label : undefined}
-                      onClick={() => navigate(item.id)}
+                      onClick={() => setMobileOpen(false)}
                     >
                       <span className="shell-link__icon">
                         <Icon name={item.icon} />
                       </span>
                       <span className="shell-link__label">{item.label}</span>
                       {item.badge ? <span className="shell-link__badge">{item.badge}</span> : null}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

@@ -2,10 +2,11 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import Script from 'next/script';
-import Dashboard from './Dashboard';
+import { useRouter } from 'next/navigation';
 import Logo from './Logo';
 import PasswordChange from './PasswordChange';
 import { apiUrl, errorMessage, TOKEN_KEY, responseJson } from '../lib/api';
+import { FAILURE_ALERTS_KEY, SECTION_PATHS, sectionFromLegacyHash } from '../lib/sections';
 
 type AuthUser = { email?: string; role?: string; forcePasswordChange?: boolean };
 type AuthResponse = { token?: string; user?: AuthUser; message?: string };
@@ -13,13 +14,13 @@ type AuthResponse = { token?: string; user?: AuthUser; message?: string };
 const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [revealPassword, setRevealPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [forcePasswordChange, setForcePasswordChange] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -41,7 +42,6 @@ export default function LoginPage() {
         if (!response.ok || !data.user) throw new Error(data.message || 'Session expired');
         if (cancelled) return;
         setToken(storedToken);
-        setRole(data.user.role || '');
         setUserEmail(data.user.email || '');
         setForcePasswordChange(Boolean(data.user.forcePasswordChange));
       } catch {
@@ -56,11 +56,16 @@ export default function LoginPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!token || forcePasswordChange) return;
+    const legacy = sectionFromLegacyHash(window.location.hash);
+    router.replace(legacy ? SECTION_PATHS[legacy] : '/overview');
+  }, [forcePasswordChange, router, token]);
+
   function applySession(data: AuthResponse) {
     if (!data.token || !data.user) return false;
     window.localStorage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
-    setRole(data.user.role || '');
     setUserEmail(data.user.email || '');
     setForcePasswordChange(Boolean(data.user.forcePasswordChange));
     return true;
@@ -121,14 +126,14 @@ export default function LoginPage() {
 
   function signOut() {
     window.localStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(FAILURE_ALERTS_KEY);
     setToken(null);
-    setRole('');
     setUserEmail('');
     setForcePasswordChange(false);
     setMessage('');
   }
 
-  if (!sessionChecked) {
+  if (!sessionChecked || (token && !forcePasswordChange)) {
     return (
       <main className="auth-page">
         <div className="auth-glow auth-glow--blue" aria-hidden="true" />
@@ -143,10 +148,13 @@ export default function LoginPage() {
   }
 
   if (token) {
-    return forcePasswordChange ? (
-      <PasswordChange token={token} email={userEmail} onComplete={() => setForcePasswordChange(false)} onSignOut={signOut} />
-    ) : (
-      <Dashboard token={token} role={role} email={userEmail} />
+    return (
+      <PasswordChange
+        token={token}
+        email={userEmail}
+        onComplete={() => router.replace('/overview')}
+        onSignOut={signOut}
+      />
     );
   }
 

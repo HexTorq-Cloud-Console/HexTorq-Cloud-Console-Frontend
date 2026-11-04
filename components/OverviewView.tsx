@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { AnalyticsData, Deployment, Pm2Status, Service, WebhookHealthData } from '../types/api';
 import WebhookHealthPanel from './WebhookHealthPanel';
 
@@ -21,7 +22,6 @@ type OverviewViewProps = {
   deploying: string | null;
   onHealthSettings: () => void;
   onRunHealth: () => void;
-  onAccess: () => void;
   onDeployment: (deploymentId: string) => void;
 };
 
@@ -77,7 +77,6 @@ export default function OverviewView({
   deploying,
   onHealthSettings,
   onRunHealth,
-  onAccess,
   onDeployment,
 }: OverviewViewProps) {
   const [showAllServices, setShowAllServices] = useState(false);
@@ -237,7 +236,7 @@ export default function OverviewView({
           <section className="overview-lower-grid">
             <div>
               <div className="overview-section-heading overview-section-heading--compact">
-                <h2>Recent deployments</h2><a href="#deployments-list">View history →</a>
+                <h2>Recent deployments</h2><Link href="/deployments">View history →</Link>
               </div>
               <div className="overview-deployments" id="deployments">
                 {latestDeployments.length === 0 ? <div className="ht-empty">No deployments recorded yet.</div> : latestDeployments.map((deployment) => (
@@ -257,7 +256,7 @@ export default function OverviewView({
                 <div className="overview-section-heading overview-section-heading--compact"><h2>Client access</h2></div>
                 <div className="overview-access-card">
                   <p>View the FileZilla/SFTP and database credentials assigned to this account.</p>
-                  <button className="ht-btn ht-btn--secondary" type="button" onClick={onAccess}>View access credentials →</button>
+                  <Link className="ht-btn ht-btn--secondary" href="/access">View access credentials →</Link>
                 </div>
               </div>
             )}

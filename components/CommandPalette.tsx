@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Service } from '../types/api';
+import { FOCUS_SERVICE_KEY, SECTION_PATHS, type ConsoleSection } from '../lib/sections';
 
 type PaletteItem = {
   id: string;
@@ -17,11 +19,18 @@ type Props = {
   services: Service[];
 };
 
-function navigateTo(sectionId: string) {
-  document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+const SECTION_IDS: Record<string, ConsoleSection> = {
+  overview: 'overview',
+  'services-list': 'services',
+  'deployments-list': 'deployments',
+  'health-list': 'health',
+  'access-list': 'access',
+  'alerts-list': 'alerts',
+  admin: 'admin',
+};
 
 export default function CommandPalette({ open, onClose, role, services }: Props) {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -75,10 +84,12 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
     if (!item) return;
     onClose();
     if (item.id.startsWith('service-')) {
-      navigateTo('services-list');
-    } else {
-      navigateTo(item.id);
+      window.sessionStorage.setItem(FOCUS_SERVICE_KEY, item.id.slice('service-'.length));
+      router.push(SECTION_PATHS.services);
+      return;
     }
+    const section = SECTION_IDS[item.id];
+    if (section) router.push(SECTION_PATHS[section]);
   }
 
   function onKeyDown(event: React.KeyboardEvent) {

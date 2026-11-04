@@ -1,7 +1,6 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import AccessEntryCard from './AccessEntryCard';
 import AdminPanel from './AdminPanel';
 import AppShell from './AppShell';
 import CommandPalette from './CommandPalette';
@@ -18,6 +17,7 @@ import { ConsoleErrorState, ConsoleLoadingState } from './ConsoleStates';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
+import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, type ConsoleSection } from '../lib/sections';
 import type {
   AnalyticsData,
   ClientAccess,
@@ -31,7 +31,7 @@ import type {
   WebhookHealthRun,
   WebhookSchedule,
 } from '../types/api';
-function Dashboard({ token, role, email }: { token: string; role: string; email?: string }) {
+function Dashboard({ token, role, email, section }: { token: string; role: string; email?: string; section: ConsoleSection }) {
   const [services, setServices] = useState<Service[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -58,7 +58,6 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
   const [pm2LogError, setPm2LogError] = useState('');
   const [pm2LogLoading, setPm2LogLoading] = useState(false);
   const [accessEntries, setAccessEntries] = useState<ClientAccess[]>([]);
-  const [accessOpen, setAccessOpen] = useState(false);
   const [health, setHealth] = useState<WebhookHealthData | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState('');
@@ -138,15 +137,6 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
     return () => window.removeEventListener('keydown', onPaletteKey);
   }, []);
 
-  async function revealClientAccess(accessId: string) {
-    const response = await fetch(`${apiUrl}/access/${encodeURIComponent(accessId)}/reveal`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await responseJson<{ password?: string | null; message?: string }>(response);
-    if (!response.ok || data.password == null) throw new Error(data.message || 'Unable to reveal password');
-    return data.password;
-  }
-
   function addFailureAlert(alert: FailureAlert) {
     setFailureAlerts((current) => current.some((item) => item.id === alert.id) ? current : [alert, ...current].slice(0, 10));
   }
@@ -212,8 +202,35 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
   }, [role, token]);
 
   useEffect(() => {
+    if (section === 'admin') return;
     void loadDashboard();
-  }, [loadDashboard]);
+  }, [loadDashboard, section]);
+
+  useEffect(() => {
+    if (section !== 'services' || services.length === 0) return;
+    const focusId = window.sessionStorage.getItem(FOCUS_SERVICE_KEY);
+    if (!focusId) return;
+    window.sessionStorage.removeItem(FOCUS_SERVICE_KEY);
+    const match = services.find((service) => service.id === focusId);
+    if (match) setSelectedService(match);
+  }, [section, services]);
+
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(FAILURE_ALERTS_KEY);
+      if (stored) setFailureAlerts(JSON.parse(stored) as FailureAlert[]);
+    } catch {
+      // Ignore unreadable session storage and start with an empty alert list.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(FAILURE_ALERTS_KEY, JSON.stringify(failureAlerts));
+    } catch {
+      // Alerts still work in memory when session storage is unavailable.
+    }
+  }, [failureAlerts]);
 
   useEffect(() => {
     void loadHealth();
@@ -291,6 +308,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
 
   function signOut() {
     window.localStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(FAILURE_ALERTS_KEY);
     window.location.reload();
   }
 
@@ -509,10 +527,10 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
 
   return (
     <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut}>
-      {role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
+      {section === 'admin' && role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
 
-      {loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
-      <OverviewView
+      {section !== 'admin' && (loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
+      {section === 'overview' && <OverviewView
         services={services}
         deployments={deployments}
         pm2Status={pm2Status}
@@ -529,11 +547,10 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         deploying={deploying}
         onHealthSettings={openHealthSettings}
         onRunHealth={runWebhookHealth}
-        onAccess={() => setAccessOpen(true)}
         onDeployment={setSelectedDeployment}
-      />
+      />}
 
-      <ServicesView
+      {section === 'services' && <ServicesView
         services={services}
         deployments={deployments}
         pm2Status={pm2Status}
@@ -544,15 +561,15 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         onPm2={requestPm2Action}
         onLogs={openPm2Logs}
         onDetails={setSelectedService}
-      />
+      />}
 
-      <DeploymentsView deployments={deployments} services={services} hasMore={deploymentHasMore} loadingMore={deploymentLoadingMore} onLoadMore={() => void loadMoreDeployments()} onOpen={setSelectedDeployment} />
+      {section === 'deployments' && <DeploymentsView deployments={deployments} services={services} hasMore={deploymentHasMore} loadingMore={deploymentLoadingMore} onLoadMore={() => void loadMoreDeployments()} onOpen={setSelectedDeployment} />}
 
-      {role === 'CLIENT' && <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={runWebhookHealth} />}
+      {section === 'health' && role === 'CLIENT' && <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={runWebhookHealth} />}
 
-      {role === 'CLIENT' && <AccessView entries={accessEntries} token={token} />}
-      <AlertsView alerts={failureAlerts} onDismiss={(id) => setFailureAlerts((current) => current.filter((alert) => alert.id !== id))} onDismissAll={() => setFailureAlerts([])} />
-      </>}
+      {section === 'access' && role === 'CLIENT' && <AccessView entries={accessEntries} token={token} />}
+      {section === 'alerts' && role === 'CLIENT' && <AlertsView alerts={failureAlerts} onDismiss={(id) => setFailureAlerts((current) => current.filter((alert) => alert.id !== id))} onDismissAll={() => setFailureAlerts([])} />}
+      </>)}
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} role={role} services={services} />
 
@@ -684,23 +701,6 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
           </section>
         </div>
       )}
-
-      <Modal
-        open={accessOpen}
-        title="Your access credentials"
-        subtitle="FileZilla/SFTP and PostgreSQL connection details assigned to your account."
-        onClose={() => setAccessOpen(false)}
-      >
-        {accessEntries.length === 0 ? (
-          <p className="muted access-empty">No access credentials have been assigned to your account yet. Contact your administrator if you need access.</p>
-        ) : (
-          <div className="access-grid">
-            {accessEntries.map((entry) => (
-              <AccessEntryCard key={entry.id} entry={entry} onReveal={revealClientAccess} />
-            ))}
-          </div>
-        )}
-      </Modal>
 
       <Modal
         open={healthSettingsOpen}
