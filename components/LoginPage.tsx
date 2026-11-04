@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import Logo from './Logo';
 import PasswordChange from './PasswordChange';
 import { apiUrl, errorMessage, TOKEN_KEY, responseJson } from '../lib/api';
+import { clearConsoleCache } from '../lib/consoleCache';
 import { FAILURE_ALERTS_KEY, SECTION_PATHS, sectionFromLegacyHash } from '../lib/sections';
+import { clearSessionCache } from '../lib/sessionCache';
 
 type AuthUser = { email?: string; role?: string; forcePasswordChange?: boolean };
 type AuthResponse = { token?: string; user?: AuthUser; message?: string };
@@ -28,6 +30,8 @@ export default function LoginPage() {
   useEffect(() => {
     const storedToken = window.localStorage.getItem(TOKEN_KEY);
     if (!storedToken) {
+      clearSessionCache();
+      clearConsoleCache();
       setSessionChecked(true);
       return;
     }
@@ -45,6 +49,8 @@ export default function LoginPage() {
         setUserEmail(data.user.email || '');
         setForcePasswordChange(Boolean(data.user.forcePasswordChange));
       } catch {
+        clearSessionCache();
+        clearConsoleCache();
         window.localStorage.removeItem(TOKEN_KEY);
       } finally {
         if (!cancelled) setSessionChecked(true);
@@ -64,6 +70,8 @@ export default function LoginPage() {
 
   function applySession(data: AuthResponse) {
     if (!data.token || !data.user) return false;
+    clearSessionCache();
+    clearConsoleCache();
     window.localStorage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
     setUserEmail(data.user.email || '');
@@ -125,6 +133,8 @@ export default function LoginPage() {
   }
 
   function signOut() {
+    clearSessionCache();
+    clearConsoleCache();
     window.localStorage.removeItem(TOKEN_KEY);
     window.sessionStorage.removeItem(FAILURE_ALERTS_KEY);
     setToken(null);

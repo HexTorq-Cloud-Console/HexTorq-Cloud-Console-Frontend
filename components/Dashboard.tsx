@@ -15,9 +15,11 @@ import AlertsView from './AlertsView';
 import WebhookHealthPanel from './WebhookHealthPanel';
 import { ConsoleErrorState, ConsoleLoadingState } from './ConsoleStates';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
+import { clearConsoleCache, readConsoleCache, writeConsoleCache } from '../lib/consoleCache';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
 import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, type ConsoleSection } from '../lib/sections';
+import { clearSessionCache } from '../lib/sessionCache';
 import type {
   AnalyticsData,
   ClientAccess,
@@ -32,19 +34,19 @@ import type {
   WebhookSchedule,
 } from '../types/api';
 function Dashboard({ token, role, email, section }: { token: string; role: string; email?: string; section: ConsoleSection }) {
-  const [services, setServices] = useState<Service[]>([]);
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [deploymentHasMore, setDeploymentHasMore] = useState(false);
-  const [deploymentNextCursor, setDeploymentNextCursor] = useState<string | null>(null);
+  const [services, setServices] = useState<Service[]>(() => readConsoleCache(token)?.services ?? []);
+  const [deployments, setDeployments] = useState<Deployment[]>(() => readConsoleCache(token)?.deployments ?? []);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(() => readConsoleCache(token)?.analytics ?? null);
+  const [deploymentHasMore, setDeploymentHasMore] = useState(() => readConsoleCache(token)?.deploymentHasMore ?? false);
+  const [deploymentNextCursor, setDeploymentNextCursor] = useState<string | null>(() => readConsoleCache(token)?.deploymentNextCursor ?? null);
   const [deploymentLoadingMore, setDeploymentLoadingMore] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !readConsoleCache(token));
   const [error, setError] = useState('');
   const [deploying, setDeploying] = useState<string | null>(null);
   const [pm2Action, setPm2Action] = useState<string | null>(null);
-  const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>({});
-  const [pm2FetchedAt, setPm2FetchedAt] = useState<Record<string, string>>({});
+  const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>(() => readConsoleCache(token)?.pm2Status ?? {});
+  const [pm2FetchedAt, setPm2FetchedAt] = useState<Record<string, string>>(() => readConsoleCache(token)?.pm2FetchedAt ?? {});
   const [selectedDeployment, setSelectedDeployment] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [pm2Confirm, setPm2Confirm] = useState<{ serviceId: string; action: string } | null>(null);
@@ -57,15 +59,23 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [pm2LogEntries, setPm2LogEntries] = useState<Pm2LogEntry[]>([]);
   const [pm2LogError, setPm2LogError] = useState('');
   const [pm2LogLoading, setPm2LogLoading] = useState(false);
-  const [accessEntries, setAccessEntries] = useState<ClientAccess[]>([]);
-  const [health, setHealth] = useState<WebhookHealthData | null>(null);
-  const [healthLoading, setHealthLoading] = useState(false);
+  const [accessEntries, setAccessEntries] = useState<ClientAccess[]>(() => readConsoleCache(token)?.accessEntries ?? []);
+  const [health, setHealth] = useState<WebhookHealthData | null>(() => readConsoleCache(token)?.health ?? null);
+  const [healthLoading, setHealthLoading] = useState(() => !readConsoleCache(token)?.health);
   const [healthError, setHealthError] = useState('');
   const [healthSettingsOpen, setHealthSettingsOpen] = useState(false);
   const [healthForm, setHealthForm] = useState({ enabled: false, intervalDays: 7 });
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthRunLoading, setHealthRunLoading] = useState(false);
-  const [failureAlerts, setFailureAlerts] = useState<FailureAlert[]>([]);
+  const [failureAlerts, setFailureAlerts] = useState<FailureAlert[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = window.sessionStorage.getItem(FAILURE_ALERTS_KEY);
+      return stored ? (JSON.parse(stored) as FailureAlert[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const pm2LogAbortRef = useRef<AbortController | null>(null);
   const healthRunStatusesRef = useRef<Record<string, string>>({});
 
@@ -99,7 +109,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
         setAnalytics(analyticsData);
       }
     } catch (reason) {
-      setError(errorMessage(reason, 'Unable to load console data'));
+      if (!silent) setError(errorMessage(reason, 'Unable to load console data'));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -203,8 +213,8 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
 
   useEffect(() => {
     if (section === 'admin') return;
-    void loadDashboard();
-  }, [loadDashboard, section]);
+    void loadDashboard(Boolean(readConsoleCache(token)));
+  }, [loadDashboard, section, token]);
 
   useEffect(() => {
     if (section !== 'services' || services.length === 0) return;
@@ -217,15 +227,6 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
 
   useEffect(() => {
     try {
-      const stored = window.sessionStorage.getItem(FAILURE_ALERTS_KEY);
-      if (stored) setFailureAlerts(JSON.parse(stored) as FailureAlert[]);
-    } catch {
-      // Ignore unreadable session storage and start with an empty alert list.
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
       window.sessionStorage.setItem(FAILURE_ALERTS_KEY, JSON.stringify(failureAlerts));
     } catch {
       // Alerts still work in memory when session storage is unavailable.
@@ -233,8 +234,23 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   }, [failureAlerts]);
 
   useEffect(() => {
-    void loadHealth();
-  }, [loadHealth]);
+    void loadHealth(Boolean(readConsoleCache(token)?.health));
+  }, [loadHealth, token]);
+
+  useEffect(() => {
+    writeConsoleCache({
+      token,
+      services,
+      deployments,
+      analytics,
+      deploymentHasMore,
+      deploymentNextCursor,
+      accessEntries,
+      health,
+      pm2Status,
+      pm2FetchedAt,
+    });
+  }, [accessEntries, analytics, deploymentHasMore, deploymentNextCursor, deployments, health, pm2FetchedAt, pm2Status, services, token]);
 
   useEffect(() => {
     if (role !== 'CLIENT') return;
@@ -307,6 +323,8 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   );
 
   function signOut() {
+    clearSessionCache();
+    clearConsoleCache();
     window.localStorage.removeItem(TOKEN_KEY);
     window.sessionStorage.removeItem(FAILURE_ALERTS_KEY);
     window.location.reload();
