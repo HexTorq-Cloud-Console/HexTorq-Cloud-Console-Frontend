@@ -549,7 +549,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   }
 
   return (
-    <section className="admin-panel">
+    <section className="admin-panel" id="admin">
       <div className="admin-heading">
         <div>
           <p className="eyebrow">SUPER ADMIN</p>
@@ -568,7 +568,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       </div>
       {notice && <p className="message admin-notice">{notice}</p>}
       <div className="admin-lists">
-        <div className="active-list">
+        <div className="active-list" id="admin-clients">
           <div className="list-heading">
             <div>
               <span className="list-kicker">ACCOUNTS</span>
@@ -594,7 +594,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
           )}
         </div>
 
-        <div className="active-list">
+        <div className="active-list" id="admin-agents">
           <div className="list-heading">
             <div>
               <span className="list-kicker">INFRASTRUCTURE</span>
@@ -622,7 +622,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
           )}
         </div>
 
-        <div className="active-list admin-services">
+        <div className="active-list admin-services" id="admin-services">
           <div className="list-heading">
             <div>
               <span className="list-kicker">DEPLOYMENTS</span>
@@ -653,7 +653,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
           )}
         </div>
 
-        <div className="active-list admin-access">
+        <div className="active-list admin-access" id="admin-access">
           <div className="list-heading">
             <div>
               <span className="list-kicker">CLIENT ACCESS</span>

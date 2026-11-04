@@ -146,7 +146,7 @@ export default function LoginPage() {
     return forcePasswordChange ? (
       <PasswordChange token={token} email={userEmail} onComplete={() => setForcePasswordChange(false)} onSignOut={signOut} />
     ) : (
-      <Dashboard token={token} role={role} />
+      <Dashboard token={token} role={role} email={userEmail} />
     );
   }
 

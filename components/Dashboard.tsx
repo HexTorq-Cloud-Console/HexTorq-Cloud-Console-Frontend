@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import AccessEntryCard from './AccessEntryCard';
 import AdminPanel from './AdminPanel';
+import AppShell from './AppShell';
 import Modal from './Modal';
 import WebhookHealthPanel from './WebhookHealthPanel';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
@@ -20,7 +21,7 @@ import type {
   WebhookHealthRun,
   WebhookSchedule,
 } from '../types/api';
-function Dashboard({ token, role }: { token: string; role: string }) {
+function Dashboard({ token, role, email }: { token: string; role: string; email?: string }) {
   const [services, setServices] = useState<Service[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -419,19 +420,12 @@ function Dashboard({ token, role }: { token: string; role: string }) {
   const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
 
   return (
-    <main className="console-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">HEX TORQ CLOUD</p>
-          <h1>Cloud Console</h1>
-        </div>
-        <button className="secondary" onClick={signOut}>
-          Sign out
-        </button>
-      </header>
+    <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut}>
+      <div id="overview" />
 
       {role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
 
+      <div id="alerts" />
       {failureAlerts.length > 0 && (
         <section className="failure-alert-panel" aria-live="assertive">
           <div className="failure-alert-heading">
@@ -456,7 +450,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
       )}
 
       {role === 'CLIENT' && (
-        <section className="access-banner">
+        <section className="access-banner" id="access">
           <div>
             <p className="eyebrow">CLIENT ACCESS</p>
             <h2>FileZilla & database credentials</h2>
@@ -473,17 +467,19 @@ function Dashboard({ token, role }: { token: string; role: string }) {
       )}
 
       {role === 'CLIENT' && (
-        <WebhookHealthPanel
-          health={health}
-          loading={healthLoading}
-          error={healthError}
-          runLoading={healthRunLoading}
-          onSettings={openHealthSettings}
-          onRun={runWebhookHealth}
-        />
+        <div id="health">
+          <WebhookHealthPanel
+            health={health}
+            loading={healthLoading}
+            error={healthError}
+            runLoading={healthRunLoading}
+            onSettings={openHealthSettings}
+            onRun={runWebhookHealth}
+          />
+        </div>
       )}
 
-      <section className="welcome">
+      <section className="welcome" id="services">
         <p className="muted">Connected services</p>
         <h2>Service overview</h2>
         {error && <p className="error">{error}</p>}
@@ -572,7 +568,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
           </div>
         )}
 
-        <div className="history-heading">
+        <div className="history-heading" id="deployments">
           <p className="muted">Permanent deployment metadata</p>
           <h2>Deployment history</h2>
         </div>
@@ -761,7 +757,7 @@ function Dashboard({ token, role }: { token: string; role: string }) {
           </div>
         </form>
       </Modal>
-    </main>
+    </AppShell>
   );
 }
 

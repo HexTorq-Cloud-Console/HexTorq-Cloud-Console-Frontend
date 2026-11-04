@@ -2,6 +2,7 @@ import './globals.css';
 import './tokens.css';
 import './components.css';
 import './auth.css';
+import './shell.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Manrope } from 'next/font/google';
 
