@@ -58,6 +58,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
     deployDirectory: '',
   });
   const [notice, setNotice] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'service' | 'access'; id: string; label: string } | null>(null);
   const [modal, setModal] = useState<'client' | 'agent' | 'service' | 'edit-service' | 'access' | 'edit-access' | 'view-access' | 'settings' | null>(null);
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -270,7 +271,10 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   }
 
   async function deleteService(service: Service) {
-    if (!window.confirm(`Delete ${service.name}? Its deployment history will also be removed.`)) return;
+    setDeleteTarget({ kind: 'service', id: service.id, label: service.name });
+  }
+
+  async function confirmDeleteService(service: Service) {
     try {
       const response = await fetch(`${apiUrl}/admin/services/${service.id}`, { method: 'DELETE', headers });
       const data = await responseJson<{ message?: string }>(response);
@@ -393,7 +397,10 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   }
 
   async function deleteAccess(access: ClientAccess) {
-    if (!window.confirm(`Delete ${access.label} for ${access.client?.name || 'this client'}?`)) return;
+    setDeleteTarget({ kind: 'access', id: access.id, label: access.label });
+  }
+
+  async function confirmDeleteAccess(access: ClientAccess) {
     try {
       const response = await fetch(`${apiUrl}/admin/access/${access.id}`, { method: 'DELETE', headers });
       const data = await responseJson<{ message?: string }>(response);
@@ -567,6 +574,12 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
         </div>
       </div>
       {notice && <p className="message admin-notice">{notice}</p>}
+      <div className="admin-metrics" aria-label="Administration summary">
+        <div className="admin-metric"><span className="admin-metric__icon">◉</span><div><strong>{clients.length}</strong><span>Active clients</span></div></div>
+        <div className="admin-metric"><span className="admin-metric__icon admin-metric__icon--blue">▣</span><div><strong>{agents.length}</strong><span>VPS agents</span></div></div>
+        <div className="admin-metric"><span className="admin-metric__icon admin-metric__icon--purple">⬡</span><div><strong>{services.length}</strong><span>Managed services</span></div></div>
+        <div className="admin-metric"><span className="admin-metric__icon admin-metric__icon--amber">⌁</span><div><strong>{services.filter((service) => service.enabled).length}</strong><span>Enabled pipelines</span></div></div>
+      </div>
       <div className="admin-lists">
         <div className="active-list" id="admin-clients">
           <div className="list-heading">
@@ -903,6 +916,31 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             <button type="submit">Add access</button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        title={`Delete ${deleteTarget?.kind || 'resource'}?`}
+        subtitle={deleteTarget ? `${deleteTarget.label} will be permanently removed.` : ''}
+        onClose={() => setDeleteTarget(null)}
+      >
+        <div className="admin-confirm">
+          <p>{deleteTarget?.kind === 'service' ? 'Its deployment history will also be removed. This action cannot be undone.' : 'The client will no longer be able to use these credentials. This action cannot be undone.'}</p>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
+            <button type="button" className="danger-button" onClick={() => {
+              const target = deleteTarget;
+              setDeleteTarget(null);
+              if (target?.kind === 'service') {
+                const service = services.find((item) => item.id === target.id);
+                if (service) void confirmDeleteService(service);
+              } else if (target?.kind === 'access') {
+                const access = accessEntries.find((item) => item.id === target.id);
+                if (access) void confirmDeleteAccess(access);
+              }
+            }}>Delete permanently</button>
+          </div>
+        </div>
       </Modal>
 
       <Modal
