@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { Deployment, Pm2Status, Service, WebhookHealthData } from '../types/api';
 import WebhookHealthPanel from './WebhookHealthPanel';
 
@@ -17,6 +18,7 @@ type OverviewViewProps = {
   onHealthSettings: () => void;
   onRunHealth: () => void;
   onAccess: () => void;
+  onDeployment: (deploymentId: string) => void;
 };
 
 function shortHash(value?: string | null) {
@@ -60,7 +62,10 @@ export default function OverviewView({
   onHealthSettings,
   onRunHealth,
   onAccess,
+  onDeployment,
 }: OverviewViewProps) {
+  const [showAllServices, setShowAllServices] = useState(false);
+  const [showAllDeployments, setShowAllDeployments] = useState(false);
   const clientName = services[0]?.client.name || 'your workspace';
   const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const recentDeployments = deployments.filter((deployment) => new Date(deployment.startedAt).getTime() >= recentCutoff);
@@ -69,8 +74,9 @@ export default function OverviewView({
   const successRate = completedRecent.length ? Math.round((successfulRecent.length / completedRecent.length) * 1000) / 10 : null;
   const pm2Count = services.filter((service) => service.type === 'PM2').length;
   const staticCount = services.filter((service) => service.type === 'STATIC_FRONTEND').length;
-  const activeServices = services.filter((service) => service.enabled).slice(0, 3);
-  const latestDeployments = deployments.slice(0, 5);
+  const enabledServices = services.filter((service) => service.enabled);
+  const activeServices = showAllServices ? enabledServices : enabledServices.slice(0, 3);
+  const latestDeployments = showAllDeployments ? deployments : deployments.slice(0, 5);
   const latestHealth = healthLabel(health);
 
   return (
@@ -131,7 +137,9 @@ export default function OverviewView({
             <div>
               <h2>Active services <span>{activeServices.length} of {services.length}</span></h2>
             </div>
-            <a href="#services">View all services →</a>
+              <button className="overview-text-button" type="button" onClick={() => setShowAllServices((current) => !current)}>
+                {showAllServices ? 'Show preview ↑' : `View all services (${services.length}) →`}
+              </button>
           </div>
 
           <section className="overview-service-list" id="services">
@@ -176,14 +184,15 @@ export default function OverviewView({
               </div>
               <div className="overview-deployments" id="deployments">
                 {latestDeployments.length === 0 ? <div className="ht-empty">No deployments recorded yet.</div> : latestDeployments.map((deployment) => (
-                  <div className="overview-deployment" key={deployment.id}>
+                  <button className="overview-deployment" type="button" key={deployment.id} onClick={() => onDeployment(deployment.id)}>
                     <span className={`overview-deployment__dot overview-deployment__dot--${deployment.status.toLowerCase()}`} />
                     <div><strong>{deployment.service.name}</strong><span>{deployment.commitMessage || 'Message not reported'}</span></div>
                     <code>{shortHash(deployment.commitHash)}</code>
                     <span className={`ht-pill ht-pill--${deployment.status === 'SUCCESS' ? 'success' : deployment.status === 'DEPLOYING' ? 'warning' : 'danger'}`}>{deployment.status}</span>
                     <time>{relativeTime(deployment.startedAt)}</time>
-                  </div>
+                  </button>
                 ))}
+                {deployments.length > 5 && <button className="overview-history-toggle" type="button" onClick={() => setShowAllDeployments((current) => !current)}>{showAllDeployments ? 'Show recent deployments ↑' : `View all ${deployments.length} deployments ↓`}</button>}
               </div>
             </div>
             <div id="access">

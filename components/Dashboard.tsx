@@ -438,6 +438,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         onHealthSettings={openHealthSettings}
         onRunHealth={runWebhookHealth}
         onAccess={() => setAccessOpen(true)}
+        onDeployment={setSelectedDeployment}
       />
       {selectedDeploymentRecord && (
         <div
