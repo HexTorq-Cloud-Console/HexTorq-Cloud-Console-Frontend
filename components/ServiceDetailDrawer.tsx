@@ -130,7 +130,7 @@ export default function ServiceDetailDrawer({
               <dl className="detail-grid">
                 <div className="detail-item"><dt>Type</dt><dd>{service.type === 'STATIC_FRONTEND' ? 'Static frontend' : 'PM2 process'}</dd></div>
                 <div className="detail-item"><dt>Client</dt><dd>{service.client.name}</dd></div>
-                <div className="detail-item"><dt>Branch</dt><dd><code>{service.branch}</code></dd></div>
+                <div className="detail-item"><dt>Branch</dt><dd><code>{service.branch || 'origin/HEAD'}</code></dd></div>
                 <div className="detail-item"><dt>Project key</dt><dd><code>{service.projectKey}</code></dd></div>
                 <div className="detail-item"><dt>Repository</dt><dd><code>{service.repositoryUrl}</code></dd></div>
                 <div className="detail-item"><dt>Working directory</dt><dd><code>{service.workingDirectory}</code></dd></div>

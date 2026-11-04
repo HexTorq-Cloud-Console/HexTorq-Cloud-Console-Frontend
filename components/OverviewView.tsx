@@ -219,7 +219,7 @@ export default function OverviewView({
                           ) : (
                             <>Runtime telemetry unavailable</>
                           )
-                        ) : <>◈ static frontend · branch {service.branch}</>}
+                        ) : <>◈ static frontend · branch {service.branch || 'origin/HEAD'}</>}
                       </p>
                       <p className="overview-service__commit"><code>{shortHash(latest?.commitHash)}</code> {latest?.commitMessage || 'No deployment recorded yet'}</p>
                     </div>

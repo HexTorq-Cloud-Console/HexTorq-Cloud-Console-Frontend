@@ -39,7 +39,7 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
         || (filter === 'DISABLED' && !service.enabled)
         || (filter === 'AGENT_ONLINE' && service.agent.status === 'online')
         || (filter === 'AGENT_OFFLINE' && (service.agent.status === 'offline' || service.agent.status === 'unknown'));
-      const matchesQuery = !normalized || [service.name, service.branch, service.projectKey, service.repositoryUrl, service.pm2ProcessName || ''].some((value) => value.toLowerCase().includes(normalized));
+      const matchesQuery = !normalized || [service.name, service.branch || '', service.projectKey, service.repositoryUrl, service.pm2ProcessName || ''].some((value) => value.toLowerCase().includes(normalized));
       return matchesFilter && matchesQuery;
     });
   }, [filter, query, services]);
@@ -102,7 +102,7 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
                   <span className="service-tile__name"><strong>{service.name}</strong><small>{service.type === 'PM2' ? 'PM2 process' : 'Static frontend'}</small></span>
                   <span className={`ht-pill ${service.enabled ? 'ht-pill--success' : 'ht-pill--danger'}`}><span className="ht-dot" /> {service.enabled ? 'ENABLED' : 'DISABLED'}</span>
                 </button>
-                 <div className="service-tile__meta"><span>{service.agent.name}</span><span>·</span><span>{service.branch}</span>{agentOffline ? <span className="service-agent-warning">● agent {service.agent.status || 'unreachable'}</span> : service.agent.status === 'online' ? <span className="service-agent-ok">● agent online</span> : null}</div>
+                  <div className="service-tile__meta"><span>{service.agent.name}</span><span>·</span><span>{service.branch || 'origin/HEAD'}</span>{agentOffline ? <span className="service-agent-warning">● agent {service.agent.status || 'unreachable'}</span> : service.agent.status === 'online' ? <span className="service-agent-ok">● agent online</span> : null}</div>
                 <div className="service-tile__commit">
                   {latest?.status === 'SUCCESS' ? <span className="service-success-label">LAST SUCCESS</span> : null}
                   <code>{latest?.commitHash ? latest.commitHash.slice(0, 8) : '—'}</code><span>{latest?.commitMessage || 'No deployment recorded'}</span>

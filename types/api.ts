@@ -9,7 +9,7 @@ export type Service = {
   slug: string;
   type: ServiceType;
   repositoryUrl: string;
-  branch: string;
+  branch: string | null;
   projectKey: string;
   webhookUrl?: string | null;
   workingDirectory: string;

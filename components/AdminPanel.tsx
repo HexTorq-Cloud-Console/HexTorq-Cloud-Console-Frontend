@@ -41,7 +41,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
     slug: '',
     type: 'PM2',
     repositoryUrl: '',
-    branch: 'main',
+    branch: '',
      projectKey: '',
      webhookUrl: '',
      workingDirectory: '',
@@ -100,7 +100,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       const response = await fetch(`${apiUrl}/admin/repository-metadata?url=${encodeURIComponent(repositoryUrl)}`, { headers });
       const data = await responseJson<{ slug?: string; branch?: string }>(response);
       if (!response.ok) return;
-      setServiceForm((current) => ({ ...current, slug: data.slug || current.slug, branch: data.branch || current.branch || 'main' }));
+       setServiceForm((current) => ({ ...current, slug: data.slug || current.slug }));
     } catch { /* Manual values remain usable if repository metadata is unavailable. */ }
   }
 
@@ -208,7 +208,8 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
         method: 'POST',
         headers,
         body: JSON.stringify({
-           ...serviceForm,
+         ...serviceForm,
+            branch: serviceForm.branch.trim() || undefined,
            webhookUrl: serviceForm.webhookUrl || undefined,
            deployDirectory: serviceForm.type === 'STATIC_FRONTEND' ? serviceForm.deployDirectory : undefined,
           pm2ProcessName: serviceForm.type === 'PM2' ? serviceForm.pm2ProcessName : undefined,
@@ -240,7 +241,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
     setEditingService(service);
     setServiceEdit({
       name: service.name,
-      branch: service.branch,
+      branch: service.branch || '',
       enabled: service.enabled,
       templateKey: service.templateKey || '',
       pm2ProcessName: service.pm2ProcessName || '',
@@ -260,7 +261,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
     try {
       const payload: Record<string, unknown> = {
         name: serviceEdit.name,
-        branch: serviceEdit.branch,
+        branch: serviceEdit.branch.trim() || null,
         enabled: serviceEdit.enabled,
         templateKey: serviceEdit.templateKey,
       };
@@ -685,7 +686,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
                   <strong>{service.name}</strong>
                   <small>
                     {service.client?.name || 'No client'} / {service.agent?.name || 'No agent'} /{' '}
-                    {service.type.replace('_', ' ')} / {service.branch}
+                    {service.type.replace('_', ' ')} / {service.branch || 'origin/HEAD'}
                   </small>
                 </div>
                 <span className="row-meta">{service.enabled ? 'Enabled' : 'Disabled'}</span>
@@ -831,7 +832,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             </label>
             <label>
               Branch
-              <input placeholder="Detected default branch" value={serviceForm.branch} onChange={(event) => setServiceForm({ ...serviceForm, branch: event.target.value })} />
+              <input placeholder="Optional: e.g. main (blank = origin/HEAD)" value={serviceForm.branch} onChange={(event) => setServiceForm({ ...serviceForm, branch: event.target.value })} />
             </label>
             {serviceForm.type === 'PM2' ? (
               <label>
@@ -888,7 +889,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
             </label>
             <label>
               Branch
-              <input value={serviceEdit.branch} onChange={(event) => setServiceEdit({ ...serviceEdit, branch: event.target.value })} required />
+              <input placeholder="Blank = origin/HEAD" value={serviceEdit.branch} onChange={(event) => setServiceEdit({ ...serviceEdit, branch: event.target.value })} />
             </label>
             <label>
               Template
