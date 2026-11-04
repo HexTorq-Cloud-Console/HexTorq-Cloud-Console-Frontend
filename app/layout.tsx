@@ -10,6 +10,7 @@ import './pm2.css';
 import './health.css';
 import './access-alerts.css';
 import './admin.css';
+import './states.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Manrope } from 'next/font/google';
 

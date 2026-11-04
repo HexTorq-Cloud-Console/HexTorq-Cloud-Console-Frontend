@@ -12,6 +12,7 @@ import WebhookHealthView from './WebhookHealthView';
 import AccessView from './AccessView';
 import AlertsView from './AlertsView';
 import WebhookHealthPanel from './WebhookHealthPanel';
+import { ConsoleErrorState, ConsoleLoadingState } from './ConsoleStates';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
@@ -445,6 +446,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
     <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut}>
       {role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
 
+      {loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
       <OverviewView
         services={services}
         deployments={deployments}
@@ -482,6 +484,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
 
       {role === 'CLIENT' && <AccessView entries={accessEntries} />}
       <AlertsView alerts={failureAlerts} onDismiss={(id) => setFailureAlerts((current) => current.filter((alert) => alert.id !== id))} onDismissAll={() => setFailureAlerts([])} />
+      </>}
 
       {pm2Confirm && (() => {
         const service = services.find((item) => item.id === pm2Confirm.serviceId);

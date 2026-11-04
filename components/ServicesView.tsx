@@ -79,13 +79,13 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
             const busy = deploying === service.id;
             const action = pm2Action?.startsWith(`${service.id}:`) ? pm2Action.split(':')[1] : null;
             return (
-              <article className={`service-tile${service.enabled ? '' : ' is-disabled'}`} key={service.id}>
+              <article className={`service-tile${service.enabled ? '' : ' is-disabled'}${service.agent.enabled ? '' : ' is-agent-offline'}`} key={service.id}>
                 <button type="button" className="service-tile__head" onClick={() => onDetails(service)} aria-label={`Open details for ${service.name}`}>
                   <span className={`service-tile__icon service-tile__icon--${service.type === 'PM2' ? 'pm2' : 'static'}`} aria-hidden="true">{service.type === 'PM2' ? '▣' : '▤'}</span>
                   <span className="service-tile__name"><strong>{service.name}</strong><small>{service.type === 'PM2' ? 'PM2 process' : 'Static frontend'}</small></span>
                   <span className={`ht-pill ${service.enabled ? 'ht-pill--success' : 'ht-pill--danger'}`}><span className="ht-dot" /> {service.enabled ? 'ENABLED' : 'DISABLED'}</span>
                 </button>
-                <div className="service-tile__meta"><span>{service.agent.name}</span><span>·</span><span>{service.branch}</span></div>
+                 <div className="service-tile__meta"><span>{service.agent.name}</span><span>·</span><span>{service.branch}</span>{!service.agent.enabled && <span className="service-agent-warning">● agent unreachable</span>}</div>
                 <div className="service-tile__commit"><code>{latest?.commitHash ? latest.commitHash.slice(0, 8) : '—'}</code><span>{latest?.commitMessage || 'No deployment recorded'}</span></div>
                 <div className="service-tile__runtime">
                   {service.type === 'PM2' ? <><span className={`ht-dot ${status?.status === 'online' ? 'ht-dot--live' : ''}`} style={{ color: status?.status === 'online' ? 'var(--ht-success)' : 'var(--ht-danger)' }} /> {status?.status || 'unknown'} <span>·</span> CPU {status?.cpu ?? 0}% <span>·</span> {Math.round((status?.memory || 0) / 1024 / 1024)} MB <span>·</span> {status?.restarts || 0} restarts</> : <>◈ static frontend <span>·</span> {service.deployDirectory || service.workingDirectory}</>}
