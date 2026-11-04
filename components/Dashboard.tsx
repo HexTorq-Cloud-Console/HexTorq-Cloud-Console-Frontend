@@ -5,6 +5,7 @@ import AccessEntryCard from './AccessEntryCard';
 import AdminPanel from './AdminPanel';
 import AppShell from './AppShell';
 import Modal from './Modal';
+import OverviewView from './OverviewView';
 import WebhookHealthPanel from './WebhookHealthPanel';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
@@ -421,196 +422,23 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
 
   return (
     <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut}>
-      <div id="overview" />
-
       {role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
 
-      <div id="alerts" />
-      {failureAlerts.length > 0 && (
-        <section className="failure-alert-panel" aria-live="assertive">
-          <div className="failure-alert-heading">
-            <div>
-              <p className="eyebrow">DEPLOYMENT ALERTS</p>
-              <h2>Action required</h2>
-            </div>
-            <button className="secondary" type="button" onClick={() => setFailureAlerts([])}>Dismiss all</button>
-          </div>
-          <div className="failure-alert-list">
-            {failureAlerts.map((alert) => (
-              <article className="failure-alert" key={alert.id}>
-                <div className="failure-alert-meta">
-                  <strong>{alert.title}</strong>
-                  <span>{new Date(alert.timestamp).toLocaleString()}</span>
-                </div>
-                <pre>{alert.details}</pre>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {role === 'CLIENT' && (
-        <section className="access-banner" id="access">
-          <div>
-            <p className="eyebrow">CLIENT ACCESS</p>
-            <h2>FileZilla & database credentials</h2>
-            <p className="muted">
-              {accessEntries.length === 0
-                ? 'No access credentials have been assigned to your account yet.'
-                : `${accessEntries.length} active access ${accessEntries.length === 1 ? 'entry is' : 'entries are'} available.`}
-            </p>
-          </div>
-          <button className="secondary" onClick={() => setAccessOpen(true)}>
-            View access
-          </button>
-        </section>
-      )}
-
-      {role === 'CLIENT' && (
-        <div id="health">
-          <WebhookHealthPanel
-            health={health}
-            loading={healthLoading}
-            error={healthError}
-            runLoading={healthRunLoading}
-            onSettings={openHealthSettings}
-            onRun={runWebhookHealth}
-          />
-        </div>
-      )}
-
-      <section className="welcome" id="services">
-        <p className="muted">Connected services</p>
-        <h2>Service overview</h2>
-        {error && <p className="error">{error}</p>}
-        {loading ? (
-          <p className="muted">Loading services...</p>
-        ) : services.length === 0 && !error ? (
-          <p className="muted">No services have been configured yet.</p>
-        ) : (
-          <div className="service-grid">
-            {services.map((service) => (
-              <article className="service-card" key={service.id}>
-                <div className={`service-status ${service.enabled ? '' : 'offline'}`} />
-                <h3>{service.name}</h3>
-                <p>
-                  {service.type.replace('_', ' ')} / {service.agent.name}
-                  {service.enabled ? '' : ' / disabled'}
-                </p>
-                <small>{service.client.name}</small>
-                {(() => {
-                  const latestDeployment = deployments.find((deployment) => deployment.service.id === service.id);
-                  return latestDeployment ? (
-                    <div className="service-commit">
-                      <small>
-                        Latest commit: {latestDeployment.commitHash ? latestDeployment.commitHash.slice(0, 8) : 'not reported'}
-                        {latestDeployment.commitMessage ? ` — ${latestDeployment.commitMessage}` : ''}
-                      </small>
-                      <a href={service.repositoryUrl} target="_blank" rel="noreferrer">View Git repository</a>
-                    </div>
-                  ) : (
-                    <a className="service-repository-link" href={service.repositoryUrl} target="_blank" rel="noreferrer">View Git repository</a>
-                  );
-                })()}
-                {service.type === 'PM2' && pm2Status[service.id] && (
-                  <p className="pm2-status">
-                    {pm2Status[service.id].status || 'unknown'} / CPU {pm2Status[service.id].cpu ?? 0}% /{' '}
-                    {Math.round((pm2Status[service.id].memory || 0) / 1024 / 1024)} MB /{' '}
-                    {pm2Status[service.id].restarts || 0} restarts
-                  </p>
-                )}
-                <div className="deploy-actions">
-                  <button className="deploy-button" onClick={() => deploy(service.id, false)} disabled={!service.enabled || deploying === service.id}>
-                    {!service.enabled ? 'Disabled' : deploying === service.id ? 'Triggering...' : 'Normal deploy'}
-                  </button>
-                  <button className="secondary" onClick={() => deploy(service.id, true)} disabled={!service.enabled || deploying === service.id}>
-                    Force deploy
-                  </button>
-                </div>
-                <button className="secondary" onClick={() => setHistoryServiceId(historyServiceId === service.id ? null : service.id)}>
-                  {historyServiceId === service.id ? 'Hide project history' : 'View project history'}
-                </button>
-                {historyServiceId === service.id && (
-                  <div className="service-history">
-                    {deployments.filter((deployment) => deployment.service.id === service.id).slice(0, 5).map((deployment) => (
-                      <button className="service-history-row" key={deployment.id} onClick={() => setSelectedDeployment(deployment.id)}>
-                        <span className={`badge ${deployment.status.toLowerCase()}`}>{deployment.status}</span>
-                        <span>{deployment.triggerSource}</span>
-                        <span>{new Date(deployment.startedAt).toLocaleString()}</span>
-                      </button>
-                    ))}
-                    {deployments.filter((deployment) => deployment.service.id === service.id).length === 0 && (
-                      <small className="muted">No deployments recorded for this project.</small>
-                    )}
-                  </div>
-                )}
-                {service.type === 'PM2' && (
-                  <>
-                    <button className="secondary pm2-log-button" onClick={() => openPm2Logs(service)} disabled={!service.enabled}>
-                      View live PM2 logs
-                    </button>
-                    <div className="pm2-actions">
-                      {['start', 'stop', 'restart', 'reload'].map((action) => (
-                        <button
-                          className="pm2-button"
-                          key={action}
-                          onClick={() => controlPm2(service.id, action)}
-                          disabled={!service.enabled || pm2Action === `${service.id}:${action}`}
-                        >
-                          {pm2Action === `${service.id}:${action}` ? '...' : action}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-
-        <div className="history-heading" id="deployments">
-          <p className="muted">Permanent deployment metadata</p>
-          <h2>Deployment history</h2>
-        </div>
-        {deployments.length === 0 ? (
-          <p className="muted">No deployments recorded yet.</p>
-        ) : (
-          <div className="history-table">
-            <div className="history-row history-header">
-              <span>Service</span>
-              <span>Status</span>
-              <span>Trigger</span>
-              <span>Started</span>
-              <span>Duration</span>
-              <span>Commit</span>
-              <span>Commit message</span>
-            </div>
-            {deployments.map((deployment) => (
-              <div
-                className="history-row"
-                key={deployment.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedDeployment(deployment.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') setSelectedDeployment(deployment.id);
-                }}
-              >
-                <strong>{deployment.service.name}</strong>
-                <span className={`badge ${deployment.status.toLowerCase()}`}>{deployment.status}</span>
-                <span>{deployment.triggerSource}</span>
-                <span>{new Date(deployment.startedAt).toLocaleString()}</span>
-                <span>{deployment.durationMs ? `${Math.round(deployment.durationMs / 1000)}s` : 'Running'}</span>
-                <span title={deployment.commitHash || undefined}>{deployment.commitHash ? deployment.commitHash.slice(0, 8) : '—'}</span>
-                <span className="commit-message" title={deployment.commitMessage || undefined}>
-                  {deployment.commitMessage || 'Message not reported'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
+      <OverviewView
+        services={services}
+        deployments={deployments}
+        pm2Status={pm2Status}
+        health={health}
+        healthLoading={healthLoading}
+        healthError={healthError}
+        healthRunLoading={healthRunLoading}
+        failureAlerts={failureAlerts}
+        onDeploy={deploy}
+        deploying={deploying}
+        onHealthSettings={openHealthSettings}
+        onRunHealth={runWebhookHealth}
+        onAccess={() => setAccessOpen(true)}
+      />
       {selectedDeploymentRecord && (
         <div
           className="modal-backdrop"
