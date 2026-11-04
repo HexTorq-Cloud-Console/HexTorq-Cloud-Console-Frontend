@@ -7,6 +7,7 @@ import AppShell from './AppShell';
 import Modal from './Modal';
 import OverviewView from './OverviewView';
 import ServicesView from './ServicesView';
+import DeploymentsView from './DeploymentsView';
 import WebhookHealthPanel from './WebhookHealthPanel';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
@@ -454,6 +455,8 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         onLogs={openPm2Logs}
         onDetails={setSelectedService}
       />
+
+      <DeploymentsView deployments={deployments} services={services} onOpen={setSelectedDeployment} />
 
       {selectedService && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedService(null); }}>

@@ -180,7 +180,7 @@ export default function OverviewView({
           <section className="overview-lower-grid">
             <div>
               <div className="overview-section-heading overview-section-heading--compact">
-                <h2>Recent deployments</h2><a href="#deployments">View history →</a>
+                <h2>Recent deployments</h2><a href="#deployments-list">View history →</a>
               </div>
               <div className="overview-deployments" id="deployments">
                 {latestDeployments.length === 0 ? <div className="ht-empty">No deployments recorded yet.</div> : latestDeployments.map((deployment) => (
