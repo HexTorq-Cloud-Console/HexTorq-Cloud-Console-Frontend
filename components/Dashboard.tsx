@@ -6,6 +6,7 @@ import AdminPanel from './AdminPanel';
 import AppShell from './AppShell';
 import Modal from './Modal';
 import OverviewView from './OverviewView';
+import ServicesView from './ServicesView';
 import WebhookHealthPanel from './WebhookHealthPanel';
 import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
@@ -31,6 +32,7 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
   const [pm2Action, setPm2Action] = useState<string | null>(null);
   const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>({});
   const [selectedDeployment, setSelectedDeployment] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [historyServiceId, setHistoryServiceId] = useState<string | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([]);
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
@@ -440,6 +442,44 @@ function Dashboard({ token, role, email }: { token: string; role: string; email?
         onAccess={() => setAccessOpen(true)}
         onDeployment={setSelectedDeployment}
       />
+
+      <ServicesView
+        services={services}
+        deployments={deployments}
+        pm2Status={pm2Status}
+        deploying={deploying}
+        pm2Action={pm2Action}
+        onDeploy={deploy}
+        onPm2={controlPm2}
+        onLogs={openPm2Logs}
+        onDetails={setSelectedService}
+      />
+
+      {selectedService && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedService(null); }}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-label={`Details for ${selectedService.name}`}>
+            <button className="modal-close" aria-label="Close" onClick={() => setSelectedService(null)}>x</button>
+            <p className="eyebrow">SERVICE DETAILS</p>
+            <h2>{selectedService.name}</h2>
+            <p className="modal-subtitle">{selectedService.type === 'PM2' ? 'PM2 runtime service' : 'Static frontend service'} · {selectedService.enabled ? 'Enabled' : 'Disabled'}</p>
+            <div className="service-detail-grid">
+              <div className="service-detail-item"><span>Type</span><strong>{selectedService.type === 'STATIC_FRONTEND' ? 'Static frontend' : 'PM2 process'}</strong></div>
+              <div className="service-detail-item"><span>Branch</span><code>{selectedService.branch}</code></div>
+              <div className="service-detail-item"><span>Project key</span><code>{selectedService.projectKey}</code></div>
+              <div className="service-detail-item"><span>Working directory</span><code>{selectedService.workingDirectory}</code></div>
+              <div className="service-detail-item"><span>Deploy directory</span><code>{selectedService.deployDirectory || 'Not configured'}</code></div>
+              <div className="service-detail-item"><span>PM2 process</span><code>{selectedService.pm2ProcessName || 'Not applicable'}</code></div>
+              <div className="service-detail-item"><span>Assigned agent</span><strong>{selectedService.agent.name}</strong></div>
+              <div className="service-detail-item"><span>Repository</span><code>{selectedService.repositoryUrl}</code></div>
+            </div>
+            <div className="service-detail-actions">
+              <button className="ht-btn ht-btn--primary" type="button" onClick={() => { setSelectedService(null); void deploy(selectedService.id); }}>Normal deploy</button>
+              <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { setSelectedService(null); void deploy(selectedService.id, true); }}>Force deploy</button>
+              {selectedService.type === 'PM2' && <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { setSelectedService(null); void openPm2Logs(selectedService); }}>View live logs</button>}
+            </div>
+          </section>
+        </div>
+      )}
       {selectedDeploymentRecord && (
         <div
           className="modal-backdrop"
