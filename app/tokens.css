@@ -1,0 +1,179 @@
+/* HexTorq Kinetic — design tokens (Phase 1)
+   Namespaced --ht-* so the legacy tokens in globals.css keep working unchanged
+   until each screen is migrated onto the new shell. */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --ht-canvas: #07080d;
+  --ht-nav: #0b0d14;
+  --ht-card: #10131c;
+  --ht-elevated: #161a26;
+  --ht-overlay: #1d2232;
+
+  /* Hairlines */
+  --ht-line-subtle: #181c28;
+  --ht-line: #232838;
+  --ht-line-focus: #38405a;
+
+  /* Text */
+  --ht-text: #f4f5fa;
+  --ht-text-secondary: #9aa1b5;
+  --ht-text-muted: #646b80;
+
+  /* Brand */
+  --ht-blue: #1f5eff;
+  --ht-indigo: #4f46e5;
+  --ht-violet: #7b2fd6;
+  --ht-violet-bright: #8a3ffc;
+  --ht-gradient: linear-gradient(135deg, #1f5eff 0%, #4f46e5 50%, #8a3ffc 100%);
+  --ht-gradient-cta: linear-gradient(135deg, #1f5eff 0%, #8a3ffc 100%);
+
+  /* Status */
+  --ht-success: #2fd08a;
+  --ht-warning: #f5b83d;
+  --ht-danger: #ff5c6c;
+  --ht-info: #3b82f6;
+
+  /* Status tints (10% fill / 20% border) */
+  --ht-success-fill: rgba(47, 208, 138, 0.1);
+  --ht-success-line: rgba(47, 208, 138, 0.2);
+  --ht-warning-fill: rgba(245, 184, 61, 0.1);
+  --ht-warning-line: rgba(245, 184, 61, 0.2);
+  --ht-danger-fill: rgba(255, 92, 108, 0.1);
+  --ht-danger-line: rgba(255, 92, 108, 0.25);
+  --ht-info-fill: rgba(59, 130, 246, 0.1);
+  --ht-info-line: rgba(59, 130, 246, 0.2);
+  --ht-blue-fill: rgba(31, 94, 255, 0.12);
+  --ht-blue-line: rgba(31, 94, 255, 0.35);
+  --ht-violet-fill: rgba(123, 47, 214, 0.12);
+  --ht-violet-line: rgba(123, 47, 214, 0.35);
+
+  /* Radii */
+  --ht-radius-xs: 4px;
+  --ht-radius: 8px;
+  --ht-radius-md: 12px;
+  --ht-radius-lg: 16px;
+  --ht-radius-xl: 24px;
+  --ht-radius-pill: 9999px;
+
+  /* Spacing (4px baseline) */
+  --ht-space-2xs: 2px;
+  --ht-space-xs: 4px;
+  --ht-space-sm: 8px;
+  --ht-space-md: 12px;
+  --ht-space-lg: 16px;
+  --ht-space-xl: 24px;
+  --ht-space-2xl: 32px;
+  --ht-space-3xl: 48px;
+
+  /* Layout */
+  --ht-sidebar: 240px;
+  --ht-sidebar-rail: 64px;
+  --ht-topbar: 48px;
+  --ht-page-gutter: var(--ht-space-xl);
+  --ht-page-gutter-mobile: var(--ht-space-lg);
+
+  /* Elevation */
+  --ht-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ht-shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.6);
+  --ht-shadow-3: 0 12px 32px -4px rgba(0, 0, 0, 0.8);
+  --ht-glow-blue: 0 0 16px -2px rgba(31, 94, 255, 0.35);
+  --ht-glow-danger: 0 0 12px -2px rgba(255, 92, 108, 0.3);
+
+  /* Typography */
+  --ht-font-body: var(--font-inter), Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ht-font-heading: var(--font-manrope), Manrope, var(--ht-font-body);
+  --ht-font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Motion */
+  --ht-transition: 120ms ease;
+}
+
+/* ---------------------------------------------------------------- Typography */
+
+.ht-h1 {
+  margin: 0;
+  font: 700 32px/40px var(--ht-font-heading);
+  letter-spacing: -0.025em;
+  color: var(--ht-text);
+}
+
+.ht-h2 {
+  margin: 0;
+  font: 600 24px/32px var(--ht-font-heading);
+  letter-spacing: -0.02em;
+  color: var(--ht-text);
+}
+
+.ht-h3 {
+  margin: 0;
+  font: 600 18px/24px var(--ht-font-heading);
+  letter-spacing: -0.015em;
+  color: var(--ht-text);
+}
+
+.ht-body {
+  font: 400 16px/24px var(--ht-font-body);
+  color: var(--ht-text);
+}
+
+.ht-body-md {
+  font: 400 14px/20px var(--ht-font-body);
+  color: var(--ht-text);
+}
+
+.ht-body-sm {
+  font: 400 13px/18px var(--ht-font-body);
+  color: var(--ht-text-secondary);
+}
+
+.ht-label-caps {
+  font: 600 11px/16px var(--ht-font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ht-text-muted);
+}
+
+.ht-label {
+  font: 500 13px/18px var(--ht-font-body);
+  color: var(--ht-text-secondary);
+}
+
+.ht-mono {
+  font-family: var(--ht-font-mono);
+}
+
+.ht-code-lg {
+  font: 400 14px/22px var(--ht-font-mono);
+}
+
+.ht-code-sm {
+  font: 400 12px/18px var(--ht-font-mono);
+}
+
+.ht-code-xs {
+  font: 500 11px/16px var(--ht-font-mono);
+}
+
+.ht-muted {
+  color: var(--ht-text-muted);
+}
+
+.ht-secondary {
+  color: var(--ht-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .ht-h1 {
+    font-size: 26px;
+    line-height: 34px;
+    letter-spacing: -0.02em;
+  }
+
+  .ht-h2 {
+    font-size: 20px;
+    line-height: 28px;
+  }
+}
