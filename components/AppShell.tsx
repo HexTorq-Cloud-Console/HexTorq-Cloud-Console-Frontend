@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from './Logo';
+import ThemeToggle from './ThemeToggle';
 
 type IconName =
   | 'overview'
@@ -26,6 +27,7 @@ type AppShellProps = {
   email?: string;
   alertCount?: number;
   onSignOut: () => void;
+  onOpenPalette?: () => void;
   children: ReactNode;
 };
 
@@ -144,7 +146,7 @@ const CLIENT_GROUPS: NavGroup[] = [
   },
 ];
 
-export default function AppShell({ role, email, alertCount = 0, onSignOut, children }: AppShellProps) {
+export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpenPalette, children }: AppShellProps) {
   const isAdmin = role === 'SUPER_ADMIN';
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -317,7 +319,17 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, child
             <strong>{activeLabel}</strong>
           </nav>
 
+          <button type="button" className="shell-search" onClick={onOpenPalette} aria-label="Search anything">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.2-3.2" />
+            </svg>
+            <span className="shell-search__text">Search anything...</span>
+            <kbd className="shell-search__kbd">Ctrl K</kbd>
+          </button>
+
           <div className="shell-top-actions">
+            <ThemeToggle />
             <span className="shell-avatar shell-avatar--sm" aria-hidden="true">
               {initialsFrom(email)}
             </span>

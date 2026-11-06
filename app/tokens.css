@@ -2,60 +2,89 @@
    Namespaced --ht-* so the legacy tokens in globals.css keep working unchanged
    until each screen is migrated onto the new shell. */
 
-:root {
-  color-scheme: dark;
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
 
   /* Surfaces */
-  --ht-canvas: #07080d;
-  --ht-nav: #0b0d14;
-  --ht-card: #10131c;
-  --ht-elevated: #161a26;
-  --ht-overlay: #1d2232;
+  --ht-canvas: #f5f5f2;
+  --ht-nav: #fbfbf9;
+  --ht-card: #ffffff;
+  --ht-elevated: #f2f2ee;
+  --ht-overlay: #e9e9e4;
 
   /* Hairlines */
-  --ht-line-subtle: #181c28;
-  --ht-line: #232838;
-  --ht-line-focus: #38405a;
+  --ht-line-subtle: #efefea;
+  --ht-line: #e5e5df;
+  --ht-line-focus: #d3d3cb;
 
   /* Text */
-  --ht-text: #f4f5fa;
-  --ht-text-secondary: #9aa1b5;
-  --ht-text-muted: #646b80;
+  --ht-text: #17181b;
+  --ht-text-secondary: #5f646d;
+  --ht-text-muted: #8a8f98;
 
   /* Brand */
-  --ht-blue: #1f5eff;
+  --ht-blue: #2563eb;
   --ht-indigo: #4f46e5;
-  --ht-violet: #7b2fd6;
+  --ht-violet: #7c3aed;
   --ht-violet-bright: #8a3ffc;
   --ht-gradient: linear-gradient(135deg, #1f5eff 0%, #4f46e5 50%, #8a3ffc 100%);
-  --ht-gradient-cta: linear-gradient(135deg, #1f5eff 0%, #8a3ffc 100%);
+  --ht-gradient-cta: linear-gradient(135deg, #17181b 0%, #2d313a 100%);
+  --ht-primary: #17181b;
+  --ht-primary-contrast: #ffffff;
+
+  --ht-accent: #ef5b2a;
+  --ht-accent-fill: #fdeee8;
+  --ht-accent-line: #f6cbbb;
+  --ht-accent-text: #c2410c;
+  --ht-link: #b45309;
+  --ht-violet-text: #6d28d9;
+  --ht-indigo-text: #4338ca;
+  --ht-code-text: #334155;
+  --ht-danger-text: #b42318;
+  --ht-warning-text: #92400e;
+
+  --ht-teal: #0e9f9f;
+  --ht-teal-fill: #e4f6f5;
+  --ht-teal-line: #b9e7e5;
+  --ht-navy: #123b55;
+  --ht-navy-fill: #e9f0f5;
+  --ht-navy-line: #cbdde8;
+  --ht-amber: #d99a06;
+  --ht-amber-fill: #fdf5df;
+  --ht-amber-line: #f3e2b3;
+
+  --ht-chart-1: #ef5b2a;
+  --ht-chart-2: #0e9f9f;
+  --ht-chart-3: #123b55;
+  --ht-chart-4: #d99a06;
 
   /* Status */
-  --ht-success: #2fd08a;
-  --ht-warning: #f5b83d;
-  --ht-danger: #ff5c6c;
-  --ht-info: #3b82f6;
+  --ht-success: #0f9d6e;
+  --ht-warning: #b45309;
+  --ht-danger: #d92d20;
+  --ht-info: #2563eb;
 
   /* Status tints (10% fill / 20% border) */
-  --ht-success-fill: rgba(47, 208, 138, 0.1);
-  --ht-success-line: rgba(47, 208, 138, 0.2);
-  --ht-warning-fill: rgba(245, 184, 61, 0.1);
-  --ht-warning-line: rgba(245, 184, 61, 0.2);
-  --ht-danger-fill: rgba(255, 92, 108, 0.1);
-  --ht-danger-line: rgba(255, 92, 108, 0.25);
-  --ht-info-fill: rgba(59, 130, 246, 0.1);
-  --ht-info-line: rgba(59, 130, 246, 0.2);
-  --ht-blue-fill: rgba(31, 94, 255, 0.12);
-  --ht-blue-line: rgba(31, 94, 255, 0.35);
-  --ht-violet-fill: rgba(123, 47, 214, 0.12);
-  --ht-violet-line: rgba(123, 47, 214, 0.35);
+  --ht-success-fill: rgba(15, 157, 110, 0.09);
+  --ht-success-line: rgba(15, 157, 110, 0.22);
+  --ht-warning-fill: rgba(180, 83, 9, 0.09);
+  --ht-warning-line: rgba(180, 83, 9, 0.22);
+  --ht-danger-fill: rgba(217, 45, 32, 0.08);
+  --ht-danger-line: rgba(217, 45, 32, 0.22);
+  --ht-info-fill: rgba(37, 99, 235, 0.08);
+  --ht-info-line: rgba(37, 99, 235, 0.2);
+  --ht-blue-fill: rgba(37, 99, 235, 0.09);
+  --ht-blue-line: rgba(37, 99, 235, 0.26);
+  --ht-violet-fill: rgba(124, 58, 237, 0.09);
+  --ht-violet-line: rgba(124, 58, 237, 0.24);
 
   /* Radii */
-  --ht-radius-xs: 4px;
-  --ht-radius: 8px;
-  --ht-radius-md: 12px;
-  --ht-radius-lg: 16px;
-  --ht-radius-xl: 24px;
+  --ht-radius-xs: 6px;
+  --ht-radius: 10px;
+  --ht-radius-md: 14px;
+  --ht-radius-lg: 18px;
+  --ht-radius-xl: 26px;
   --ht-radius-pill: 9999px;
 
   /* Spacing (4px baseline) */
@@ -71,16 +100,20 @@
   /* Layout */
   --ht-sidebar: 240px;
   --ht-sidebar-rail: 64px;
-  --ht-topbar: 48px;
+  --ht-topbar: 56px;
   --ht-page-gutter: var(--ht-space-xl);
   --ht-page-gutter-mobile: var(--ht-space-lg);
 
   /* Elevation */
-  --ht-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --ht-shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.6);
-  --ht-shadow-3: 0 12px 32px -4px rgba(0, 0, 0, 0.8);
-  --ht-glow-blue: 0 0 16px -2px rgba(31, 94, 255, 0.35);
-  --ht-glow-danger: 0 0 12px -2px rgba(255, 92, 108, 0.3);
+  --ht-shadow-1: 0 1px 2px rgba(23, 24, 27, 0.05);
+  --ht-shadow-2: 0 10px 24px -14px rgba(23, 24, 27, 0.2);
+  --ht-shadow-3: 0 28px 70px -24px rgba(23, 24, 27, 0.28);
+  --ht-glow-blue: 0 10px 24px -14px rgba(23, 24, 27, 0.4);
+  --ht-glow-danger: 0 8px 20px -12px rgba(217, 45, 32, 0.45);
+
+  --ht-backdrop: rgba(23, 24, 27, 0.32);
+  --ht-log-bg: #0c1016;
+  --ht-log-text: #dbe4f0;
 
   /* Typography */
   --ht-font-body: var(--font-inter), Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -88,7 +121,84 @@
   --ht-font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Motion */
-  --ht-transition: 120ms ease;
+  --ht-transition: 140ms ease;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ht-canvas: #07080d;
+  --ht-nav: #0b0d14;
+  --ht-card: #10131c;
+  --ht-elevated: #161a26;
+  --ht-overlay: #1d2232;
+
+  --ht-line-subtle: #181c28;
+  --ht-line: #232838;
+  --ht-line-focus: #38405a;
+
+  --ht-text: #f4f5fa;
+  --ht-text-secondary: #9aa1b5;
+  --ht-text-muted: #646b80;
+
+  --ht-gradient: linear-gradient(135deg, #1f5eff 0%, #4f46e5 50%, #8a3ffc 100%);
+  --ht-gradient-cta: linear-gradient(135deg, #1f5eff 0%, #8a3ffc 100%);
+  --ht-primary: #1f5eff;
+  --ht-primary-contrast: #ffffff;
+
+  --ht-accent: #8a3ffc;
+  --ht-accent-fill: rgba(138, 63, 252, 0.14);
+  --ht-accent-line: rgba(138, 63, 252, 0.35);
+  --ht-accent-text: #cda8ff;
+  --ht-link: #b6c4ff;
+  --ht-violet-text: #cda8ff;
+  --ht-indigo-text: #c3c0ff;
+  --ht-code-text: #d7e3f5;
+  --ht-danger-text: #ffb4ab;
+  --ht-warning-text: #f5b83d;
+
+  --ht-teal: #2fd08a;
+  --ht-teal-fill: rgba(47, 208, 138, 0.1);
+  --ht-teal-line: rgba(47, 208, 138, 0.22);
+  --ht-navy: #79a8ff;
+  --ht-navy-fill: rgba(121, 168, 255, 0.1);
+  --ht-navy-line: rgba(121, 168, 255, 0.24);
+  --ht-amber: #f5b83d;
+  --ht-amber-fill: rgba(245, 184, 61, 0.1);
+  --ht-amber-line: rgba(245, 184, 61, 0.22);
+
+  --ht-chart-1: #4f7cff;
+  --ht-chart-2: #2fd08a;
+  --ht-chart-3: #8a3ffc;
+  --ht-chart-4: #f5b83d;
+
+  --ht-success: #2fd08a;
+  --ht-warning: #f5b83d;
+  --ht-danger: #ff5c6c;
+  --ht-info: #3b82f6;
+
+  --ht-success-fill: rgba(47, 208, 138, 0.1);
+  --ht-success-line: rgba(47, 208, 138, 0.2);
+  --ht-warning-fill: rgba(245, 184, 61, 0.1);
+  --ht-warning-line: rgba(245, 184, 61, 0.2);
+  --ht-danger-fill: rgba(255, 92, 108, 0.1);
+  --ht-danger-line: rgba(255, 92, 108, 0.25);
+  --ht-info-fill: rgba(59, 130, 246, 0.1);
+  --ht-info-line: rgba(59, 130, 246, 0.2);
+  --ht-blue-fill: rgba(31, 94, 255, 0.12);
+  --ht-blue-line: rgba(31, 94, 255, 0.35);
+  --ht-violet-fill: rgba(123, 47, 214, 0.12);
+  --ht-violet-line: rgba(123, 47, 214, 0.35);
+
+  --ht-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ht-shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.6);
+  --ht-shadow-3: 0 12px 32px -4px rgba(0, 0, 0, 0.8);
+  --ht-glow-blue: 0 0 16px -2px rgba(31, 94, 255, 0.35);
+  --ht-glow-danger: 0 0 12px -2px rgba(255, 92, 108, 0.3);
+
+  --ht-backdrop: rgba(4, 5, 9, 0.66);
+  --ht-log-bg: #030509;
+  --ht-log-text: #dbe4f0;
 }
 
 /* ---------------------------------------------------------------- Typography */

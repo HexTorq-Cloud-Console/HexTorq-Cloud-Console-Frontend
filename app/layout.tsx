@@ -21,15 +21,22 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jet
 
 export const metadata: Metadata = { title: 'HexTorq Cloud Console', description: 'Managed deployment console' };
 
-export const viewport: Viewport = { themeColor: '#07080d', colorScheme: 'dark' };
+export const viewport: Viewport = { themeColor: '#f5f5f2', colorScheme: 'light dark' };
+
+const themeBoot = `(function(){try{var theme=window.localStorage.getItem('hextorq-theme');document.documentElement.dataset.theme=theme==='dark'?'dark':'light';}catch(error){document.documentElement.dataset.theme='light';}})();`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
+      data-theme="light"
+      suppressHydrationWarning
       className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
+        {children}
+      </body>
     </html>
   );
 }

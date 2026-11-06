@@ -100,9 +100,9 @@ h4 {
 }
 
 .ht-btn--primary {
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--ht-line);
   background: var(--ht-gradient-cta);
-  color: #fff;
+  color: var(--ht-primary-contrast);
   box-shadow: var(--ht-shadow-1);
 }
 
@@ -130,7 +130,7 @@ h4 {
 
 .ht-btn--danger:hover:not(:disabled) {
   border-color: var(--ht-danger);
-  background: rgba(255, 92, 108, 0.2);
+  background: var(--ht-danger-fill);
   box-shadow: var(--ht-glow-danger);
 }
 
@@ -170,6 +170,32 @@ h4 {
   height: 40px;
   padding: 0 18px;
   font-size: 14px;
+}
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius);
+  background: var(--ht-card);
+  color: var(--ht-text-secondary);
+  cursor: pointer;
+  transition: background var(--ht-transition), border-color var(--ht-transition), color var(--ht-transition);
+}
+
+.theme-toggle:hover {
+  border-color: var(--ht-line-focus);
+  background: var(--ht-elevated);
+  color: var(--ht-text);
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ht-canvas), 0 0 0 4px var(--ht-blue);
 }
 
 /* ------------------------------------------------------------------- Pills */
@@ -214,14 +240,14 @@ h4 {
 
 .ht-pill--neutral {
   border-color: var(--ht-line);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--ht-elevated);
   color: var(--ht-text-secondary);
 }
 
 .ht-pill--brand {
   border-color: var(--ht-blue-line);
   background: var(--ht-blue-fill);
-  color: #b6c4ff;
+  color: var(--ht-link);
 }
 
 /* Runtime dot */
@@ -240,15 +266,15 @@ h4 {
 
 @keyframes ht-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(47, 208, 138, 0.7);
+    box-shadow: 0 0 0 0 var(--ht-success);
   }
 
   70% {
-    box-shadow: 0 0 0 4px rgba(47, 208, 138, 0);
+    box-shadow: 0 0 0 4px transparent;
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(47, 208, 138, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
@@ -273,25 +299,25 @@ h4 {
 .ht-badge--pm2 {
   border-color: var(--ht-blue-line);
   background: var(--ht-blue-fill);
-  color: #b6c4ff;
+  color: var(--ht-link);
 }
 
 .ht-badge--static {
   border-color: var(--ht-line);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--ht-elevated);
   color: var(--ht-text-secondary);
 }
 
 .ht-badge--console {
   border-color: var(--ht-violet-line);
   background: var(--ht-violet-fill);
-  color: #cda8ff;
+  color: var(--ht-violet-text);
 }
 
 .ht-badge--webhook {
   border-color: var(--ht-info-line);
   background: var(--ht-info-fill);
-  color: #93c5fd;
+  color: var(--ht-info);
 }
 
 /* ------------------------------------------------------------------ Inputs */
@@ -360,7 +386,7 @@ h4 {
 .ht-textarea:focus {
   outline: none;
   border-color: var(--ht-blue);
-  box-shadow: 0 0 0 1px var(--ht-blue), 0 0 12px -2px rgba(31, 94, 255, 0.45);
+  box-shadow: 0 0 0 1px var(--ht-blue), 0 0 0 4px var(--ht-blue-fill);
 }
 
 .ht-input:disabled,
@@ -373,8 +399,8 @@ h4 {
 .ht-field--invalid .ht-input,
 .ht-field--invalid .ht-select,
 .ht-field--invalid .ht-textarea {
-  border-color: rgba(255, 92, 108, 0.6);
-  box-shadow: 0 0 0 1px rgba(255, 92, 108, 0.35);
+  border-color: var(--ht-danger-line);
+  box-shadow: 0 0 0 3px var(--ht-danger-fill);
 }
 
 /* ------------------------------------------------------------------ Toggle */

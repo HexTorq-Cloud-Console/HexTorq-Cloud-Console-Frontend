@@ -84,7 +84,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const accessRequest = role === 'CLIENT' ? fetch(`${apiUrl}/access`, { headers }) : Promise.resolve(null);
-      const analyticsRequest = fetch(`${apiUrl}/analytics?days=7`, { headers }).catch(() => null);
+      const analyticsRequest = fetch(`${apiUrl}/analytics?days=14`, { headers }).catch(() => null);
       const [serviceResponse, deploymentResponse, accessResponse, analyticsResult] = await Promise.all([
         fetch(`${apiUrl}/services`, { headers }),
         fetch(`${apiUrl}/deployments?limit=100`, { headers }),
@@ -544,7 +544,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
 
   return (
-    <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut}>
+      <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut} onOpenPalette={() => setPaletteOpen(true)}>
       {section === 'admin' && role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
 
       {section !== 'admin' && (loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>

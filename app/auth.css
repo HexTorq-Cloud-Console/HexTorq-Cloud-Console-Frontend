@@ -14,6 +14,13 @@
   color: var(--ht-text);
 }
 
+.auth-theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  z-index: 3;
+}
+
 .auth-shell,
 .auth-center-card,
 .auth-loading {
@@ -32,7 +39,7 @@
   left: -120px;
   width: 520px;
   height: 520px;
-  background: rgba(31, 94, 255, 0.16);
+  background: var(--ht-blue-fill);
 }
 
 .auth-glow--violet {
@@ -40,7 +47,7 @@
   bottom: -180px;
   width: 460px;
   height: 460px;
-  background: rgba(123, 47, 214, 0.18);
+  background: var(--ht-violet-fill);
 }
 
 .auth-shell {
@@ -75,7 +82,7 @@
   border: 1px solid var(--ht-blue-line);
   border-radius: var(--ht-radius-pill);
   background: var(--ht-blue-fill);
-  color: #b6c4ff;
+  color: var(--ht-link);
   font: 600 10px/16px var(--ht-font-body);
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -130,7 +137,7 @@
   padding: 16px;
   border: 1px solid var(--ht-line);
   border-radius: var(--ht-radius-md);
-  background: rgba(16, 19, 28, 0.72);
+  background: var(--ht-card);
 }
 
 .auth-feature__icon {
@@ -141,17 +148,17 @@
   margin-bottom: 12px;
   border-radius: var(--ht-radius);
   background: var(--ht-blue-fill);
-  color: #b6c4ff;
+  color: var(--ht-link);
 }
 
 .auth-feature__icon--violet {
   background: var(--ht-violet-fill);
-  color: #cda8ff;
+  color: var(--ht-violet-text);
 }
 
 .auth-feature__icon--indigo {
-  background: rgba(79, 70, 229, 0.16);
-  color: #c3c0ff;
+  background: var(--ht-violet-fill);
+  color: var(--ht-indigo-text);
 }
 
 .auth-feature h3 {
@@ -205,7 +212,7 @@
   font: 600 10px/16px var(--ht-font-body);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #b6c4ff;
+  color: var(--ht-link);
 }
 
 .auth-title {
@@ -230,7 +237,7 @@
   border: 1px solid var(--ht-danger-line);
   border-radius: var(--ht-radius-md);
   background: var(--ht-danger-fill);
-  color: #ffb4ab;
+  color: var(--ht-danger-text);
   font: 400 12px/18px var(--ht-font-body);
 }
 
@@ -238,7 +245,7 @@
   display: block;
   margin-bottom: 2px;
   font-weight: 600;
-  color: #ffd7d7;
+  color: var(--ht-danger-text);
 }
 
 .auth-alert svg {
@@ -314,7 +321,7 @@
 .auth-input:focus {
   outline: none;
   border-color: var(--ht-blue);
-  box-shadow: 0 0 0 1px var(--ht-blue), 0 0 14px -2px rgba(31, 94, 255, 0.45);
+  box-shadow: 0 0 0 1px var(--ht-blue), 0 0 0 4px var(--ht-blue-fill);
 }
 
 .auth-icon-btn {
@@ -346,10 +353,10 @@
   height: 44px;
   margin: 4px 0 0;
   padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--ht-line);
   border-radius: var(--ht-radius);
   background: var(--ht-gradient-cta);
-  color: #fff;
+  color: var(--ht-primary-contrast);
   font: 600 14px/1 var(--ht-font-body);
   cursor: pointer;
   transition: filter var(--ht-transition), box-shadow var(--ht-transition);
@@ -491,8 +498,8 @@
   border: 1px solid var(--ht-blue-line);
   border-radius: 14px;
   background: var(--ht-blue-fill);
-  color: #b6c4ff;
-  box-shadow: 0 0 24px -6px rgba(31, 94, 255, 0.5);
+  color: var(--ht-link);
+  box-shadow: 0 0 24px -6px var(--ht-glow-blue);
 }
 
 .auth-user-chip {

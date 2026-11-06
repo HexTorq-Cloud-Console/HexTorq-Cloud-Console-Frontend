@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Logo from './Logo';
+import ThemeToggle from './ThemeToggle';
 import { apiUrl, errorMessage, responseJson } from '../lib/api';
 
 type PasswordChangeProps = {
@@ -50,6 +51,7 @@ export default function PasswordChange({ token, email, onComplete, onSignOut }: 
     <main className="auth-page">
       <div className="auth-glow auth-glow--blue" aria-hidden="true" />
       <div className="auth-glow auth-glow--violet" aria-hidden="true" />
+      <ThemeToggle className="auth-theme-toggle" />
 
       <div className="auth-center-card">
         <div className="auth-logo-row">

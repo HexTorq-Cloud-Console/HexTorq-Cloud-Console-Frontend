@@ -5,6 +5,7 @@ import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import Logo from './Logo';
 import PasswordChange from './PasswordChange';
+import ThemeToggle from './ThemeToggle';
 import { apiUrl, errorMessage, TOKEN_KEY, responseJson } from '../lib/api';
 import { clearConsoleCache } from '../lib/consoleCache';
 import { FAILURE_ALERTS_KEY, SECTION_PATHS, sectionFromLegacyHash } from '../lib/sections';
@@ -105,7 +106,7 @@ export default function LoginPage() {
       callback: ({ credential }) => signInWithGoogle(credential),
     });
     window.google.accounts.id.renderButton(element, {
-      theme: 'filled_black',
+      theme: 'outline',
       size: 'large',
       shape: 'rectangular',
       text: 'continue_with',
@@ -148,6 +149,7 @@ export default function LoginPage() {
       <main className="auth-page">
         <div className="auth-glow auth-glow--blue" aria-hidden="true" />
         <div className="auth-glow auth-glow--violet" aria-hidden="true" />
+        <ThemeToggle className="auth-theme-toggle" />
         <div className="auth-loading">
           <Logo size="lg" tagline />
           <span className="auth-spinner" aria-hidden="true" />
@@ -172,6 +174,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <div className="auth-glow auth-glow--blue" aria-hidden="true" />
       <div className="auth-glow auth-glow--violet" aria-hidden="true" />
+      <ThemeToggle className="auth-theme-toggle" />
 
       <div className="auth-shell">
         <section className="auth-brand">
