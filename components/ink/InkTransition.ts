@@ -26,11 +26,6 @@ export const SPREAD = { growth: 0.7, cleanupFrom: 0.45, cleanupReach: 0.4, clean
 
 type ActiveFrame = Omit<InkFrame, 'progress' | 'radius' | 'time' | 'cleanup'>;
 
-/** Temporary live-site tracing (removed once the transition is verified). */
-function trace(message: string): void {
-  const w = window as unknown as { __inkTrace?: string[] };
-  w.__inkTrace = (w.__inkTrace ?? []).concat(`${message}@${Math.round(performance.now())}`);
-}
 
 /**
  * Orchestrates the theme transition (adapted from codemure-official/ink-bleed-theme-changer):
@@ -53,14 +48,13 @@ export class InkTransition {
   private captureGen = 0;
   private capturing = false;
   private captureQueued = false;
+  private capturePromise: Promise<void> | null = null;
   private captureTimer = 0;
-  private pending = false;
   private toggleGen = 0;
   private lastInteraction = 0;
   private disposers: Array<() => void> = [];
 
   constructor(canvas: HTMLCanvasElement) {
-    trace('ctor');
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const onMotionChange = (): void => this.scheduleCapture(0);
     reducedMotion.addEventListener('change', onMotionChange);
@@ -75,7 +69,7 @@ export class InkTransition {
 
     this.renderer.resize(renderScale());
     this.renderer.watchContext(
-      () => { trace('ctx-lost'); this.cancel(); },
+      () => this.cancel(),
       () => this.scheduleCapture(0),
     );
 
@@ -125,7 +119,6 @@ export class InkTransition {
    * `seed` reproduces a previous spread exactly (unused today, kept for replay tooling).
    */
   async toggle(point?: Point, seed?: InkFrame['seed']): Promise<void> {
-    trace('toggle-enter');
     const gen = ++this.toggleGen;
     const renderer = this.renderer;
     const to = otherTheme(getTheme());
@@ -136,7 +129,6 @@ export class InkTransition {
 
     // No WebGL2 (or a lost context) or reduced motion: straight swap.
     if (!renderer || renderer.isLost || reduced) {
-      trace("fallback-now renderer=$(!!renderer) lost=$($renderer?.isLost) reduced=$reduced");
       this.cancel();
       this.applyNow(to, !reduced);
       if (renderer && !reduced) this.scheduleCapture(0);
@@ -145,30 +137,31 @@ export class InkTransition {
 
     const valid = renderer.hasValid(to, key) && (interrupting || renderer.hasValid(getTheme(), key));
     if (valid) {
-      trace('valid-spread');
       if (gen === this.toggleGen) this.spreadInk(point, seed, interrupting);
       return;
     }
 
     // Snapshots missing (typical first click on a brand-new layout): capture both themes
-    // on demand, then spread. Concurrent clicks mid-capture fall back to a plain fade.
-    if (this.capturing || this.pending || interrupting) {
-      trace("fallback-busy capturing=$this.capturing pending=$this.pending interrupting=$interrupting");
+    // on demand, then spread — the user still gets the ink transition, just a beat later.
+    if (interrupting) {
+      // Interrupted spread without a usable target snapshot: plain fade.
       this.cancel();
       this.applyNow(to, true);
       this.scheduleCapture(0);
       return;
     }
 
-    this.pending = true;
-    try {
-      await this.captureAll();
-    } finally {
-      if (this.pending) this.pending = false;
-    }
-    if (gen !== this.toggleGen) { trace('superseded'); return; }
+    await this.captureAll();
+    if (gen !== this.toggleGen) return; // a newer click took over
 
-    const key2 = layoutKey(renderScale());
+    let key2 = layoutKey(renderScale());
+    if (!renderer.hasValid(to, key2) || !renderer.hasValid(getTheme(), key2)) {
+      // The wait above may have been deferred (the user is interacting); force a capture.
+      await this.captureAll(true);
+      if (gen !== this.toggleGen) return;
+      key2 = layoutKey(renderScale());
+    }
+
     if (renderer.hasValid(to, key2) && renderer.hasValid(getTheme(), key2)) {
       this.spreadInk(point, seed, false);
     } else {
@@ -178,7 +171,6 @@ export class InkTransition {
   }
 
   destroy(): void {
-    trace('destroy');
     this.cancel();
     this.toggleGen++; // invalidate any in-flight toggle
     this.captureGen++; // invalidate any in-flight capture
@@ -230,7 +222,6 @@ export class InkTransition {
       from = frozen && renderer.freeze(frozen) ? 'composite' : getTheme();
     }
 
-    trace("spread-start from=$from to=$to");
     this.frame = { from, to, center, maxDist, seed: frameSeed };
     this.state.progress = 0;
     this.state.time = 0;
@@ -276,7 +267,6 @@ export class InkTransition {
   }
 
   private finish(): void {
-    trace('finish');
     const canvas = this.renderer?.canvas;
     this.spread = null;
     if (!canvas) return;
@@ -291,7 +281,6 @@ export class InkTransition {
   }
 
   private hide(): void {
-    trace('hide');
     this.fade = null;
     this.frame = null;
     this.renderer?.canvas.classList.remove('is-active');
@@ -301,7 +290,6 @@ export class InkTransition {
 
   private cancel(): void {
     if (!this.frame) return;
-    trace('cancel');
     this.spread?.kill();
     this.fade?.kill();
     this.spread = null;
@@ -333,7 +321,22 @@ export class InkTransition {
     this.scheduleCapture(RESIZE_DEBOUNCE_MS);
   }
 
-  private async captureAll(): Promise<void> {
+  /**
+   * Snapshots the page in both themes. Concurrent callers share one run, so a click
+   * that needs a snapshot can simply await the capture already in flight.
+   * `force` ignores the "user is busy" guard (used by an explicit theme switch).
+   */
+  private captureAll(force = false): Promise<void> {
+    if (this.capturePromise) return this.capturePromise;
+    let promise: Promise<void>;
+    promise = this.runCapture(force).finally(() => {
+      if (this.capturePromise === promise) this.capturePromise = null;
+    });
+    this.capturePromise = promise;
+    return promise;
+  }
+
+  private async runCapture(force: boolean): Promise<void> {
     const renderer = this.renderer;
     if (!renderer || renderer.isLost || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
@@ -344,8 +347,9 @@ export class InkTransition {
       return;
     }
 
-    // Don't stall the page while the user is moving around.
-    if (performance.now() - this.lastInteraction < INTERACTION_QUIET_MS) {
+    // Don't stall the page while the user is moving around (an explicit theme switch
+    // asks for force and skips this).
+    if (!force && performance.now() - this.lastInteraction < INTERACTION_QUIET_MS) {
       this.deferCapture();
       return;
     }
@@ -358,7 +362,6 @@ export class InkTransition {
     if (themes.length === 0) return;
 
     const gen = ++this.captureGen;
-    trace("capture-start $($themes -join ',')");
     this.capturing = true;
     try {
       for (const theme of themes) {
@@ -377,7 +380,6 @@ export class InkTransition {
     } catch (err) {
       console.error('[ink] capture failed', err);
     } finally {
-      trace('capture-end');
       this.capturing = false;
     }
     if (this.captureQueued) this.scheduleCapture(RESIZE_DEBOUNCE_MS);
