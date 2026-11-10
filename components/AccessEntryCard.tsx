@@ -92,7 +92,7 @@ function AccessEntryCard({ entry, onReveal }: { entry: ClientAccess; onReveal?: 
     : postgresConnectionUri(entry);
 
   return (
-    <article data-ascii="surface" className={`access-card ${entry.type === 'DATABASE' ? 'database' : 'sftp'}`}>
+    <article className={`access-card ${entry.type === 'DATABASE' ? 'database' : 'sftp'}`}>
       <div className="access-card-head">
         <span className={`access-type-badge ${entry.type === 'DATABASE' ? 'database' : 'sftp'}`}>
           {entry.type === 'DATABASE' ? 'POSTGRESQL' : 'SFTP'}

@@ -1,9 +1,6 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { AsciiReveal } from 'ascii-reveal';
-import { useAscii } from './AsciiContext';
-import { AsciiMetricCardSkeleton } from './AsciiCardSkeleton';
 import Link from 'next/link';
 import type { AnalyticsData, DailyDeploymentBucket, Deployment, Pm2Status, Service, WebhookHealthData } from '../types/api';
 import WebhookHealthPanel from './WebhookHealthPanel';
@@ -331,7 +328,6 @@ export default function OverviewView({
 }: OverviewViewProps) {
   const [metric, setMetric] = useState<ChartMetric>('total');
   const isClient = role === 'CLIENT';
-  const { preset, origin, speed, mode, isSimulatingLoading, replayKey, revealPreset } = useAscii();
 
   const buckets = analytics?.daily?.length ? analytics.daily : buildBuckets(deployments);
   const currentBuckets = buckets.slice(-7);
@@ -425,88 +421,73 @@ export default function OverviewView({
         </div>
       </header>
 
-      {isSimulatingLoading || mode === 'skeleton_only' ? (
-        <section className="ascii-skeleton-metrics-grid" aria-label="Loading workspace metrics with ASCII skeleton">
-          {[1, 2, 3, 4].map((i) => <AsciiMetricCardSkeleton key={i} />)}
-        </section>
-      ) : (
-        <AsciiReveal
-          key={replayKey}
-          preset={mode === 'skeleton_reveal' ? revealPreset : preset}
-          origin={origin}
-          speed={speed}
-          lazy={true}
-          as="section"
-          className="kpi-grid"
-          aria-label="Workspace metrics"
-        >
-          <article data-ascii="surface" className="kpi-card">
-            <div className="kpi-card__top">
-              <span className="kpi-label">Deployments (7d)</span>
-              <span className="kpi-icon kpi-icon--orange"><MetricIcon name="deployments" /></span>
-            </div>
-            <div className="kpi-value-row">
-              <strong data-ascii-digits="true">{currentTotal}</strong>
-              <ChangeBadge value={totalChange} />
-            </div>
-            <p className="kpi-meta">{currentSuccessful} successful · {currentFailed} failed{currentRunning ? ` · ${currentRunning} running` : ''}</p>
-            <Sparkline values={currentBuckets.map((bucket) => bucket.total)} color="var(--ht-chart-1)" />
-          </article>
+      <section className="kpi-grid" aria-label="Workspace metrics">
+        <article className="kpi-card">
+          <div className="kpi-card__top">
+            <span className="kpi-label">Deployments (7d)</span>
+            <span className="kpi-icon kpi-icon--orange"><MetricIcon name="deployments" /></span>
+          </div>
+          <div className="kpi-value-row">
+            <strong>{currentTotal}</strong>
+            <ChangeBadge value={totalChange} />
+          </div>
+          <p className="kpi-meta">{currentSuccessful} successful · {currentFailed} failed{currentRunning ? ` · ${currentRunning} running` : ''}</p>
+          <Sparkline values={currentBuckets.map((bucket) => bucket.total)} color="var(--ht-chart-1)" />
+        </article>
 
-          <article data-ascii="surface" className="kpi-card">
-            <div className="kpi-card__top">
-              <span className="kpi-label">Success rate</span>
-              <span className="kpi-icon kpi-icon--teal"><MetricIcon name="success" /></span>
-            </div>
-            <div className="kpi-value-row">
-              <strong data-ascii-digits="true">{successRate === null ? '—' : `${successRate}%`}</strong>
-              <ChangeBadge value={rateChange} suffix=" pts" />
-            </div>
-            <p className="kpi-meta">{currentSuccessful} of {completed} completed deployments</p>
-            <Sparkline values={currentBuckets.map((bucket) => bucket.successful)} color="var(--ht-chart-2)" />
-          </article>
+        <article className="kpi-card">
+          <div className="kpi-card__top">
+            <span className="kpi-label">Success rate</span>
+            <span className="kpi-icon kpi-icon--teal"><MetricIcon name="success" /></span>
+          </div>
+          <div className="kpi-value-row">
+            <strong>{successRate === null ? '—' : `${successRate}%`}</strong>
+            <ChangeBadge value={rateChange} suffix=" pts" />
+          </div>
+          <p className="kpi-meta">{currentSuccessful} of {completed} completed deployments</p>
+          <Sparkline values={currentBuckets.map((bucket) => bucket.successful)} color="var(--ht-chart-2)" />
+        </article>
 
-          <article data-ascii="surface" className="kpi-card">
-            <div className="kpi-card__top">
-              <span className="kpi-label">Services</span>
-              <span className="kpi-icon kpi-icon--navy"><MetricIcon name="services" /></span>
-            </div>
-            <div className="kpi-value-row">
-              <strong data-ascii-digits="true">{totalServices}</strong>
-              <span className="kpi-change kpi-change--muted">{enabledServices} enabled</span>
-            </div>
-            <p className="kpi-meta">{pm2Count} PM2 · {staticCount} static frontend</p>
-            <div className="kpi-split">
-              <span style={{ width: `${totalServices ? (pm2Count / totalServices) * 100 : 0}%`, background: 'var(--ht-chart-1)' }} />
-              <span style={{ width: `${totalServices ? (staticCount / totalServices) * 100 : 0}%`, background: 'var(--ht-chart-3)' }} />
-            </div>
-            <div className="kpi-split-legend"><span><i style={{ background: 'var(--ht-chart-1)' }} />PM2</span><span><i style={{ background: 'var(--ht-chart-3)' }} />Static</span></div>
-          </article>
+        <article className="kpi-card">
+          <div className="kpi-card__top">
+            <span className="kpi-label">Services</span>
+            <span className="kpi-icon kpi-icon--navy"><MetricIcon name="services" /></span>
+          </div>
+          <div className="kpi-value-row">
+            <strong>{totalServices}</strong>
+            <span className="kpi-change kpi-change--muted">{enabledServices} enabled</span>
+          </div>
+          <p className="kpi-meta">{pm2Count} PM2 · {staticCount} static frontend</p>
+          <div className="kpi-split">
+            <span style={{ width: `${totalServices ? (pm2Count / totalServices) * 100 : 0}%`, background: 'var(--ht-chart-1)' }} />
+            <span style={{ width: `${totalServices ? (staticCount / totalServices) * 100 : 0}%`, background: 'var(--ht-chart-3)' }} />
+          </div>
+          <div className="kpi-split-legend"><span><i style={{ background: 'var(--ht-chart-1)' }} />PM2</span><span><i style={{ background: 'var(--ht-chart-3)' }} />Static</span></div>
+        </article>
 
-          <article data-ascii="surface" className="kpi-card">
-            <div className="kpi-card__top">
-              <span className="kpi-label">Agents online</span>
-              <span className="kpi-icon kpi-icon--amber"><MetricIcon name="agents" /></span>
+        <article className="kpi-card">
+          <div className="kpi-card__top">
+            <span className="kpi-label">Agents online</span>
+            <span className="kpi-icon kpi-icon--amber"><MetricIcon name="agents" /></span>
+          </div>
+          <div className="kpi-value-row">
+            <strong>{agents.length ? onlineAgents : '—'}</strong>
+            <span className={`kpi-change ${onlineAgents === agents.length && agents.length ? 'is-up' : 'kpi-change--muted'}`}>
+              {agents.length ? `of ${agents.length} reporting` : 'no agents assigned'}
+            </span>
+          </div>
+          <p className="kpi-meta">{agents.length ? 'Live heartbeat status across managed VPS nodes' : 'Add an agent to manage runtime services'}</p>
+          {agents.length ? (
+            <div className="agent-dots">
+              {agents.slice(0, 8).map((agent) => (
+                <span key={agent.id} className={`agent-dot agent-dot--${agent.status || 'unknown'}`} title={`${agent.name}: ${agent.status || 'unknown'}`} />
+              ))}
             </div>
-            <div className="kpi-value-row">
-              <strong data-ascii-digits="true">{agents.length ? onlineAgents : '—'}</strong>
-              <span className={`kpi-change ${onlineAgents === agents.length && agents.length ? 'is-up' : 'kpi-change--muted'}`}>
-                {agents.length ? `of ${agents.length} reporting` : 'no agents assigned'}
-              </span>
-            </div>
-            <p className="kpi-meta">{agents.length ? 'Live heartbeat status across managed VPS nodes' : 'Add an agent to manage runtime services'}</p>
-            {agents.length ? (
-              <div className="agent-dots">
-                {agents.slice(0, 8).map((agent) => (
-                  <span key={agent.id} className={`agent-dot agent-dot--${agent.status || 'unknown'}`} title={`${agent.name}: ${agent.status || 'unknown'}`} />
-                ))}
-              </div>
-            ) : (
-              <div className="agent-dots agent-dots--empty" />
-            )}
-          </article>
-        </AsciiReveal>
-      )}
+          ) : (
+            <div className="agent-dots agent-dots--empty" />
+          )}
+        </article>
+      </section>
 
       <div className="dash-grid-main">
         <div className="dash-primary">

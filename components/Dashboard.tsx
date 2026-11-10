@@ -3,8 +3,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import AdminPanel from './AdminPanel';
 import AppShell from './AppShell';
-import { AsciiProvider } from './AsciiContext';
-import AsciiToolbar from './AsciiToolbar';
 import CommandPalette from './CommandPalette';
 import Modal from './Modal';
 import OverviewView from './OverviewView';
@@ -546,9 +544,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
 
   return (
-    <AsciiProvider>
       <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut} onOpenPalette={() => setPaletteOpen(true)}>
-        <AsciiToolbar />
       {section === 'admin' && role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
 
       {section !== 'admin' && (loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
@@ -775,8 +771,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
           </div>
         </form>
       </Modal>
-      </AppShell>
-    </AsciiProvider>
+    </AppShell>
   );
 }
 

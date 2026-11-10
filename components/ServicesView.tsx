@@ -1,9 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef } from 'react';
-import { AsciiReveal, type AsciiRevealHandle } from 'ascii-reveal';
-import { useAscii } from './AsciiContext';
-import { AsciiServiceCardSkeleton } from './AsciiCardSkeleton';
+import { useMemo, useState } from 'react';
 import type { Deployment, Pm2Status, Service } from '../types/api';
 
 type ServicesViewProps = {
@@ -30,22 +27,6 @@ function latestSuccessfulFor(service: Service, deployments: Deployment[]) {
 }
 
 export default function ServicesView({ services, deployments, pm2Status, deploying, pm2Action, onDeploy, onForceDeploy, onPm2, onLogs, onDetails }: ServicesViewProps) {
-  const { preset, origin, speed, mode, isSimulatingLoading, replayKey, revealPreset } = useAscii();
-  const revealRef = useRef<AsciiRevealHandle>(null);
-
-  const handleCardClick = (e: React.MouseEvent, service: Service) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('button.ht-btn') || target.closest('.service-tile__pm2-actions') || target.closest('.service-tile__head')) {
-      return;
-    }
-    const card = (e.currentTarget as HTMLElement);
-    revealRef.current?.reveal({
-      within: card,
-      origin: { x: e.clientX, y: e.clientY },
-      preset: mode === 'skeleton_reveal' ? revealPreset : preset,
-      speed,
-    });
-  };
   const [filter, setFilter] = useState<Filter>('ALL');
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
@@ -105,24 +86,8 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
         </label>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="ht-card ht-empty">No services match the selected filter.</div>
-      ) : isSimulatingLoading || mode === 'skeleton_only' ? (
-        <div className="services-grid" aria-label="Loading services with ASCII dither skeleton">
-          {[1, 2, 3, 4, 5, 6].map((idx) => (
-            <AsciiServiceCardSkeleton key={idx} />
-          ))}
-        </div>
-      ) : (
-        <AsciiReveal
-          ref={revealRef}
-          key={replayKey}
-          preset={mode === 'skeleton_reveal' ? revealPreset : preset}
-          origin={origin}
-          speed={speed}
-          lazy={true}
-                    className="services-grid"
-        >
+      {filtered.length === 0 ? <div className="ht-card ht-empty">No services match the selected filter.</div> : (
+        <div className="services-grid">
           {filtered.map((service) => {
             const latest = latestSuccessfulFor(service, deployments) || latestFor(service, deployments);
             const status = service.type === 'PM2' ? pm2Status[service.id] : undefined;
@@ -131,18 +96,13 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
             const hasRuntime = Boolean(status) && Object.keys(status || {}).length > 0;
             const agentOffline = service.agent.status === 'offline' || service.agent.status === 'unknown';
             return (
-              <article
-                data-ascii="surface"
-                className={`service-tile${service.enabled ? '' : ' is-disabled'}${agentOffline ? ' is-agent-offline' : ''}`}
-                key={service.id}
-                onClick={(e) => handleCardClick(e, service)}
-              >
+              <article className={`service-tile${service.enabled ? '' : ' is-disabled'}${agentOffline ? ' is-agent-offline' : ''}`} key={service.id}>
                 <button type="button" className="service-tile__head" onClick={() => onDetails(service)} aria-label={`Open details for ${service.name}`}>
                   <span className={`service-tile__icon service-tile__icon--${service.type === 'PM2' ? 'pm2' : 'static'}`} aria-hidden="true">{service.type === 'PM2' ? '▣' : '▤'}</span>
                   <span className="service-tile__name"><strong>{service.name}</strong><small>{service.type === 'PM2' ? 'PM2 process' : 'Static frontend'}</small></span>
-                  <span data-ascii="fade" className={`ht-pill ${service.enabled ? 'ht-pill--success' : 'ht-pill--danger'}`}><span className="ht-dot" /> {service.enabled ? 'ENABLED' : 'DISABLED'}</span>
+                  <span className={`ht-pill ${service.enabled ? 'ht-pill--success' : 'ht-pill--danger'}`}><span className="ht-dot" /> {service.enabled ? 'ENABLED' : 'DISABLED'}</span>
                 </button>
-                <div className="service-tile__meta"><span>{service.agent.name}</span><span>·</span><span>{service.branch || 'origin/HEAD'}</span>{agentOffline ? <span className="service-agent-warning">● agent {service.agent.status || 'unreachable'}</span> : service.agent.status === 'online' ? <span className="service-agent-ok">● agent online</span> : null}</div>
+                  <div className="service-tile__meta"><span>{service.agent.name}</span><span>·</span><span>{service.branch || 'origin/HEAD'}</span>{agentOffline ? <span className="service-agent-warning">● agent {service.agent.status || 'unreachable'}</span> : service.agent.status === 'online' ? <span className="service-agent-ok">● agent online</span> : null}</div>
                 <div className="service-tile__commit">
                   {latest?.status === 'SUCCESS' ? <span className="service-success-label">LAST SUCCESS</span> : null}
                   <code>{latest?.commitHash ? latest.commitHash.slice(0, 8) : '—'}</code><span>{latest?.commitMessage || 'No deployment recorded'}</span>
@@ -156,18 +116,18 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
                     )
                   ) : <>◈ static frontend <span>·</span> {service.deployDirectory || service.workingDirectory}</>}
                 </div>
-                <div className="service-tile__actions" data-ascii="fade">
+                <div className="service-tile__actions">
                   <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={!service.enabled || busy}>{busy ? 'Deploying...' : service.type === 'PM2' && status?.status === 'stopped' ? 'Start & deploy' : 'Normal deploy'}</button>
                   <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={!service.enabled || busy}>Force</button>
                   {service.type === 'PM2' && <button className="ht-btn ht-btn--icon" type="button" onClick={() => onLogs(service)} aria-label={`View live logs for ${service.name}`}>▤</button>}
                 </div>
-                {service.type === 'PM2' && service.enabled && !agentOffline && <div className="service-tile__pm2-actions" data-ascii="fade">
+                {service.type === 'PM2' && service.enabled && !agentOffline && <div className="service-tile__pm2-actions">
                   {(['start', 'stop', 'restart', 'reload'] as const).map((pm2ActionName) => <button key={pm2ActionName} type="button" onClick={() => onPm2(service.id, pm2ActionName)} disabled={Boolean(action)}>{action === pm2ActionName ? '...' : pm2ActionName}</button>)}
                 </div>}
               </article>
             );
           })}
-        </AsciiReveal>
+        </div>
       )}
 
       <footer className="services-footer"><span>◫ Runtime service registry</span><span>{services.filter((service) => service.enabled).length} enabled · {services.filter((service) => service.type === 'PM2').length} PM2 · {services.filter((service) => service.type === 'STATIC_FRONTEND').length} static</span></footer>
