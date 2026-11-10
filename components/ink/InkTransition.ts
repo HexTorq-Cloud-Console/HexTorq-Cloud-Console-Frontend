@@ -13,6 +13,8 @@ const FADE_OUT = 0.15;
 const RESIZE_DEBOUNCE_MS = 250;
 /** CSS cross-fade used without WebGL2 or before snapshots are ready. */
 const CSS_FADE_S = 0.45;
+/** Snapshots wait until the user has been quiet for this long. */
+const INTERACTION_QUIET_MS = 1200;
 
 /**
  * Spread shape over time. `growth`: base radius at progress 1 relative to the farthest
@@ -54,6 +56,7 @@ export class InkTransition {
   private captureTimer = 0;
   private pending = false;
   private toggleGen = 0;
+  private lastInteraction = 0;
   private disposers: Array<() => void> = [];
 
   constructor(canvas: HTMLCanvasElement) {
@@ -94,6 +97,18 @@ export class InkTransition {
       if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.scheduleCapture(0);
     };
     void document.fonts.ready.then(onMotionReady);
+
+    // Capturing blocks the main thread — never do it while the user is busy.
+    const markInteraction = (): void => {
+      this.lastInteraction = performance.now();
+    };
+    const interactions: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'wheel', 'pointermove'];
+    for (const event of interactions) {
+      window.addEventListener(event, markInteraction, { passive: true });
+    }
+    this.disposers.push(() => {
+      for (const event of interactions) window.removeEventListener(event, markInteraction);
+    });
   }
 
   get isAnimating(): boolean {
@@ -231,7 +246,9 @@ export class InkTransition {
     this.spread = tween({
       duration: inkParams.duration,
       ease: 'power3.out',
-      onUpdate: () => {
+      onUpdate: (value) => {
+        // The eased value IS the spread progress (0..1); the radius follows it.
+        this.state.progress = value;
         // Tween-local seconds: slow motion slows the drift too, so it looks identical.
         if (this.spread) this.state.time = this.spread.time();
         this.draw();
@@ -294,9 +311,26 @@ export class InkTransition {
 
   // ---------- capture scheduling ----------
 
+  /**
+   * Snapshots cost ~1s of main-thread time on a dashboard this size, so captures only
+   * run when the browser is idle and the user isn't interacting. The transition itself
+   * never waits for one: a click that finds no snapshot captures on demand first.
+   */
   private scheduleCapture(delay: number): void {
     window.clearTimeout(this.captureTimer);
-    this.captureTimer = window.setTimeout(() => void this.captureAll(), delay);
+    this.captureTimer = window.setTimeout(() => {
+      const run = (): void => void this.captureAll();
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(run, { timeout: 2000 });
+      } else {
+        window.setTimeout(run, 32);
+      }
+    }, delay);
+  }
+
+  private deferCapture(): void {
+    this.captureQueued = true;
+    this.scheduleCapture(RESIZE_DEBOUNCE_MS);
   }
 
   private async captureAll(): Promise<void> {
@@ -306,7 +340,13 @@ export class InkTransition {
     // Capturing blocks the main thread; never do it mid-animation (or mid CSS fade, which
     // would bake half-transitioned colours into the snapshot).
     if (this.capturing || this.frame || document.documentElement.classList.contains('theme-fade')) {
-      this.captureQueued = true;
+      this.deferCapture();
+      return;
+    }
+
+    // Don't stall the page while the user is moving around.
+    if (performance.now() - this.lastInteraction < INTERACTION_QUIET_MS) {
+      this.deferCapture();
       return;
     }
 

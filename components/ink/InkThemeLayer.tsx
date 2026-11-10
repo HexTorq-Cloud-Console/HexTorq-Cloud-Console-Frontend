@@ -34,21 +34,11 @@ export default function InkThemeLayer() {
     if (!canvas) return;
     const ink = new InkTransition(canvas);
     inkRef.current = ink;
-
-    // SPA navigations and live-data churn invalidate the snapshots even when the
-    // document size is unchanged; refresh them, debounced.
-    let observerTimer = 0;
-    const contentChanged = (): void => {
-      window.clearTimeout(observerTimer);
-      observerTimer = window.setTimeout(() => ink.refresh(0), 1000);
-    };
-    const observer = new MutationObserver(contentChanged);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    window.setTimeout(() => ink.refresh(400), 250); // settle after this navigation's paint
+    // Snapshots are captured while the browser is idle (see InkTransition), so this
+    // only needs to nudge a refresh after the navigation has painted.
+    ink.refresh(600);
 
     return () => {
-      observer.disconnect();
-      window.clearTimeout(observerTimer);
       ink.destroy();
       if (inkRef.current === ink) inkRef.current = null;
     };

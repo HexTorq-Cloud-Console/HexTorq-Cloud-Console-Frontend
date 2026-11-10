@@ -1,7 +1,11 @@
 /**
  * Minimal rAF tween — the exact subset the original ink-bleed demo used GSAP for:
  * a single eased scalar animation with `kill()` and `time()`. No dependency needed.
- * (rAF-based, so it pauses naturally in background tabs, like the original.)
+ *
+ * Two details mirror GSAP so the transition behaves identically:
+ *  - time is tracked in SECONDS (the shader's drift and the ink params are second-based);
+ *  - lag smoothing: if the main thread stalls (e.g. an html2canvas capture), the frame
+ *    only advances a little instead of jumping the animation to its end.
  */
 
 export type EaseName = 'power3.out' | 'none';
@@ -12,6 +16,11 @@ export interface TweenLike {
   time(): number;
   timeScale(scale: number): void;
 }
+
+/** A frame longer than this is treated as a stall. */
+const MAX_LAG_MS = 500;
+/** What a stalled frame is worth instead (GSAP's default is 33ms). */
+const LAG_ADJUST_MS = 33;
 
 const EASES: Record<EaseName, (t: number) => number> = {
   'power3.out': t => 1 - Math.pow(1 - t, 3),
@@ -28,13 +37,21 @@ export function tween(options: {
   const ease = EASES[options.ease ?? 'none'];
   let killed = false;
   let scale = 1;
-  let start = performance.now();
-  let elapsed = 0; // scaled seconds
+  let origin = performance.now();
+  // Virtual clock (ms): advances by the real frame delta, but a stalled frame only
+  // advances by LAG_ADJUST_MS so the animation never jumps ahead.
+  let virtual = origin;
+  let elapsed = 0; // seconds
   let raf = 0;
 
   const step = (now: number): void => {
     if (killed) return;
-    elapsed = (now - start) / scale;
+    let delta = now - virtual;
+    if (delta < 0) delta = 0;
+    if (delta > MAX_LAG_MS) delta = LAG_ADJUST_MS;
+    virtual += delta;
+
+    elapsed = (virtual - origin) / 1000 / scale;
     const t = options.duration > 0 ? Math.min(1, elapsed / options.duration) : 1;
     const value = ease(t);
     options.onUpdate?.(value);
@@ -58,8 +75,11 @@ export function tween(options: {
     },
     timeScale(next): void {
       if (next <= 0 || next === scale) return;
+      // Keep the current progress: re-base the clock so elapsed stays continuous.
+      elapsed = (virtual - origin) / 1000 / scale;
       const now = performance.now();
-      start = now - elapsed * next; // keep the current scaled progress
+      origin = now - elapsed * next * 1000;
+      virtual = now;
       scale = next;
     },
   };
