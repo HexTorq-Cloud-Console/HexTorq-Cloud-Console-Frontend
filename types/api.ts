@@ -179,6 +179,19 @@ export type AccessForm = {
   enabled: boolean;
 };
 export type Client = { id: string; name: string; email: string; _count: { services: number; accessEntries: number } };
+export type ClientNotificationStatus = {
+  clientId: string;
+  name: string;
+  email: string;
+  enabled: boolean;
+  pushDevices: number;
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  emailAddress: string | null;
+  notifyStarted: boolean;
+  notifyCompleted: boolean;
+  notifyFailed: boolean;
+};
 export type Agent = { id: string; name: string; baseUrl: string; enabled: boolean; lastSeenAt?: string | null; status?: AgentStatus };
 export type Pm2Process = { name: string; id: number; status?: string };
 export type Template = { key: string; name: string; type: ServiceType };

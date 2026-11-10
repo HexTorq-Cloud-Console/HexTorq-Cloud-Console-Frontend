@@ -28,4 +28,18 @@
 .notify-card__help strong{color:var(--ht-text);font-weight:600}
 .notify-card__help code{padding:1px 5px;border-radius:4px;background:var(--ht-elevated);color:var(--ht-code-text);font:11px ui-monospace,monospace}
 .notify-card__worker{margin:12px 0 0;color:var(--ht-text-muted);font:400 11px/17px var(--ht-font-body)}
+
+/* Admin panel — per-client notification status */
+.admin-notifications__intro{margin:0 0 16px;color:var(--ht-text-secondary);font:400 13px/19px var(--ht-font-body)}
+.admin-notifications .notify-card{margin:0 0 18px;background:var(--ht-nav)}
+.notify-admin-table{margin-top:16px;border:1px solid var(--ht-line);border-radius:var(--ht-radius);overflow:hidden}
+.notify-admin-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;padding:12px 15px;border-bottom:1px solid var(--ht-line-subtle)}
+.notify-admin-row:last-child{border-bottom:0}
+.notify-admin-row--head{background:var(--ht-elevated);color:var(--ht-text-muted);font:600 10px/14px var(--ht-font-body);letter-spacing:.07em;text-transform:uppercase}
+.notify-admin-row strong{display:block;color:var(--ht-text);font:600 13px/18px var(--ht-font-body)}
+.notify-admin-row small{display:block;color:var(--ht-text-muted);font:400 11px/16px var(--ht-font-body)}
+.notify-admin-ok{color:var(--ht-success-text);font:500 12px/17px var(--ht-font-body)}
+.notify-admin-warn{color:var(--ht-warning-text);font:500 12px/17px var(--ht-font-body)}
+.notify-admin-off{color:var(--ht-text-muted);font:400 12px/17px var(--ht-font-body)}
+@media(max-width:900px){.notify-admin-row{grid-template-columns:1fr 1fr;gap:6px 12px}.notify-admin-row--head{display:none}}
 @media(max-width:700px){.notify-channel{flex-direction:column;align-items:flex-start}.notify-channel .ht-btn{width:100%}.notify-card__email input{max-width:none}}

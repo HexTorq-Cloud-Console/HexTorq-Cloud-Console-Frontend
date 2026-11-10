@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import AccessEntryCard from './AccessEntryCard';
 import Modal from './Modal';
+import NotificationSettings from './NotificationSettings';
 import { apiUrl, errorMessage, responseJson } from '../lib/api';
 import { liveRepositorySlug, serviceWebhookUrl, toSlug } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
@@ -12,6 +13,7 @@ import type {
   Agent,
   Client,
   ClientAccess,
+  ClientNotificationStatus,
   Pm2Process,
   Service,
   ServiceEditForm,
@@ -29,6 +31,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   const [templates, setTemplates] = useState<Template[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [accessEntries, setAccessEntries] = useState<ClientAccess[]>([]);
+  const [notificationClients, setNotificationClients] = useState<ClientNotificationStatus[]>([]);
   const [accessError, setAccessError] = useState('');
   const [accessForm, setAccessForm] = useState<AccessForm>(emptyAccessForm);
   const [editingAccess, setEditingAccess] = useState<ClientAccess | null>(null);
@@ -107,13 +110,14 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
   async function refresh() {
     setAdminError('');
     try {
-      const [clientResponse, agentResponse, templateResponse, settingsResponse, serviceResponse, accessResponse] = await Promise.all([
+      const [clientResponse, agentResponse, templateResponse, settingsResponse, serviceResponse, accessResponse, notificationResponse] = await Promise.all([
         fetch(`${apiUrl}/admin/clients`, { headers }),
         fetch(`${apiUrl}/admin/agents`, { headers }),
         fetch(`${apiUrl}/templates`, { headers }),
         fetch(`${apiUrl}/admin/settings`, { headers }),
         fetch(`${apiUrl}/services`, { headers }),
         fetch(`${apiUrl}/admin/access`, { headers }),
+        fetch(`${apiUrl}/admin/notifications`, { headers }),
       ]);
       const clientData = await responseJson<{ clients?: Client[]; message?: string }>(clientResponse);
       const agentData = await responseJson<{ agents?: Agent[]; message?: string }>(agentResponse);
@@ -121,6 +125,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       const settingsData = await responseJson<{ logRetentionDays?: number; message?: string }>(settingsResponse);
       const serviceData = await responseJson<{ services?: Service[]; message?: string }>(serviceResponse);
       const accessData = await responseJson<{ access?: ClientAccess[]; message?: string }>(accessResponse);
+      const notificationData = await responseJson<{ clients?: ClientNotificationStatus[]; message?: string }>(notificationResponse);
       if (!clientResponse.ok) throw new Error(clientData.message || 'Unable to load clients');
       if (!agentResponse.ok) throw new Error(agentData.message || 'Unable to load agents');
       if (!templateResponse.ok) throw new Error(templateData.message || 'Unable to load templates');
@@ -133,6 +138,7 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       setServices(serviceData.services || []);
       setAccessEntries(accessResponse.ok ? accessData.access || [] : []);
       setAccessError(accessResponse.ok ? '' : accessData.message || 'Unable to load access credentials');
+      setNotificationClients(notificationResponse.ok ? notificationData.clients || [] : []);
     } catch (reason) {
       setAdminError(errorMessage(reason, 'Unable to load administration data'));
     } finally {
@@ -730,6 +736,64 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
                 </div>
               </div>
             ))
+          )}
+        </div>
+
+        <div className="active-list admin-notifications" id="admin-notifications">
+          <div className="list-heading">
+            <div>
+              <span className="list-kicker">DEPLOYMENT NOTIFICATIONS</span>
+              <h3>Browser push & email alerts</h3>
+            </div>
+            <span className="list-count">{notificationClients.length}</span>
+          </div>
+          <p className="muted admin-notifications__intro">
+            Configure notifications for this console account, and check which clients have alerts enabled.
+            Every client controls their own devices and channels on their Alerts page.
+          </p>
+          <NotificationSettings />
+          {notificationClients.length === 0 ? (
+            <p className="muted">No client notification settings have been configured yet.</p>
+          ) : (
+            <div className="notify-admin-table" role="table" aria-label="Client notification status">
+              <div className="notify-admin-row notify-admin-row--head" role="row">
+                <span role="columnheader">Client</span>
+                <span role="columnheader">Push devices</span>
+                <span role="columnheader">Email</span>
+                <span role="columnheader">Notify on</span>
+              </div>
+              {notificationClients.map((entry) => (
+                <div className="notify-admin-row" role="row" key={entry.clientId}>
+                  <span role="cell">
+                    <strong>{entry.name}</strong>
+                    <small>{entry.email}</small>
+                  </span>
+                  <span role="cell">
+                    {entry.pushEnabled ? (
+                      entry.pushDevices > 0
+                        ? <span className="notify-admin-ok">{entry.pushDevices} device(s)</span>
+                        : <span className="notify-admin-warn">Enabled, no device</span>
+                    ) : (
+                      <span className="notify-admin-off">Off</span>
+                    )}
+                  </span>
+                  <span role="cell">
+                    {entry.emailEnabled && entry.emailAddress ? (
+                      <span className="notify-admin-ok">{entry.emailAddress}</span>
+                    ) : (
+                      <span className="notify-admin-off">Off</span>
+                    )}
+                  </span>
+                  <span role="cell">
+                    {[
+                      entry.notifyStarted ? 'Start' : null,
+                      entry.notifyCompleted ? 'Success' : null,
+                      entry.notifyFailed ? 'Failure' : null,
+                    ].filter(Boolean).join(' · ') || <span className="notify-admin-off">Nothing</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

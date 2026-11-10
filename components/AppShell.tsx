@@ -171,6 +171,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
             { id: 'admin-agents', label: 'VPS Agents', icon: 'agents', href: '/admin#admin-agents' },
             { id: 'admin-services', label: 'All Services', icon: 'services', href: '/admin#admin-services' },
             { id: 'admin-access', label: 'Access Management', icon: 'access', href: '/admin#admin-access' },
+            { id: 'admin-notifications', label: 'Notifications', icon: 'alerts', href: '/admin#admin-notifications' },
           ],
         },
       ]
