@@ -13,9 +13,11 @@ import './admin.css';
 import './states.css';
 import './enhancements.css';
 import './ink.css';
+import './notifications.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Manrope } from 'next/font/google';
 import InkThemeLayer from '../components/ink/InkThemeLayer';
+import PushRegistration from '../components/PushRegistration';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', display: 'swap' });
@@ -39,6 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
         {children}
         <InkThemeLayer />
+        <PushRegistration />
       </body>
     </html>
   );

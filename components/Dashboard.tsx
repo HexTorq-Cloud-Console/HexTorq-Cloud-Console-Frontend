@@ -225,6 +225,19 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     if (match) setSelectedService(match);
   }, [section, services]);
 
+  // Deep link from a browser notification: /deployments?deployment=<id> opens
+  // the full deployment record once the history has loaded.
+  useEffect(() => {
+    if (section !== 'deployments' || deployments.length === 0) return;
+    const requested = new URLSearchParams(window.location.search).get('deployment');
+    if (!requested) return;
+    if (!deployments.some((deployment) => deployment.id === requested)) return;
+    setSelectedDeployment(requested);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('deployment');
+    window.history.replaceState({}, '', url.toString());
+  }, [deployments, section]);
+
   useEffect(() => {
     try {
       window.sessionStorage.setItem(FAILURE_ALERTS_KEY, JSON.stringify(failureAlerts));
