@@ -1,5 +1,8 @@
 'use client';
 
+import { AsciiReveal } from 'ascii-reveal';
+import { useAscii } from './AsciiContext';
+
 import { useMemo, useState } from 'react';
 import type { Deployment, Service } from '../types/api';
 
@@ -23,6 +26,7 @@ function pillStatus(status: string) {
 }
 
 export default function DeploymentsView({ deployments, services, hasMore, loadingMore, onLoadMore, onOpen }: DeploymentsViewProps) {
+  const { preset, origin, speed, replayKey, mode, revealPreset } = useAscii();
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [serviceId, setServiceId] = useState('ALL');
   const [query, setQuery] = useState('');
@@ -56,12 +60,12 @@ export default function DeploymentsView({ deployments, services, hasMore, loadin
         <span className="deployments-total">{deployments.length} recorded</span>
       </header>
 
-      <div className="deployments-metrics">
-        <article><span>Success ratio</span><strong>{completed.length ? `${Math.round((success / completed.length) * 1000) / 10}%` : '—'}</strong></article>
-        <article><span>Completed runs</span><strong>{completed.length}</strong></article>
-        <article><span>Active deployments</span><strong>{active}</strong></article>
-        <article><span>Failed / error</span><strong className={completed.length - success ? 'is-danger' : ''}>{completed.length - success}</strong></article>
-      </div>
+      <AsciiReveal key={replayKey} preset={mode === 'skeleton_reveal' ? revealPreset : preset} origin={origin} speed={speed} lazy={true} className="deployments-metrics">
+        <article data-ascii="surface"><span>Success ratio</span><strong>{completed.length ? `${Math.round((success / completed.length) * 1000) / 10}%` : '—'}</strong></article>
+        <article data-ascii="surface"><span>Completed runs</span><strong>{completed.length}</strong></article>
+        <article data-ascii="surface"><span>Active deployments</span><strong>{active}</strong></article>
+        <article data-ascii="surface"><span>Failed / error</span><strong className={completed.length - success ? 'is-danger' : ''}>{completed.length - success}</strong></article>
+      </AsciiReveal>
 
       <div className="deployments-filters">
         <label><span>Service</span><select value={serviceId} onChange={(event) => { setServiceId(event.target.value); setPage(1); }}><option value="ALL">All services</option>{services.map((service) => <option value={service.id} key={service.id}>{service.name}</option>)}</select></label>
