@@ -46,6 +46,63 @@ export async function registerPushWorker(): Promise<ServiceWorkerRegistration | 
   }
 }
 
+/**
+ * Resolve the active service worker.
+ *
+ * `navigator.serviceWorker.ready` waits for activation, so the worker is
+ * guaranteed to be running before it is used to subscribe or to show a
+ * notification. This avoids the window where a subscription is attached to a
+ * worker that is still installing.
+ */
+export async function activeWorker(): Promise<ServiceWorker | null> {
+  if (!pushSupported()) return null;
+  try {
+    await registerPushWorker();
+    const ready = await navigator.serviceWorker.ready;
+    return ready.active ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Show a notification through the real service worker code path.
+ *
+ * This is the diagnostic for "the push was sent but nothing appeared": it
+ * bypasses delivery and exercises only the rendering. If the preview shows
+ * but a push does not, the problem is in delivery; if neither shows, the
+ * browser or the operating system is suppressing notifications.
+ */
+export async function previewNotification(title?: string, body?: string): Promise<boolean> {
+  const worker = await activeWorker();
+  if (!worker) return false;
+  worker.postMessage({ type: 'preview', title, body });
+  return true;
+}
+
+/** Read the running worker version, which proves the latest worker is live. */
+export async function serviceWorkerVersion(): Promise<string | null> {
+  const worker = await activeWorker();
+  if (!worker) return null;
+  return new Promise((resolve) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const onMessage = (event: Event) => {
+      const data = (event as MessageEvent).data;
+      if (data?.type === 'pong') {
+        clearTimeout(timer);
+        worker.removeEventListener('message', onMessage);
+        resolve(String(data.version));
+      }
+    };
+    timer = setTimeout(() => {
+      worker.removeEventListener('message', onMessage);
+      resolve(null);
+    }, 3000);
+    worker.addEventListener('message', onMessage);
+    worker.postMessage({ type: 'ping' });
+  });
+}
+
 export async function currentPushSubscription(): Promise<PushSubscriptionRecord | null> {
   if (!pushSupported()) return null;
   try {
@@ -104,7 +161,10 @@ export async function subscribeToPush(vapidPublicKey: string): Promise<Subscribe
   const registration = await registerPushWorker();
   if (!registration) return { ok: false, reason: 'Unable to register the notification worker' };
 
-  let existing = await registration.pushManager.getSubscription();
+  // Wait for activation so the subscription is attached to a running worker.
+  const ready = await navigator.serviceWorker.ready;
+
+  let existing = await ready.pushManager.getSubscription();
   if (existing && !subscriptionMatchesKey(existing as unknown as PushSubscriptionRecord, vapidPublicKey)) {
     // The server rotated its VAPID keypair. The old subscription is bound to
     // the previous key and can no longer be used, so replace it.

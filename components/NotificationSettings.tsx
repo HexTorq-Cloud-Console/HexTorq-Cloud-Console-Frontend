@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   currentPushSubscription,
+  previewNotification,
   pushPermission,
   pushSupported,
   registerPushWorker,
+  serviceWorkerVersion,
   subscribeToPush,
   subscriptionMatchesKey,
   unsubscribeFromPush,
@@ -49,6 +51,7 @@ export default function NotificationSettings() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [workerVersion, setWorkerVersion] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +77,7 @@ export default function NotificationSettings() {
   useEffect(() => {
     void load();
     void registerPushWorker();
+    void serviceWorkerVersion().then(setWorkerVersion);
   }, [load]);
 
   async function savePreferences(next: Partial<NotificationPreferences>) {
@@ -172,6 +176,25 @@ export default function NotificationSettings() {
         : 'No active channels — enable a channel above first.');
     } catch (reason) {
       setError(errorMessage(reason, 'Unable to send a test notification'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendPreview() {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const shown = await previewNotification(
+        'HexTorq Cloud Console',
+        'Preview notification — if you can see this, the browser can display notifications.',
+      );
+      setMessage(shown
+        ? 'Preview requested. If nothing appeared, the browser or operating system is blocking notifications for this site.'
+        : 'The notification worker is not running. Reload the page and try again.');
+    } catch (reason) {
+      setError(errorMessage(reason, 'Unable to show a preview notification'));
     } finally {
       setBusy(false);
     }
@@ -276,9 +299,22 @@ export default function NotificationSettings() {
 
       <div className="notify-card__footer">
         <button type="button" className="ht-btn ht-btn--secondary" onClick={sendTest} disabled={busy}>Send test notification</button>
+        <button type="button" className="ht-btn ht-btn--secondary" onClick={sendPreview} disabled={busy}>Preview notification</button>
         {message ? <span className="notify-card__message">{message}</span> : null}
         {error ? <span className="notify-card__error">{error}</span> : null}
       </div>
+
+      <details className="notify-card__help">
+        <summary>Not seeing the notification?</summary>
+        <ol>
+          <li>Click <strong>Preview notification</strong> first. If the preview does not appear, the browser or operating system is blocking notifications for this site — that is not a server problem.</li>
+          <li>On Windows, check <strong>Settings → System → Notifications</strong>: enable notifications for Chrome and turn off <strong>Focus Assist / Do Not Disturb</strong>.</li>
+          <li>In Chrome, open <strong>Settings → Privacy and security → Site settings → Notifications</strong> and confirm this site is <strong>Allowed</strong>.</li>
+          <li>Open DevTools → <strong>Application → Service Workers</strong> and check the console for <code>[sw] push payload received</code>. That line means the push arrived and the problem is display-side.</li>
+          <li>On iPhone and iPad, the site must be added to the <strong>Home Screen</strong> before it can receive notifications.</li>
+        </ol>
+        {workerVersion ? <p className="notify-card__worker">Notification worker version {workerVersion} is active.</p> : null}
+      </details>
     </section>
   );
 }

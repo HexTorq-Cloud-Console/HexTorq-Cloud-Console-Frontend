@@ -23,7 +23,20 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
 const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', display: 'swap' });
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono', display: 'swap' });
 
-export const metadata: Metadata = { title: 'HexTorq Cloud Console', description: 'Managed deployment console' };
+export const metadata: Metadata = {
+  title: 'HexTorq Cloud Console',
+  description: 'Managed deployment console',
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/icon-192.png',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'HexTorq',
+    statusBarStyle: 'default',
+  },
+};
 
 export const viewport: Viewport = { themeColor: '#f5f5f2', colorScheme: 'light dark' };
 

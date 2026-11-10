@@ -4,10 +4,19 @@
  * when the tab (and sometimes the whole browser) is closed. The payload is
  * JSON and small; the deep link points at the deployment record so the
  * notification's action button opens the full details.
+ *
+ * Every step logs to the worker console (DevTools → Application → Service
+ * Workers) so a missing notification can be traced to either delivery or
+ * display without guessing.
  */
 
+const SW_VERSION = '2';
+
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (event) => {
+  console.log(`[sw] activated v${SW_VERSION}`);
+  event.waitUntil(self.clients.claim());
+});
 
 function readPayload(event) {
   const fallback = {
@@ -15,26 +24,31 @@ function readPayload(event) {
     body: 'A deployment updated.',
     url: '/deployments',
     tag: 'hextorq-deployment',
+    status: 'SUCCESS',
   };
-  if (!event.data) return fallback;
+  if (!event.data) {
+    console.log('[sw] push received without a payload');
+    return fallback;
+  }
   try {
-    return { ...fallback, ...event.data.json() };
+    const parsed = event.data.json();
+    console.log('[sw] push payload received', parsed);
+    return { ...fallback, ...parsed };
   } catch {
+    console.warn('[sw] push payload was not JSON, falling back to text');
     return { ...fallback, body: event.data.text() };
   }
 }
 
-self.addEventListener('push', (event) => {
-  const data = readPayload(event);
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
+async function showNotification(data) {
+  try {
+    await self.registration.showNotification(data.title || 'HexTorq Cloud Console', {
+      body: data.body || '',
       icon: '/icon-192.png',
       badge: '/badge-72.png',
       tag: data.tag || 'hextorq-deployment',
       renotify: true,
       requireInteraction: data.status === 'FAILED' || data.status === 'ERROR',
-      vibrate: [120, 60, 120],
       timestamp: Date.now(),
       data: {
         url: data.url || '/deployments',
@@ -46,8 +60,37 @@ self.addEventListener('push', (event) => {
         { action: 'details', title: 'View full details' },
         { action: 'dismiss', title: 'Dismiss' },
       ],
-    }),
-  );
+    });
+    console.log('[sw] notification shown:', data.title);
+    return { shown: true };
+  } catch (error) {
+    console.error('[sw] showNotification failed', error);
+    return { shown: false, error: error.message };
+  }
+}
+
+self.addEventListener('push', (event) => {
+  const data = readPayload(event);
+  event.waitUntil(showNotification(data));
+});
+
+// Lets the page trigger a notification through this exact same path, so a
+// local preview exercises the real rendering code.
+self.addEventListener('message', (event) => {
+  const message = event.data || {};
+  if (message.type === 'preview') {
+    event.waitUntil(showNotification({
+      title: message.title || 'HexTorq Cloud Console',
+      body: message.body || 'Preview notification from the console.',
+      url: message.url || '/deployments',
+      tag: 'hextorq-preview',
+      status: 'SUCCESS',
+    }));
+    return;
+  }
+  if (message.type === 'ping') {
+    event.source?.postMessage({ type: 'pong', version: SW_VERSION });
+  }
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -67,5 +110,3 @@ self.addEventListener('notificationclick', (event) => {
     }),
   );
 });
-
-self.addEventListener('close', () => undefined);

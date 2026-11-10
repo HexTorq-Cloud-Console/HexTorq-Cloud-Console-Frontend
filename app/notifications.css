@@ -21,4 +21,11 @@
 .notify-card__footer{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--ht-line-subtle)}
 .notify-card__message{color:var(--ht-success-text);font:500 12px/17px var(--ht-font-body)}
 .notify-card__error{color:var(--ht-danger-text);font:500 12px/17px var(--ht-font-body)}
+.notify-card__help{margin-top:14px;padding-top:12px;border-top:1px solid var(--ht-line-subtle);color:var(--ht-text-secondary)}
+.notify-card__help summary{cursor:pointer;color:var(--ht-text-secondary);font:500 12px/18px var(--ht-font-body);list-style:revert}
+.notify-card__help ol{margin:12px 0 0;padding-left:20px;color:var(--ht-text-secondary);font:400 12px/19px var(--ht-font-body)}
+.notify-card__help li{margin-bottom:7px}
+.notify-card__help strong{color:var(--ht-text);font-weight:600}
+.notify-card__help code{padding:1px 5px;border-radius:4px;background:var(--ht-elevated);color:var(--ht-code-text);font:11px ui-monospace,monospace}
+.notify-card__worker{margin:12px 0 0;color:var(--ht-text-muted);font:400 11px/17px var(--ht-font-body)}
 @media(max-width:700px){.notify-channel{flex-direction:column;align-items:flex-start}.notify-channel .ht-btn{width:100%}.notify-card__email input{max-width:none}}
