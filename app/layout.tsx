@@ -13,8 +13,10 @@ import './admin.css';
 import './states.css';
 import './enhancements.css';
 import './ascii.css';
+import './ink.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Manrope } from 'next/font/google';
+import InkThemeLayer from '../components/ink/InkThemeLayer';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', display: 'swap' });
@@ -37,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
         {children}
+        <InkThemeLayer />
       </body>
     </html>
   );

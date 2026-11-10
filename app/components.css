@@ -173,6 +173,7 @@ h4 {
 }
 
 .theme-toggle {
+  position: relative;
   display: grid;
   place-items: center;
   width: 34px;

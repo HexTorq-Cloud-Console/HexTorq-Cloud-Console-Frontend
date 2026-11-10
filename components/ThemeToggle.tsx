@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { requestInkThemeToggle } from './ink/InkThemeLayer';
 
 type Theme = 'light' | 'dark';
 
@@ -18,9 +19,23 @@ export default function ThemeToggle({ className }: { className?: string }) {
     setTheme(currentTheme());
   }, []);
 
-  function toggleTheme() {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+  function toggleTheme(event: React.MouseEvent<HTMLButtonElement>) {
+    // Read the live theme, not the rendered state: the ink transition owns the DOM flip,
+    // so a second click during a spread must reverse the theme that is actually applied.
+    const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';
     setTheme(next);
+
+    // The ink spreads from the pointer; a keyboard activation spreads from the button.
+    const rect = event.currentTarget.getBoundingClientRect();
+    const point =
+      event.detail > 0
+        ? { x: event.clientX, y: event.clientY }
+        : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+
+    // The ink layer flips the DOM itself; it reports false when it can't (no WebGL2,
+    // not mounted yet) and we fall back to an instant swap.
+    if (requestInkThemeToggle(point)) return;
+
     document.documentElement.dataset.theme = next;
     try {
       window.localStorage.setItem(THEME_KEY, next);
@@ -40,6 +55,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
       onClick={toggleTheme}
       aria-label={label}
       title={label}
+      data-ink-live="true"
     >
       {theme === 'dark' ? (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -1,0 +1,55 @@
+/* Ink-bleed theme transition — adapted from codemure-official/ink-bleed-theme-changer.
+   The overlay canvas is React-rendered in the root layout, hidden until a spread starts.
+   html2canvas snapshots exclude the live theme toggles ([data-ink-live]); because the
+   ink canvas covers everything while it animates, the toggles are lifted above it only
+   during the transition (html[data-ink-active] rules far below). Interaction still
+   passes through: the canvas is pointer-events:none, so mid-animation re-toggles freeze
+   the current frame and spread new ink from there. */
+
+.ink-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.ink-canvas.is-active {
+  visibility: visible;
+}
+
+/* Only while the ink is spreading (never interferes with normal stacking):
+   - shell-topbar drops its stacking context so the toggle's z-index can climb out
+     (it keeps its sticky positioning);
+   - both toggle variants rise above the overlay so they stay visible and re-clickable,
+     matching the reference demo where the nav toggle floats above the ink. */
+html[data-ink-active='1'] .shell-topbar {
+  z-index: auto;
+}
+
+html[data-ink-active='1'] .shell-top-actions .theme-toggle {
+  z-index: 1100;
+}
+
+html[data-ink-active='1'] .auth-theme-toggle {
+  z-index: 1100;
+}
+
+/* ---------- CSS fallback transition ----------
+   Used without WebGL2 or before snapshots exist. Only applied for the duration of a
+   flip so it never leaks into snapshots. */
+
+html.theme-fade,
+html.theme-fade *,
+html.theme-fade *::before,
+html.theme-fade *::after {
+  transition:
+    background-color var(--theme-fade, 0.45s) ease,
+    border-color var(--theme-fade, 0.45s) ease,
+    color var(--theme-fade, 0.45s) ease,
+    fill var(--theme-fade, 0.45s) ease,
+    stroke var(--theme-fade, 0.45s) ease,
+    box-shadow var(--theme-fade, 0.45s) ease !important;
+}
