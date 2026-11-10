@@ -3,10 +3,16 @@
 import { FormEvent, useEffect, useState } from 'react';
 import AccessEntryCard from './AccessEntryCard';
 import Modal from './Modal';
-import NotificationSettings from './NotificationSettings';
+import AdminAccessSection from './admin/AdminAccessSection';
+import AdminAgentsSection from './admin/AdminAgentsSection';
+import AdminClientsSection from './admin/AdminClientsSection';
+import AdminNotificationsSection from './admin/AdminNotificationsSection';
+import AdminOverviewSection from './admin/AdminOverviewSection';
+import AdminServicesSection from './admin/AdminServicesSection';
 import { apiUrl, errorMessage, responseJson } from '../lib/api';
 import { liveRepositorySlug, serviceWebhookUrl, toSlug } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
+import type { ConsoleSection } from '../lib/sections';
 import type {
   AccessForm,
   AccessType,
@@ -21,7 +27,17 @@ import type {
   ServiceType,
   Template,
 } from '../types/api';
-function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => void }) {
+
+const ADMIN_SECTION_TITLES: Partial<Record<ConsoleSection, { title: string; subtitle: string }>> = {
+  admin: { title: 'Administration', subtitle: 'Manage your active clients, agents, and services from one place.' },
+  'admin-clients': { title: 'Clients', subtitle: 'Accounts that sign in to this console and see their own services.' },
+  'admin-agents': { title: 'VPS agents', subtitle: 'Servers connected to the control plane that run your deployments.' },
+  'admin-services': { title: 'Services', subtitle: 'Repositories, branches, and pipelines assigned to a client and an agent.' },
+  'admin-access': { title: 'Access management', subtitle: 'Encrypted SFTP and database credentials shared with clients.' },
+  'admin-notifications': { title: 'Notifications', subtitle: 'Browser push and email alerts for deployment activity.' },
+};
+
+function AdminPanel({ token, section, onChanged }: { token: string; section: ConsoleSection; onChanged?: () => void }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [adminLoading, setAdminLoading] = useState(true);
@@ -587,8 +603,8 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
       <div className="admin-heading">
         <div>
           <p className="eyebrow">SUPER ADMIN</p>
-          <h2>Administration</h2>
-          <p className="muted">Manage your active clients, agents, and services from one place.</p>
+          <h2>{ADMIN_SECTION_TITLES[section]?.title || 'Administration'}</h2>
+          <p className="muted">{ADMIN_SECTION_TITLES[section]?.subtitle || 'Manage your active clients, agents, and services from one place.'}</p>
         </div>
         <div className="admin-actions">
           <button onClick={() => setModal('client')}>+ Client</button>
@@ -609,194 +625,57 @@ function AdminPanel({ token, onChanged }: { token: string; onChanged?: () => voi
           <button className="ht-btn ht-btn--secondary" type="button" onClick={() => { setAdminLoading(true); void refresh(); }}>↻ Retry</button>
         </div>
       )}
-      <div className="admin-metrics" aria-label="Administration summary">
-        <div className="admin-metric"><span className="admin-metric__icon">◉</span><div><strong>{clients.length}</strong><span>Active clients</span></div></div>
-        <div className="admin-metric"><span className="admin-metric__icon admin-metric__icon--blue">▣</span><div><strong>{agents.length}</strong><span>VPS agents</span></div></div>
-        <div className="admin-metric"><span className="admin-metric__icon admin-metric__icon--purple">⬡</span><div><strong>{services.length}</strong><span>Managed services</span></div></div>
-        <div className="admin-metric"><span className="admin-metric__icon admin-metric__icon--amber">⌁</span><div><strong>{services.filter((service) => service.enabled).length}</strong><span>Enabled pipelines</span></div></div>
-      </div>
-      <div className="admin-lists">
-        <div className="active-list" id="admin-clients">
-          <div className="list-heading">
-            <div>
-              <span className="list-kicker">ACCOUNTS</span>
-              <h3>Clients</h3>
-            </div>
-            <span className="list-count">{clients.length}</span>
-          </div>
-          {clients.length === 0 ? (
-            <p className="muted">No clients yet.</p>
-          ) : (
-            clients.map((client) => (
-              <div className="active-row" key={client.id}>
-                <div className="avatar">{client.name.slice(0, 1).toUpperCase()}</div>
-                <div>
-                  <strong>{client.name}</strong>
-                  <small>{client.email}</small>
-                </div>
-                <span className="row-meta">
-                  {client._count.services} services / {client._count.accessEntries ?? 0} access
-                </span>
-              </div>
-            ))
-          )}
-        </div>
 
-        <div className="active-list" id="admin-agents">
-          <div className="list-heading">
-            <div>
-              <span className="list-kicker">INFRASTRUCTURE</span>
-              <h3>VPS agents</h3>
-            </div>
-            <span className="list-count">{agents.length}</span>
-          </div>
-          {agents.length === 0 ? (
-            <p className="muted">No agents registered.</p>
-          ) : (
-            agents.map((agent) => (
-              <div className="active-row" key={agent.id}>
-                <div className={`status-dot ${agent.status === 'online' ? 'online' : agent.status === 'disabled' ? 'disabled' : ''}`} />
-                <div>
-                  <strong>{agent.name}</strong>
-                  <small>{agent.baseUrl}</small>
-                  <small className="agent-id">Agent ID: {agent.id}</small>
-                  {agent.lastSeenAt && <small className="agent-seen">Last seen: {new Date(agent.lastSeenAt).toLocaleString()}</small>}
-                </div>
-                <div className="row-meta">
-                  <span className="admin-agent-status" data-status={agent.status || 'unknown'}>{agent.status || 'unknown'}</span>
-                  <span className="admin-agent-services">{services.filter((service) => service.agent?.id === agent.id).length} service{services.filter((service) => service.agent?.id === agent.id).length === 1 ? '' : 's'}</span>
-                </div>
-                <button className="secondary row-action" onClick={() => regenerateAgentToken(agent.id)}>
-                  New token
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+      {section === 'admin' && (
+        <AdminOverviewSection
+          clients={clients}
+          agents={agents}
+          services={services}
+          accessEntries={accessEntries}
+          onCreateClient={() => setModal('client')}
+          onCreateAgent={() => setModal('agent')}
+          onCreateService={() => setModal('service')}
+          onCreateAccess={openCreateAccess}
+          onOpenSettings={() => setModal('settings')}
+        />
+      )}
 
-        <div className="active-list admin-services" id="admin-services">
-          <div className="list-heading">
-            <div>
-              <span className="list-kicker">DEPLOYMENTS</span>
-              <h3>Services</h3>
-            </div>
-            <span className="list-count">{services.length}</span>
-          </div>
-          {services.length === 0 ? (
-            <p className="muted">No services registered.</p>
-          ) : (
-            services.map((service) => (
-              <div className="active-row" key={service.id}>
-                <div className={`status-dot ${service.enabled ? 'online' : ''}`} />
-                <div>
-                  <strong>{service.name}</strong>
-                  <small>
-                    {service.client?.name || 'No client'} / {service.agent?.name || 'No agent'} /{' '}
-                    {service.type.replace('_', ' ')} / {service.branch || 'origin/HEAD'}
-                  </small>
-                </div>
-                <span className="row-meta">{service.enabled ? 'Enabled' : 'Disabled'}</span>
-                <div className="row-actions">
-                  <button onClick={() => openEditService(service)}>Edit</button>
-                  <button onClick={() => deleteService(service)}>Delete</button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+      {section === 'admin-clients' && (
+        <AdminClientsSection clients={clients} onCreate={() => setModal('client')} />
+      )}
 
-        <div className="active-list admin-access" id="admin-access">
-          <div className="list-heading">
-            <div>
-              <span className="list-kicker">CLIENT ACCESS</span>
-              <h3>FileZilla & database credentials</h3>
-            </div>
-            <span className="list-count">{accessEntries.length}</span>
-          </div>
-          {accessError && <p className="error">{accessError}</p>}
-          {accessEntries.length === 0 ? (
-            <p className="muted">No client access credentials have been created.</p>
-          ) : (
-            accessEntries.map((access) => (
-              <div className="active-row" key={access.id}>
-                <span className={`access-type-badge ${access.type === 'DATABASE' ? 'database' : 'sftp'}`}>
-                  {access.type === 'DATABASE' ? 'DB' : 'SFTP'}
-                </span>
-                <div>
-                  <strong>{access.label}</strong>
-                  <small>
-                    {access.client?.name || 'Unknown client'} / {access.host}:{access.port} / {access.username}
-                  </small>
-                </div>
-                <span className="row-meta">{access.enabled ? 'Enabled' : 'Disabled'}</span>
-                <div className="row-actions">
-                  <button onClick={() => viewAccess(access)}>View</button>
-                  <button onClick={() => openEditAccess(access)}>Edit</button>
-                  <button onClick={() => deleteAccess(access)}>Delete</button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+      {section === 'admin-agents' && (
+        <AdminAgentsSection
+          agents={agents}
+          services={services}
+          onCreate={() => setModal('agent')}
+          onRegenerateToken={regenerateAgentToken}
+        />
+      )}
 
-        <div className="active-list admin-notifications" id="admin-notifications">
-          <div className="list-heading">
-            <div>
-              <span className="list-kicker">DEPLOYMENT NOTIFICATIONS</span>
-              <h3>Browser push & email alerts</h3>
-            </div>
-            <span className="list-count">{notificationClients.length}</span>
-          </div>
-          <p className="muted admin-notifications__intro">
-            Configure notifications for this console account, and check which clients have alerts enabled.
-            Every client controls their own devices and channels on their Alerts page.
-          </p>
-          <NotificationSettings />
-          {notificationClients.length === 0 ? (
-            <p className="muted">No client notification settings have been configured yet.</p>
-          ) : (
-            <div className="notify-admin-table" role="table" aria-label="Client notification status">
-              <div className="notify-admin-row notify-admin-row--head" role="row">
-                <span role="columnheader">Client</span>
-                <span role="columnheader">Push devices</span>
-                <span role="columnheader">Email</span>
-                <span role="columnheader">Notify on</span>
-              </div>
-              {notificationClients.map((entry) => (
-                <div className="notify-admin-row" role="row" key={entry.clientId}>
-                  <span role="cell">
-                    <strong>{entry.name}</strong>
-                    <small>{entry.email}</small>
-                  </span>
-                  <span role="cell">
-                    {entry.pushEnabled ? (
-                      entry.pushDevices > 0
-                        ? <span className="notify-admin-ok">{entry.pushDevices} device(s)</span>
-                        : <span className="notify-admin-warn">Enabled, no device</span>
-                    ) : (
-                      <span className="notify-admin-off">Off</span>
-                    )}
-                  </span>
-                  <span role="cell">
-                    {entry.emailEnabled && entry.emailAddress ? (
-                      <span className="notify-admin-ok">{entry.emailAddress}</span>
-                    ) : (
-                      <span className="notify-admin-off">Off</span>
-                    )}
-                  </span>
-                  <span role="cell">
-                    {[
-                      entry.notifyStarted ? 'Start' : null,
-                      entry.notifyCompleted ? 'Success' : null,
-                      entry.notifyFailed ? 'Failure' : null,
-                    ].filter(Boolean).join(' · ') || <span className="notify-admin-off">Nothing</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {section === 'admin-services' && (
+        <AdminServicesSection
+          services={services}
+          onCreate={() => setModal('service')}
+          onEdit={openEditService}
+          onDelete={deleteService}
+        />
+      )}
+
+      {section === 'admin-access' && (
+        <AdminAccessSection
+          accessEntries={accessEntries}
+          error={accessError}
+          onCreate={openCreateAccess}
+          onView={viewAccess}
+          onEdit={openEditAccess}
+          onDelete={deleteAccess}
+        />
+      )}
+
+      {section === 'admin-notifications' && (
+        <AdminNotificationsSection clients={notificationClients} />
+      )}
 
       <Modal open={modal === 'client'} title="Create client" subtitle="Issue a secure temporary login for a new client." onClose={() => setModal(null)}>
         <form className="modal-form" onSubmit={createClient}>

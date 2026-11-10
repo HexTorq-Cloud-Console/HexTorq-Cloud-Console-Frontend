@@ -178,7 +178,7 @@ export type AccessForm = {
   notes: string;
   enabled: boolean;
 };
-export type Client = { id: string; name: string; email: string; _count: { services: number; accessEntries: number } };
+export type Client = { id: string; name: string; email: string; enabled?: boolean; _count: { services: number; accessEntries: number } };
 export type ClientNotificationStatus = {
   clientId: string;
   name: string;

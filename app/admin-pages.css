@@ -1,0 +1,14 @@
+/* Super-admin section pages — one route per navigation target */
+.admin-section__intro{margin:0 0 16px;color:var(--ht-text-secondary);font:400 12px/19px var(--ht-font-body)}
+.admin-section__footer{display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--ht-line-subtle)}
+.admin-section__footer button{height:32px;padding:0 13px;border:1px solid var(--ht-line);border-radius:var(--ht-radius);background:var(--ht-elevated);color:var(--ht-text-secondary);font:500 11px/1 var(--ht-font-body);cursor:pointer}
+.admin-section__footer button:hover{border-color:var(--ht-line-focus);background:var(--ht-card);color:var(--ht-text)}
+.admin-metric small{display:block;margin-top:2px;color:var(--ht-text-muted);font:400 11px/16px var(--ht-font-body)}
+.admin-quickstart__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.admin-quickstart__grid button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:15px;border:1px solid var(--ht-line);border-radius:var(--ht-radius);background:var(--ht-nav);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.admin-quickstart__grid button:hover{border-color:var(--ht-line-focus);background:var(--ht-elevated)}
+.admin-quickstart__grid button.secondary{background:transparent}
+.admin-quickstart__grid strong{color:var(--ht-text);font:600 13px/18px var(--ht-font-heading)}
+.admin-quickstart__grid span{color:var(--ht-text-muted);font:400 12px/18px var(--ht-font-body)}
+.admin-panel .active-list{margin-bottom:0}
+@media(max-width:700px){.admin-quickstart__grid{grid-template-columns:1fr}}

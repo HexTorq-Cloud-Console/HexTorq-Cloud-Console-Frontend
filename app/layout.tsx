@@ -10,6 +10,7 @@ import './pm2.css';
 import './health.css';
 import './access-alerts.css';
 import './admin.css';
+import './admin-pages.css';
 import './states.css';
 import './enhancements.css';
 import './ink.css';

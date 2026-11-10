@@ -151,7 +151,6 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [hash, setHash] = useState('');
 
   const groups: NavGroup[] = isAdmin
     ? [
@@ -167,11 +166,11 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           label: 'Administration',
           items: [
             { id: 'admin', label: 'Admin Overview', icon: 'admin', href: '/admin' },
-            { id: 'admin-clients', label: 'Clients', icon: 'clients', href: '/admin#admin-clients' },
-            { id: 'admin-agents', label: 'VPS Agents', icon: 'agents', href: '/admin#admin-agents' },
-            { id: 'admin-services', label: 'All Services', icon: 'services', href: '/admin#admin-services' },
-            { id: 'admin-access', label: 'Access Management', icon: 'access', href: '/admin#admin-access' },
-            { id: 'admin-notifications', label: 'Notifications', icon: 'alerts', href: '/admin#admin-notifications' },
+            { id: 'admin-clients', label: 'Clients', icon: 'clients', href: '/admin/clients' },
+            { id: 'admin-agents', label: 'VPS Agents', icon: 'agents', href: '/admin/agents' },
+            { id: 'admin-services', label: 'All Services', icon: 'services', href: '/admin/services' },
+            { id: 'admin-access', label: 'Access Management', icon: 'access', href: '/admin/access' },
+            { id: 'admin-notifications', label: 'Notifications', icon: 'alerts', href: '/admin/notifications' },
           ],
         },
       ]
@@ -182,21 +181,11 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
         },
       ];
 
-  useEffect(() => {
-    const syncHash = () => setHash(window.location.hash);
-    syncHash();
-    window.addEventListener('hashchange', syncHash);
-    return () => window.removeEventListener('hashchange', syncHash);
-  }, [pathname]);
-
   function isActive(item: NavItem) {
-    const [path, itemHash] = item.href.split('#');
-    if (path !== pathname) return false;
-    if (pathname === '/admin') {
-      const current = hash && hash !== '#admin' ? hash : '';
-      return itemHash ? current === `#${itemHash}` : current === '';
-    }
-    return true;
+    // Every navigation target is now a distinct route, so the active item is
+    // the one whose path matches the current pathname exactly.
+    const [path] = item.href.split('#');
+    return path === pathname;
   }
 
   const activeItem = groups.flatMap((group) => group.items).find(isActive);

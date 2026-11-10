@@ -416,7 +416,7 @@ export default function OverviewView({
               {healthRunLoading ? 'Running checks...' : 'Run health checks'}
             </button>
           ) : (
-            <Link className="ht-btn ht-btn--primary" href="/admin#admin-services">New service</Link>
+            <Link className="ht-btn ht-btn--primary" href="/admin/services">New service</Link>
           )}
         </div>
       </header>

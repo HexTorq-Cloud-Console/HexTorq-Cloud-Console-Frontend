@@ -13,7 +13,7 @@ import {
   writeSessionCache,
   type ConsoleSession,
 } from '../lib/sessionCache';
-import { isClientOnlySection, type ConsoleSection } from '../lib/sections';
+import { isAdminSection, isClientOnlySection, type ConsoleSection } from '../lib/sections';
 
 type AuthUser = { email?: string; role?: string; forcePasswordChange?: boolean };
 
@@ -89,14 +89,14 @@ export default function ConsolePage({ section }: { section: ConsoleSection }) {
     if (!session) return;
     if (isClientOnlySection(section) && session.role !== 'CLIENT') {
       router.replace('/overview');
-    } else if (section === 'admin' && session.role !== 'SUPER_ADMIN') {
+    } else if (isAdminSection(section) && session.role !== 'SUPER_ADMIN') {
       router.replace('/overview');
     }
   }, [router, section, session]);
 
   if (checking) return <SessionLoading />;
   if (!session) return null;
-  if (section === 'admin' && session.role !== 'SUPER_ADMIN') return null;
+  if (isAdminSection(section) && session.role !== 'SUPER_ADMIN') return null;
   if (isClientOnlySection(section) && session.role !== 'CLIENT') return null;
 
   if (session.forcePasswordChange) {

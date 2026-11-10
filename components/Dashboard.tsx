@@ -18,7 +18,7 @@ import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { clearConsoleCache, readConsoleCache, writeConsoleCache } from '../lib/consoleCache';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
-import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, type ConsoleSection } from '../lib/sections';
+import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, isAdminSection, type ConsoleSection } from '../lib/sections';
 import { clearSessionCache } from '../lib/sessionCache';
 import type {
   AnalyticsData,
@@ -558,9 +558,9 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
 
   return (
       <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut} onOpenPalette={() => setPaletteOpen(true)}>
-      {section === 'admin' && role === 'SUPER_ADMIN' && <AdminPanel token={token} onChanged={loadDashboard} />}
+      {isAdminSection(section) && role === 'SUPER_ADMIN' && <AdminPanel token={token} section={section} onChanged={loadDashboard} />}
 
-      {section !== 'admin' && (loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
+      {!isAdminSection(section) && (loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
       {section === 'overview' && <OverviewView
         services={services}
         deployments={deployments}

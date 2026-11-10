@@ -27,6 +27,11 @@ const SECTION_IDS: Record<string, ConsoleSection> = {
   'access-list': 'access',
   'alerts-list': 'alerts',
   admin: 'admin',
+  'admin-clients': 'admin-clients',
+  'admin-agents': 'admin-agents',
+  'admin-services': 'admin-services',
+  'admin-access': 'admin-access',
+  'admin-notifications': 'admin-notifications',
 };
 
 export default function CommandPalette({ open, onClose, role, services }: Props) {
@@ -48,7 +53,12 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
       navItems.push({ id: 'access-list', label: 'Go to Access Credentials', hint: 'Credential vault', icon: '♢' });
       navItems.push({ id: 'alerts-list', label: 'Go to Alerts', hint: 'Session alerts', icon: '!' });
     } else {
-      navItems.push({ id: 'admin', label: 'Go to Administration', hint: 'Clients, agents & services', icon: '◉' });
+      navItems.push({ id: 'admin', label: 'Go to Admin Overview', hint: 'Control plane summary', icon: '◉' });
+      navItems.push({ id: 'admin-clients', label: 'Go to Clients', hint: 'Client accounts', icon: '◉' });
+      navItems.push({ id: 'admin-agents', label: 'Go to VPS Agents', hint: 'Connected servers', icon: '▣' });
+      navItems.push({ id: 'admin-services', label: 'Go to All Services', hint: 'Every managed pipeline', icon: '⬡' });
+      navItems.push({ id: 'admin-access', label: 'Go to Access Management', hint: 'SFTP & database credentials', icon: '♢' });
+      navItems.push({ id: 'admin-notifications', label: 'Go to Notifications', hint: 'Push & email alerts', icon: '◉' });
     }
     const serviceItems: PaletteItem[] = services.map((service) => ({
       id: `service-${service.id}`,

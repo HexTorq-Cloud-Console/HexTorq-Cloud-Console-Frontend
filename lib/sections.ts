@@ -5,7 +5,12 @@ export type ConsoleSection =
   | 'health'
   | 'access'
   | 'alerts'
-  | 'admin';
+  | 'admin'
+  | 'admin-clients'
+  | 'admin-agents'
+  | 'admin-services'
+  | 'admin-access'
+  | 'admin-notifications';
 
 export const SECTION_PATHS: Record<ConsoleSection, string> = {
   overview: '/overview',
@@ -15,20 +20,33 @@ export const SECTION_PATHS: Record<ConsoleSection, string> = {
   access: '/access',
   alerts: '/alerts',
   admin: '/admin',
+  'admin-clients': '/admin/clients',
+  'admin-agents': '/admin/agents',
+  'admin-services': '/admin/services',
+  'admin-access': '/admin/access',
+  'admin-notifications': '/admin/notifications',
 };
 
+// Legacy hash links are kept so bookmarks from the old single-page admin
+// panel still land on the matching section.
 const LEGACY_HASHES: Record<string, ConsoleSection> = {
   '#overview': 'overview',
+  '#services': 'services',
   '#services-list': 'services',
+  '#deployments': 'deployments',
   '#deployments-list': 'deployments',
+  '#health': 'health',
   '#health-list': 'health',
+  '#access': 'access',
   '#access-list': 'access',
+  '#alerts': 'alerts',
   '#alerts-list': 'alerts',
   '#admin': 'admin',
-  '#admin-clients': 'admin',
-  '#admin-agents': 'admin',
-  '#admin-services': 'admin',
-  '#admin-access': 'admin',
+  '#admin-clients': 'admin-clients',
+  '#admin-agents': 'admin-agents',
+  '#admin-services': 'admin-services',
+  '#admin-access': 'admin-access',
+  '#admin-notifications': 'admin-notifications',
 };
 
 export function sectionFromLegacyHash(hash: string): ConsoleSection | null {
@@ -40,4 +58,9 @@ export const FAILURE_ALERTS_KEY = 'hextorq_failure_alerts';
 
 export function isClientOnlySection(section: ConsoleSection) {
   return section === 'health' || section === 'access' || section === 'alerts';
+}
+
+/** Every administration page is restricted to the super-admin role. */
+export function isAdminSection(section: ConsoleSection) {
+  return section === 'admin' || section.startsWith('admin-');
 }
