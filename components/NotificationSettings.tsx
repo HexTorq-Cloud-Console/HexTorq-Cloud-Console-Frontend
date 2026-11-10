@@ -7,6 +7,7 @@ import {
   pushSupported,
   registerPushWorker,
   subscribeToPush,
+  subscriptionMatchesKey,
   unsubscribeFromPush,
   type PushPermission,
 } from '../lib/push';
@@ -62,7 +63,9 @@ export default function NotificationSettings() {
       setPreferences(data.preferences || EMPTY_PREFERENCES);
       setPermission(pushPermission());
       const subscription = await currentPushSubscription();
-      setDeviceActive(Boolean(subscription));
+      // A subscription bound to a rotated VAPID key is no longer usable, so
+      // it must not be reported as active.
+      setDeviceActive(Boolean(subscription) && subscriptionMatchesKey(subscription, data.vapidPublicKey || ''));
     } catch (reason) {
       setError(errorMessage(reason, 'Unable to load notification settings'));
     }

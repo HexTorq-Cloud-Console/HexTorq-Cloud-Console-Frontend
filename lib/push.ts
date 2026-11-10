@@ -12,6 +12,7 @@ export type PushSubscriptionRecord = {
   endpoint: string;
   expirationTime?: number | null;
   keys?: { p256dh?: string; auth?: string };
+  applicationServerKey?: ArrayBuffer | null;
   unsubscribe?: () => Promise<boolean>;
 };
 
@@ -62,6 +63,31 @@ export type SubscribeResult =
   | { ok: false; reason: string };
 
 /**
+ * Check whether an existing subscription was created with the current VAPID
+ * key.
+ *
+ * A browser subscription is bound to the applicationServerKey that created
+ * it. If the server rotates its VAPID keypair, the old subscription stops
+ * working and `subscribe()` refuses to replace it, so it has to be dropped
+ * first. When the stored key cannot be read we assume a mismatch and
+ * resubscribe, which is the safe direction.
+ */
+export function subscriptionMatchesKey(
+  subscription: PushSubscriptionRecord | null,
+  vapidPublicKey: string,
+): boolean {
+  const stored = subscription?.applicationServerKey;
+  if (!stored) return false;
+  const existing = stored instanceof ArrayBuffer ? new Uint8Array(stored) : new Uint8Array(stored as ArrayBufferLike);
+  const expected = urlBase64ToUint8Array(vapidPublicKey);
+  if (existing.length !== expected.length) return false;
+  for (let index = 0; index < existing.length; index += 1) {
+    if (existing[index] !== expected[index]) return false;
+  }
+  return true;
+}
+
+/**
  * Ask for permission and subscribe the device.
  *
  * The permission prompt must be triggered by a user gesture, so this is only
@@ -78,7 +104,18 @@ export async function subscribeToPush(vapidPublicKey: string): Promise<Subscribe
   const registration = await registerPushWorker();
   if (!registration) return { ok: false, reason: 'Unable to register the notification worker' };
 
-  const existing = await registration.pushManager.getSubscription();
+  let existing = await registration.pushManager.getSubscription();
+  if (existing && !subscriptionMatchesKey(existing as unknown as PushSubscriptionRecord, vapidPublicKey)) {
+    // The server rotated its VAPID keypair. The old subscription is bound to
+    // the previous key and can no longer be used, so replace it.
+    try {
+      await existing.unsubscribe();
+    } catch {
+      // The subscription is already gone; continue with a fresh one.
+    }
+    existing = null;
+  }
+
   const subscription = existing ?? await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
