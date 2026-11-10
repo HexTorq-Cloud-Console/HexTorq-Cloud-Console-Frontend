@@ -44,8 +44,14 @@ export function tween(options: {
   let elapsed = 0; // seconds
   let raf = 0;
 
-  const step = (now: number): void => {
+  const step = (): void => {
     if (killed) return;
+    // Read the clock with performance.now() instead of using the timestamp rAF hands
+    // over: the rAF timestamp comes from the compositor's clock domain, which can be
+    // offset from performance.now() (headless/virtualised compositors do this). Mixing
+    // the two makes the first frame look like a multi-second stall and the animation
+    // jumps straight to its end.
+    const now = performance.now();
     let delta = now - virtual;
     if (delta < 0) delta = 0;
     if (delta > MAX_LAG_MS) delta = LAG_ADJUST_MS;
