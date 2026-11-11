@@ -104,11 +104,17 @@ export type FleetHealth = {
   errored: number;
   unknown: number;
   total: number;
+  /** Static frontends are not runtime-managed, so they are counted separately. */
+  staticTotal: number;
 };
 
-/** Rolls the per-service PM2 status up into the counters shown on the dashboard. */
+/**
+ * Rolls the per-service PM2 status up into the counters shown on the dashboard.
+ * Only PM2 services have a runtime — static frontends are tracked separately.
+ */
 export function fleetHealth(services: Service[], pm2Status: Record<string, Pm2Status>): FleetHealth {
-  const entries: ServiceHealth[] = services.map((service) => {
+  const runtimeServices = services.filter((service) => service.type === 'PM2');
+  const entries: ServiceHealth[] = runtimeServices.map((service) => {
     const status = pm2Status[service.id];
     return {
       service,
@@ -126,6 +132,7 @@ export function fleetHealth(services: Service[], pm2Status: Record<string, Pm2St
     errored: entries.filter((entry) => entry.status === 'errored').length,
     unknown: entries.filter((entry) => entry.status === 'unknown').length,
     total: entries.length,
+    staticTotal: services.length - runtimeServices.length,
   };
 }
 

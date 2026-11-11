@@ -450,14 +450,26 @@ export default function OverviewView({
     onOpen?: () => void;
   }> = [];
 
-  for (const deployment of deployments.filter((item) => item.status === 'FAILED' || item.status === 'ERROR').slice(0, 5)) {
+  // Repeated failures of the same service are grouped, so one broken service shows up
+  // once with a count instead of five near-identical rows.
+  const failedByService = new Map<string, Deployment[]>();
+  for (const deployment of deployments) {
+    if (deployment.status !== 'FAILED' && deployment.status !== 'ERROR') continue;
+    const list = failedByService.get(deployment.service.id) ?? [];
+    list.push(deployment);
+    failedByService.set(deployment.service.id, list);
+  }
+  for (const list of failedByService.values()) {
+    const latest = list[0];
     attention.push({
-      id: `deployment-${deployment.id}`,
+      id: `deployment-${latest.service.id}`,
       tone: 'danger',
-      title: `${deployment.service.name} deployment ${deployment.status === 'ERROR' ? 'errored' : 'failed'}`,
-      detail: deployment.failureReason || `Last attempt ${relativeTime(deployment.startedAt)}.`,
+      title: `${latest.service.name} deployment ${latest.status === 'ERROR' ? 'errored' : 'failed'}`,
+      detail: list.length > 1
+        ? `${list.length} failed attempts · ${latest.failureReason || 'open the log for the full output'}`
+        : latest.failureReason || `Last attempt ${relativeTime(latest.startedAt)}.`,
       action: 'View logs',
-      onOpen: () => onDeployment(deployment.id),
+      onOpen: () => onDeployment(latest.id),
     });
   }
   for (const entry of runtime.entries) {
@@ -623,7 +635,8 @@ export default function OverviewView({
           </div>
           <p className="kpi-meta">
             {runtime.errored ? `${runtime.errored} erroring · ` : ''}{runtime.stopped ? `${runtime.stopped} stopped · ` : ''}
-            {runtime.unknown ? `${runtime.unknown} unknown` : 'all processes reporting'}
+            {runtime.unknown ? `${runtime.unknown} awaiting status` : 'all processes reporting'}
+            {runtime.staticTotal ? ` · ${runtime.staticTotal} static` : ''}
           </p>
           {runtime.entries.length ? (
             <div className="health-dots">
