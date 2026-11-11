@@ -104,7 +104,11 @@ function flattenGradientText(doc: Document): void {
     if (style.backgroundClip !== 'text' && style.webkitBackgroundClip !== 'text') continue;
     const flat = middleGradientColor(style.backgroundImage);
     if (!flat) continue;
-    el.style.background = flat; // shorthand also drops the gradient image
+    // Drop the gradient entirely and paint the glyph in a flat version of it: html2canvas
+    // would otherwise fill the element's box with the gradient (a solid block) and the
+    // transparent glyph on top would stay invisible.
+    el.style.background = 'none';
+    el.style.backgroundImage = 'none';
     el.style.webkitBackgroundClip = 'border-box';
     el.style.backgroundClip = 'border-box';
     el.style.color = flat;
