@@ -61,7 +61,10 @@ export type AnalyticsData = {
   services: { total: number; enabled: number; disabled: number; pm2: number; static: number };
 };
 
-export type Pm2Status = { status?: string; cpu?: number; memory?: number; restarts?: number };
+export type Pm2Status = { status?: string; cpu?: number; memory?: number; restarts?: number; uptime?: number };
+
+/** Time window used by the dashboard metrics, chart and cards. */
+export type MetricRange = '24h' | '7d' | '30d';
 
 export type WebhookHealthService = {
   id: string;

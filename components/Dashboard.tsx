@@ -18,6 +18,7 @@ import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { clearConsoleCache, readConsoleCache, writeConsoleCache } from '../lib/consoleCache';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
+import { isErrorLogLine } from '../lib/metrics';
 import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, isAdminSection, type ConsoleSection } from '../lib/sections';
 import { clearSessionCache } from '../lib/sessionCache';
 import type {
@@ -26,6 +27,7 @@ import type {
   Deployment,
   DeploymentLog,
   FailureAlert,
+  MetricRange,
   Pm2LogEntry,
   Pm2Status,
   Service,
@@ -55,6 +57,9 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [pm2LogPausedAt, setPm2LogPausedAt] = useState<number | null>(null);
   const [historyServiceId, setHistoryServiceId] = useState<string | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([]);
+  const [deploymentLogFilter, setDeploymentLogFilter] = useState('');
+  const [deploymentLogCopied, setDeploymentLogCopied] = useState<'all' | 'errors' | null>(null);
+  const [range, setRange] = useState<MetricRange>('7d');
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
   const [pm2LogEntries, setPm2LogEntries] = useState<Pm2LogEntry[]>([]);
   const [pm2LogError, setPm2LogError] = useState('');
@@ -84,12 +89,10 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const accessRequest = role === 'CLIENT' ? fetch(`${apiUrl}/access`, { headers }) : Promise.resolve(null);
-      const analyticsRequest = fetch(`${apiUrl}/analytics?days=14`, { headers }).catch(() => null);
-      const [serviceResponse, deploymentResponse, accessResponse, analyticsResult] = await Promise.all([
+      const [serviceResponse, deploymentResponse, accessResponse] = await Promise.all([
         fetch(`${apiUrl}/services`, { headers }),
         fetch(`${apiUrl}/deployments?limit=100`, { headers }),
         accessRequest,
-        analyticsRequest,
       ]);
       const serviceData = await responseJson<{ services?: Service[]; message?: string }>(serviceResponse);
       const deploymentData = await responseJson<{ deployments?: Deployment[]; message?: string; hasMore?: boolean; nextCursor?: string | null }>(deploymentResponse);
@@ -104,10 +107,6 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
       setDeploymentNextCursor(deploymentData.nextCursor || null);
       setAccessEntries(accessResponse ? accessData.access || [] : []);
       setError(accessResponse && !accessResponse.ok ? accessData.message || 'Unable to load access credentials' : '');
-      if (analyticsResult?.ok) {
-        const analyticsData = await responseJson<AnalyticsData>(analyticsResult);
-        setAnalytics(analyticsData);
-      }
     } catch (reason) {
       if (!silent) setError(errorMessage(reason, 'Unable to load console data'));
     } finally {
@@ -115,8 +114,30 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     }
   }, [role, token]);
 
-  const loadMoreDeployments = useCallback(async () => {
-    if (!deploymentNextCursor || deploymentLoadingMore) return;
+  // The metrics window drives which aggregate the backend returns: 14 days keeps a
+  // comparison window for 7d, 30 days covers the long view, 2 days covers "today".
+  useEffect(() => {
+    let cancelled = false;
+    const days = range === '30d' ? 30 : range === '24h' ? 2 : 14;
+    const load = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/analytics?days=${days}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await responseJson<AnalyticsData>(response);
+        if (!cancelled) setAnalytics(data);
+      } catch {
+        // Keep the previous window — a failed metrics refresh must not blank the dashboard.
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [range, token]);
+
+  const loadMoreDeployments = useCallback(async () => {    if (!deploymentNextCursor || deploymentLoadingMore) return;
     setDeploymentLoadingMore(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
@@ -151,8 +172,24 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     setFailureAlerts((current) => current.some((item) => item.id === alert.id) ? current : [alert, ...current].slice(0, 10));
   }
 
-  async function deploymentFailureLogs(deploymentId: string | undefined) {
-    if (!deploymentId) return '';
+  function deploymentLogLines(): string[] {
+    return deploymentLogs.map((log) => `[${new Date(log.timestamp).toLocaleString()}] ${log.message}`);
+  }
+
+  async function copyDeploymentLogs(errorsOnly = false) {
+    const all = deploymentLogLines();
+    const lines = errorsOnly ? all.filter((line) => isErrorLogLine(line)) : all;
+    if (!lines.length) return;
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setDeploymentLogCopied(errorsOnly ? 'errors' : 'all');
+      window.setTimeout(() => setDeploymentLogCopied(null), 2000);
+    } catch {
+      // Clipboard blocked (insecure context or denied permission) — leave the log visible.
+    }
+  }
+
+  async function deploymentFailureLogs(deploymentId: string | undefined) {    if (!deploymentId) return '';
     try {
       const response = await fetch(`${apiUrl}/deployments/${deploymentId}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -305,6 +342,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   useEffect(() => {
     if (!selectedDeployment) {
       setDeploymentLogs([]);
+      setDeploymentLogFilter('');
       return;
     }
     let active = true;
@@ -555,6 +593,9 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   }
 
   const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
+  const visibleDeploymentLogs = deploymentLogFilter
+    ? deploymentLogs.filter((log) => log.message.toLowerCase().includes(deploymentLogFilter.toLowerCase()))
+    : deploymentLogs;
 
   return (
       <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut} onOpenPalette={() => setPaletteOpen(true)}>
@@ -572,6 +613,8 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
         analytics={analytics}
         email={email}
         role={role}
+        range={range}
+        onRangeChange={setRange}
         failureAlerts={failureAlerts}
         onDeploy={deploy}
         onForceDeploy={requestForceDeploy}
@@ -676,9 +719,33 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
               <h3>Full deployment log</h3>
               <span className="muted">{deploymentLogs.length} log entries</span>
             </div>
+            <div className="deployment-log-toolbar">
+              <label className="deployment-log-search">
+                ⌕<input
+                  value={deploymentLogFilter}
+                  onChange={(event) => setDeploymentLogFilter(event.target.value)}
+                  placeholder="Filter log lines…"
+                  aria-label="Filter log lines"
+                />
+              </label>
+              <button type="button" onClick={() => void copyDeploymentLogs(false)}>
+                {deploymentLogCopied === 'all' ? '✓ Copied' : '▣ Copy logs'}
+              </button>
+              <button type="button" onClick={() => void copyDeploymentLogs(true)}>
+                {deploymentLogCopied === 'errors' ? '✓ Copied' : '⚠ Copy errors'}
+              </button>
+            </div>
             <pre className="deployment-detail-log">
-              {deploymentLogs.map((log) => `[${new Date(log.timestamp).toLocaleString()}] ${log.message}`).join('\n') ||
-                'Waiting for deployment logs.'}
+              {visibleDeploymentLogs.length
+                ? visibleDeploymentLogs.map((log, index) => (
+                    <span
+                      key={`${log.timestamp}-${index}`}
+                      className={`deployment-log-line${isErrorLogLine(log.message) ? ' is-error' : ''}`}
+                    >{`[${new Date(log.timestamp).toLocaleString()}] ${log.message}`}</span>
+                  ))
+                : deploymentLogs.length
+                  ? 'No log lines match the filter.'
+                  : 'Waiting for deployment logs.'}
             </pre>
             <div className="modal-actions">
               <button className="secondary" onClick={() => setSelectedDeployment(null)}>Close</button>

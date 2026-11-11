@@ -130,6 +130,15 @@ button { margin-top: 6px; padding: 13px; border: 0; border-radius: var(--ht-radi
 .deployment-log-heading { margin-top: 22px; }
 .deployment-log-heading h3 { margin: 0; }
 .deployment-detail-log { max-height: 52vh; overflow: auto; margin: 12px 0 0; padding: 16px; border: 1px solid var(--ht-line); border-radius: var(--ht-radius); background: var(--ht-log-bg); color: var(--ht-log-text); font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+
+/* Deployment log viewer toolbar: filter, copy all, copy errors only */
+.deployment-log-toolbar { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 8px 10px; border: 1px solid var(--ht-line); border-radius: var(--ht-radius); background: var(--ht-elevated); }
+.deployment-log-toolbar button { padding: 6px 11px; border: 1px solid var(--ht-line); border-radius: var(--ht-radius-pill); background: var(--ht-card); color: var(--ht-text-secondary); font: 500 11px/1 var(--ht-font-mono); cursor: pointer; white-space: nowrap; transition: border-color var(--ht-transition), color var(--ht-transition); }
+.deployment-log-toolbar button:hover { border-color: var(--ht-line-focus); color: var(--ht-text); }
+.deployment-log-search { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 0 4px 0 10px; border: 1px solid var(--ht-line); border-radius: var(--ht-radius-pill); background: var(--ht-card); color: var(--ht-text-muted); }
+.deployment-log-search input { flex: 1; min-width: 0; height: 28px; border: 0; background: transparent; color: var(--ht-text); font: 400 12px/28px var(--ht-font-mono); outline: none; }
+.deployment-log-line { display: block; }
+.deployment-log-line.is-error { color: var(--ht-danger); background: var(--ht-danger-fill); }
 .pm2-log-button { width: 100%; margin-top: 8px; padding: 9px; font-size: 12px; }
 .admin-services { grid-column: 1 / -1; }
 .row-actions { display: flex; flex: 0 0 auto; gap: 6px; }

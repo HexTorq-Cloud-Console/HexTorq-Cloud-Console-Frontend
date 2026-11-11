@@ -121,7 +121,7 @@
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
   gap: 16px;
 }
 
@@ -448,8 +448,120 @@
 }
 
 .chart-wrap {
+  position: relative;
   width: 100%;
   overflow: hidden;
+}
+
+/* Hover crosshair + tooltip for the activity chart */
+.chart-hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.chart-hover-line {
+  stroke: var(--ht-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.7;
+}
+
+.chart-tooltip {
+  position: absolute;
+  top: 6px;
+  z-index: 3;
+  display: grid;
+  gap: 2px;
+  min-width: 148px;
+  padding: 9px 11px;
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius);
+  background: var(--ht-elevated);
+  box-shadow: var(--ht-shadow-2);
+  color: var(--ht-text-secondary);
+  font: 500 11px/16px var(--ht-font-mono);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.chart-tooltip strong {
+  margin-bottom: 2px;
+  color: var(--ht-text);
+  font: 600 11px/16px var(--ht-font-mono);
+}
+
+.chart-tooltip span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chart-tooltip b {
+  color: var(--ht-text);
+  font-weight: 600;
+}
+
+.chart-tooltip .is-success b {
+  color: var(--ht-success);
+}
+
+.chart-tooltip .is-danger b {
+  color: var(--ht-danger);
+}
+
+.chart-tooltip .is-warning b {
+  color: var(--ht-warning);
+}
+
+/* Time range switcher in the dashboard header */
+.chart-tabs--range {
+  background: var(--ht-elevated);
+  border: 1px solid var(--ht-line);
+}
+
+.chart-tabs--range .chart-tab {
+  font-family: var(--ht-font-mono);
+}
+
+/* Runtime health dots (one per service) */
+.health-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 9px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.health-dots--empty {
+  gap: 0;
+}
+
+.health-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--ht-text-muted);
+}
+
+.health-dot--online {
+  background: var(--ht-success);
+  box-shadow: 0 0 0 3px var(--ht-success-fill);
+}
+
+.health-dot--stopped {
+  background: var(--ht-warning);
+  box-shadow: 0 0 0 3px var(--ht-warning-fill);
+}
+
+.health-dot--errored {
+  background: var(--ht-danger);
+  box-shadow: 0 0 0 3px var(--ht-danger-fill);
+}
+
+.health-dot--unknown {
+  background: var(--ht-text-muted);
 }
 
 .activity-chart {
@@ -1129,4 +1241,154 @@
   .recent-row time {
     display: none;
   }
+}
+
+/* ---------------------------------------------------------------- Needs attention */
+
+.attention-panel {
+  margin-bottom: 16px;
+}
+
+.attention-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ht-danger-fill);
+  color: var(--ht-danger);
+  font: 600 11px/1 var(--ht-font-mono);
+  vertical-align: middle;
+}
+
+.attention-list {
+  display: grid;
+  gap: 8px;
+}
+
+.attention-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--ht-line);
+  border-left-width: 3px;
+  border-radius: var(--ht-radius);
+  background: var(--ht-card);
+}
+
+.attention-item--danger {
+  border-left-color: var(--ht-danger);
+  background: var(--ht-danger-fill);
+}
+
+.attention-item--warning {
+  border-left-color: var(--ht-warning);
+  background: var(--ht-warning-fill);
+}
+
+.attention-item__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ht-card);
+  font: 700 12px/1 var(--ht-font-mono);
+}
+
+.attention-item--danger .attention-item__icon {
+  color: var(--ht-danger);
+}
+
+.attention-item--warning .attention-item__icon {
+  color: var(--ht-warning);
+}
+
+.attention-item__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.attention-item__body strong {
+  color: var(--ht-text);
+  font: 600 13px/18px var(--ht-font-heading);
+}
+
+.attention-item__body span {
+  color: var(--ht-text-secondary);
+  font: 400 12px/17px var(--ht-font-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attention-item__action {
+  flex: 0 0 auto;
+  padding: 6px 11px;
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-pill);
+  background: var(--ht-card);
+  color: var(--ht-text-secondary);
+  font: 500 11px/1 var(--ht-font-mono);
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color var(--ht-transition), color var(--ht-transition);
+}
+
+.attention-item__action:hover {
+  border-color: var(--ht-line-focus);
+  color: var(--ht-text);
+}
+
+.attention-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius);
+  background: var(--ht-success-fill);
+}
+
+.attention-empty__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ht-success);
+  color: var(--ht-card);
+  font: 700 12px/1 var(--ht-font-mono);
+}
+
+.attention-empty div {
+  display: grid;
+  gap: 2px;
+}
+
+.attention-empty strong {
+  color: var(--ht-text);
+  font: 600 13px/18px var(--ht-font-heading);
+}
+
+.attention-empty span {
+  color: var(--ht-text-secondary);
+  font: 400 12px/17px var(--ht-font-body);
+}
+
+/* Failed deployments stand out in the recent list */
+.recent-row--failed {
+  box-shadow: inset 3px 0 0 var(--ht-danger);
+  background: var(--ht-danger-fill);
+}
+
+.donut-segment {
+  cursor: pointer;
+  transition: stroke-width 0.15s ease;
 }

@@ -2,7 +2,17 @@
 
 import { useId, useState } from 'react';
 import Link from 'next/link';
-import type { AnalyticsData, DailyDeploymentBucket, Deployment, Pm2Status, Service, WebhookHealthData } from '../types/api';
+import type { AnalyticsData, Deployment, MetricRange, Pm2Status, Service, WebhookHealthData } from '../types/api';
+import {
+  bucketSum,
+  buildBuckets,
+  buildHourlyBuckets,
+  changeFor,
+  fleetHealth,
+  formatUptime,
+  successRateFor,
+  type Bucket,
+} from '../lib/metrics';
 import WebhookHealthPanel from './WebhookHealthPanel';
 
 type OverviewViewProps = {
@@ -16,6 +26,8 @@ type OverviewViewProps = {
   analytics: AnalyticsData | null;
   email?: string;
   role: string;
+  range: MetricRange;
+  onRangeChange: (range: MetricRange) => void;
   failureAlerts: Array<{ id: string; title: string; timestamp: string; details: string }>;
   onDeploy: (serviceId: string, force?: boolean) => void;
   onForceDeploy: (serviceId: string) => void;
@@ -27,12 +39,21 @@ type OverviewViewProps = {
 
 type ChartMetric = 'total' | 'successful' | 'failed';
 type Point = { x: number; y: number };
+type Granularity = 'hour' | 'day';
 
 const METRIC_CONFIG: Record<ChartMetric, { label: string; color: string }> = {
   total: { label: 'Total', color: 'var(--ht-chart-1)' },
   successful: { label: 'Successful', color: 'var(--ht-chart-2)' },
   failed: { label: 'Failed', color: 'var(--ht-danger)' },
 };
+
+const RANGE_CONFIG: Record<MetricRange, { label: string; short: string; granularity: Granularity; compare: string }> = {
+  '24h': { label: 'Last 24 hours', short: '24h', granularity: 'hour', compare: 'vs prev 24h' },
+  '7d': { label: 'Last 7 days', short: '7d', granularity: 'day', compare: 'vs prev 7d' },
+  '30d': { label: 'Last 30 days', short: '30d', granularity: 'day', compare: 'vs prev 30d' },
+};
+
+const RANGE_KEYS: MetricRange[] = ['24h', '7d', '30d'];
 
 function shortHash(value?: string | null) {
   return value ? value.slice(0, 8) : '—';
@@ -56,6 +77,28 @@ function weekdayLabel(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' });
 }
 
+/** Axis label for a bucket: the hour for hourly windows, the weekday for daily ones. */
+function bucketLabel(value: string, granularity: Granularity) {
+  if (granularity === 'hour') {
+    return new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  return weekdayLabel(value);
+}
+
+/** Full label used in the chart tooltip. */
+function bucketFullLabel(value: string, granularity: Granularity) {
+  if (granularity === 'hour') {
+    return new Date(value).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  }
+  return displayDate(value);
+}
+
 function serviceTypeLabel(service: Service) {
   return service.type === 'STATIC_FRONTEND' ? 'STATIC' : 'PM2';
 }
@@ -66,42 +109,6 @@ function displayNameFor(email?: string, role = '') {
   const local = email.split('@')[0] || '';
   const name = local.replace(/[._-]+/g, ' ').trim();
   return name || 'your workspace';
-}
-
-function buildBuckets(deployments: Deployment[]): DailyDeploymentBucket[] {
-  const buckets = new Map<string, DailyDeploymentBucket>();
-  for (let index = 6; index >= 0; index -= 1) {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - index);
-    const key = date.toISOString().slice(0, 10);
-    buckets.set(key, { date: key, total: 0, successful: 0, failed: 0, running: 0 });
-  }
-  for (const deployment of deployments) {
-    const bucket = buckets.get(new Date(deployment.startedAt).toISOString().slice(0, 10));
-    if (!bucket) continue;
-    bucket.total += 1;
-    if (deployment.status === 'SUCCESS') bucket.successful += 1;
-    else if (deployment.status === 'FAILED' || deployment.status === 'ERROR') bucket.failed += 1;
-    else bucket.running += 1;
-  }
-  return [...buckets.values()];
-}
-
-function bucketSum(buckets: DailyDeploymentBucket[], key: 'total' | 'successful' | 'failed' | 'running') {
-  return buckets.reduce((total, bucket) => total + bucket[key], 0);
-}
-
-function successRateFor(buckets: DailyDeploymentBucket[]) {
-  const successful = bucketSum(buckets, 'successful');
-  const failed = bucketSum(buckets, 'failed');
-  const completed = successful + failed;
-  return completed ? Math.round((successful / completed) * 1000) / 10 : null;
-}
-
-function changeFor(current: number, previous: number) {
-  if (!previous) return null;
-  return ((current - previous) / previous) * 100;
 }
 
 function smoothPath(points: Point[]) {
@@ -115,7 +122,7 @@ function smoothPath(points: Point[]) {
   }, '');
 }
 
-function MetricIcon({ name }: { name: 'deployments' | 'success' | 'services' | 'agents' }) {
+function MetricIcon({ name }: { name: 'deployments' | 'success' | 'services' | 'agents' | 'health' }) {
   if (name === 'deployments') {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -137,6 +144,13 @@ function MetricIcon({ name }: { name: 'deployments' | 'success' | 'services' | '
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8Z" />
         <path d="m3.3 7 8.7 5 8.7-5M12 22V12" />
+      </svg>
+    );
+  }
+  if (name === 'health') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 12h3l2.5-6 4 13 2.5-7H21" />
       </svg>
     );
   }
@@ -174,8 +188,9 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-function ActivityChart({ buckets, metric }: { buckets: DailyDeploymentBucket[]; metric: ChartMetric }) {
+function ActivityChart({ buckets, metric, granularity }: { buckets: Bucket[]; metric: ChartMetric; granularity: Granularity }) {
   const gradientId = useId().replace(/:/g, '');
+  const [hovered, setHovered] = useState<number | null>(null);
   const config = METRIC_CONFIG[metric];
   const values = buckets.map((bucket) => bucket[metric]);
   const width = 720;
@@ -195,10 +210,15 @@ function ActivityChart({ buckets, metric }: { buckets: DailyDeploymentBucket[]; 
   const area = `${line} L ${padLeft + innerWidth} ${padTop + innerHeight} L ${padLeft} ${padTop + innerHeight} Z`;
   const ticks = [0, 1, 2, 3, 4];
   const empty = values.every((value) => value === 0);
+  // Hourly windows carry 24 labels — show every third one so the axis stays readable.
+  const labelStep = granularity === 'hour' ? 3 : 1;
+  const slot = innerWidth / Math.max(1, values.length);
+  const hoveredPoint = hovered !== null ? points[hovered] : null;
+  const hoveredBucket = hovered !== null ? buckets[hovered] : null;
 
   return (
-    <div className="chart-wrap">
-      <svg className="activity-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${config.label} deployments per day`}>
+    <div className="chart-wrap" onMouseLeave={() => setHovered(null)}>
+      <svg className="activity-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${config.label} deployments per ${granularity}`}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={config.color} stopOpacity="0.22" />
@@ -216,21 +236,50 @@ function ActivityChart({ buckets, metric }: { buckets: DailyDeploymentBucket[]; 
         })}
         <path d={area} fill={`url(#${gradientId})`} />
         <path d={line} fill="none" stroke={config.color} strokeWidth="2.4" strokeLinecap="round" />
+        {hoveredPoint && (
+          <g className="chart-hover" aria-hidden="true">
+            <line className="chart-hover-line" x1={hoveredPoint.x} y1={padTop} x2={hoveredPoint.x} y2={padTop + innerHeight} />
+            <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r="5" fill="var(--ht-card)" stroke={config.color} strokeWidth="2.5" />
+          </g>
+        )}
         {points.map((point, index) => (
           <g key={buckets[index]?.date || index}>
+            <rect
+              className="chart-hit"
+              x={point.x - slot / 2}
+              y={padTop}
+              width={slot}
+              height={innerHeight}
+              onMouseEnter={() => setHovered(index)}
+              onFocus={() => setHovered(index)}
+            />
             <circle cx={point.x} cy={point.y} r="3.4" fill="var(--ht-card)" stroke={config.color} strokeWidth="2">
-              <title>{`${displayDate(buckets[index].date)}: ${values[index]} ${config.label.toLowerCase()}`}</title>
+              <title>{`${bucketFullLabel(buckets[index].date, granularity)}: ${values[index]} ${config.label.toLowerCase()}`}</title>
             </circle>
-            <text x={point.x} y={height - 10} textAnchor="middle" className="chart-axis-text">{weekdayLabel(buckets[index].date)}</text>
+            {(index % labelStep === 0 || index === points.length - 1) && (
+              <text x={point.x} y={height - 10} textAnchor="middle" className="chart-axis-text">
+                {bucketLabel(buckets[index].date, granularity)}
+              </text>
+            )}
           </g>
         ))}
         {empty && <text x={padLeft + innerWidth / 2} y={padTop + innerHeight / 2} textAnchor="middle" className="chart-empty-text">No deployments in this window</text>}
       </svg>
+      {hoveredPoint && hoveredBucket && (
+        <div className="chart-tooltip" style={{ left: `${(hoveredPoint.x / width) * 100}%` }} role="status">
+          <strong>{bucketFullLabel(hoveredBucket.date, granularity)}</strong>
+          <span>Total <b>{hoveredBucket.total}</b></span>
+          <span className="is-success">Successful <b>{hoveredBucket.successful}</b></span>
+          <span className="is-danger">Failed <b>{hoveredBucket.failed}</b></span>
+          {hoveredBucket.running > 0 && <span className="is-warning">Running <b>{hoveredBucket.running}</b></span>}
+        </div>
+      )}
     </div>
   );
 }
 
 function OutcomeDonut({ successful, failed, running }: { successful: number; failed: number; running: number }) {
+  const [hovered, setHovered] = useState<string | null>(null);
   const total = successful + failed + running;
   const radius = 52;
   const stroke = 15;
@@ -244,7 +293,7 @@ function OutcomeDonut({ successful, failed, running }: { successful: number; fai
 
   return (
     <div className="outcome">
-      <svg className="donut" viewBox="0 0 140 140" role="img" aria-label={`${total} deployments in the last 7 days`}>
+      <svg className="donut" viewBox="0 0 140 140" role="img" aria-label={`${total} deployments in the selected window`}>
         <circle cx="70" cy="70" r={radius} fill="none" stroke="var(--ht-line)" strokeWidth={stroke} />
         {segments.map((segment) => {
           const length = total ? (segment.value / total) * circumference : 0;
@@ -256,11 +305,16 @@ function OutcomeDonut({ successful, failed, running }: { successful: number; fai
               r={radius}
               fill="none"
               stroke={segment.color}
-              strokeWidth={stroke}
+              strokeWidth={hovered === segment.label ? stroke + 4 : stroke}
               strokeDasharray={`${length} ${circumference}`}
               strokeDashoffset={-offset}
               transform="rotate(-90 70 70)"
-            />
+              className="donut-segment"
+              onMouseEnter={() => setHovered(segment.label)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <title>{`${segment.label}: ${segment.value} (${total ? Math.round((segment.value / total) * 100) : 0}%)`}</title>
+            </circle>
           );
           offset += length;
           return arc;
@@ -282,12 +336,12 @@ function OutcomeDonut({ successful, failed, running }: { successful: number; fai
   );
 }
 
-function ChangeBadge({ value, suffix = '%' }: { value: number | null; suffix?: string }) {
+function ChangeBadge({ value, suffix = '%', compare = 'vs prev 7d' }: { value: number | null; suffix?: string; compare?: string }) {
   if (value === null) return <span className="kpi-change kpi-change--muted">no prior window</span>;
   const up = value >= 0;
   return (
     <span className={`kpi-change ${up ? 'is-up' : 'is-down'}`}>
-      {up ? '↑' : '↓'} {Math.abs(value).toFixed(1)}{suffix} <small>vs prev. 7d</small>
+      {up ? '↑' : '↓'} {Math.abs(value).toFixed(1)}{suffix} <small>{compare}</small>
     </span>
   );
 }
@@ -318,6 +372,8 @@ export default function OverviewView({
   analytics,
   email,
   role,
+  range,
+  onRangeChange,
   failureAlerts,
   onDeploy,
   onForceDeploy,
@@ -328,10 +384,27 @@ export default function OverviewView({
 }: OverviewViewProps) {
   const [metric, setMetric] = useState<ChartMetric>('total');
   const isClient = role === 'CLIENT';
+  const rangeConfig = RANGE_CONFIG[range];
 
-  const buckets = analytics?.daily?.length ? analytics.daily : buildBuckets(deployments);
-  const currentBuckets = buckets.slice(-7);
-  const previousBuckets = buckets.length > 7 ? buckets.slice(0, -7) : [];
+  const analyticsBuckets: Bucket[] = analytics?.daily?.length
+    ? analytics.daily
+    : buildBuckets(deployments, range === '30d' ? 30 : 14);
+
+  // Hourly windows are counted from the deployment history; daily windows come from
+  // the buckets the backend already aggregates.
+  let currentBuckets: Bucket[];
+  let previousBuckets: Bucket[];
+  if (range === '24h') {
+    currentBuckets = buildHourlyBuckets(deployments, 24);
+    previousBuckets = buildHourlyBuckets(deployments, 24, 24);
+  } else if (range === '30d') {
+    currentBuckets = analyticsBuckets.slice(-30);
+    // The backend caps its window at 30 days, so there is no earlier window to compare against.
+    previousBuckets = [];
+  } else {
+    currentBuckets = analyticsBuckets.slice(-7);
+    previousBuckets = analyticsBuckets.length > 7 ? analyticsBuckets.slice(0, -7) : [];
+  }
   const currentTotal = bucketSum(currentBuckets, 'total');
   const currentSuccessful = bucketSum(currentBuckets, 'successful');
   const currentFailed = bucketSum(currentBuckets, 'failed');
@@ -342,7 +415,7 @@ export default function OverviewView({
   const previousRate = successRateFor(previousBuckets);
   const totalChange = previousBuckets.length ? changeFor(currentTotal, previousTotal) : null;
   const rateChange = previousBuckets.length && successRate !== null && previousRate !== null ? successRate - previousRate : null;
-  const bestDay = currentBuckets.reduce((best, bucket) => (bucket.total > best.total ? bucket : best), currentBuckets[0]);
+  const bestBucket = currentBuckets.reduce((best, bucket) => (bucket.total > best.total ? bucket : best), currentBuckets[0]);
 
   const analyticsServices = analytics?.services;
   const totalServices = analyticsServices?.total ?? services.length;
@@ -363,10 +436,67 @@ export default function OverviewView({
   const onlineAgents = agents.filter((agent) => agent.status === 'online').length;
   const onlineRatio = agents.length ? onlineAgents / agents.length : 0;
 
+  // Runtime health of every service the console tracks (PM2 status is polled live).
+  const runtime = fleetHealth(services, pm2Status);
+
+  // Everything that needs a human: failed deployments, stopped/errored services and
+  // agents that stopped reporting. Shown as soon as the client signs in.
+  const attention: Array<{
+    id: string;
+    tone: 'danger' | 'warning';
+    title: string;
+    detail: string;
+    action: string;
+    onOpen?: () => void;
+  }> = [];
+
+  for (const deployment of deployments.filter((item) => item.status === 'FAILED' || item.status === 'ERROR').slice(0, 5)) {
+    attention.push({
+      id: `deployment-${deployment.id}`,
+      tone: 'danger',
+      title: `${deployment.service.name} deployment ${deployment.status === 'ERROR' ? 'errored' : 'failed'}`,
+      detail: deployment.failureReason || `Last attempt ${relativeTime(deployment.startedAt)}.`,
+      action: 'View logs',
+      onOpen: () => onDeployment(deployment.id),
+    });
+  }
+  for (const entry of runtime.entries) {
+    if (entry.status === 'errored') {
+      attention.push({
+        id: `service-${entry.service.id}`,
+        tone: 'danger',
+        title: `${entry.service.name} is erroring`,
+        detail: `The PM2 process ${entry.service.pm2ProcessName || entry.service.name} is in an error state${entry.restarts ? ` after ${entry.restarts} restarts` : ''}.`,
+        action: 'Open service',
+      });
+    } else if (entry.status === 'stopped') {
+      attention.push({
+        id: `service-${entry.service.id}`,
+        tone: 'warning',
+        title: `${entry.service.name} is stopped`,
+        detail: `The PM2 process ${entry.service.pm2ProcessName || entry.service.name} is not running.`,
+        action: 'Open service',
+      });
+    }
+  }
+  for (const agent of agents) {
+    if (agent.status === 'offline') {
+      attention.push({
+        id: `agent-${agent.id}`,
+        tone: 'danger',
+        title: `${agent.name} is offline`,
+        detail: 'The agent stopped reporting to the control plane, so its services cannot be reached.',
+        action: 'Open service',
+      });
+    }
+  }
+
   const rangeLabel = currentBuckets.length
-    ? `${displayDate(currentBuckets[0].date)} – ${displayDate(currentBuckets[currentBuckets.length - 1].date)}`
-    : 'Last 7 days';
-  const averagePerDay = currentBuckets.length ? Math.round((currentTotal / currentBuckets.length) * 10) / 10 : 0;
+    ? range === '24h'
+      ? bucketFullLabel(currentBuckets[0].date, 'hour')
+      : `${displayDate(currentBuckets[0].date)} – ${displayDate(currentBuckets[currentBuckets.length - 1].date)}`
+    : rangeConfig.label;
+  const averagePerBucket = currentBuckets.length ? Math.round((currentTotal / currentBuckets.length) * 10) / 10 : 0;
   const latestRun = health?.latestRun;
 
   const activity = [
@@ -410,6 +540,21 @@ export default function OverviewView({
           <p className="dash-sub">Welcome back, {displayNameFor(email, role)}. Here&apos;s what&apos;s happening across your deployments today.</p>
         </div>
         <div className="dash-actions">
+          <div className="chart-tabs chart-tabs--range" role="tablist" aria-label="Metrics time range">
+            {RANGE_KEYS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={range === key}
+                title={RANGE_CONFIG[key].label}
+                className={`chart-tab${range === key ? ' is-active' : ''}`}
+                onClick={() => onRangeChange(key)}
+              >
+                {RANGE_CONFIG[key].short}
+              </button>
+            ))}
+          </div>
           <span className="dash-chip">{rangeLabel}</span>
           {isClient ? (
             <button className="ht-btn ht-btn--primary" type="button" onClick={onRunHealth} disabled={healthRunLoading || !services.length}>
@@ -424,12 +569,12 @@ export default function OverviewView({
       <section className="kpi-grid" aria-label="Workspace metrics">
         <article className="kpi-card">
           <div className="kpi-card__top">
-            <span className="kpi-label">Deployments (7d)</span>
+            <span className="kpi-label">Deployments ({rangeConfig.short})</span>
             <span className="kpi-icon kpi-icon--orange"><MetricIcon name="deployments" /></span>
           </div>
           <div className="kpi-value-row">
             <strong>{currentTotal}</strong>
-            <ChangeBadge value={totalChange} />
+            <ChangeBadge value={totalChange} compare={rangeConfig.compare} />
           </div>
           <p className="kpi-meta">{currentSuccessful} successful · {currentFailed} failed{currentRunning ? ` · ${currentRunning} running` : ''}</p>
           <Sparkline values={currentBuckets.map((bucket) => bucket.total)} color="var(--ht-chart-1)" />
@@ -442,7 +587,7 @@ export default function OverviewView({
           </div>
           <div className="kpi-value-row">
             <strong>{successRate === null ? '—' : `${successRate}%`}</strong>
-            <ChangeBadge value={rateChange} suffix=" pts" />
+            <ChangeBadge value={rateChange} suffix=" pts" compare={rangeConfig.compare} />
           </div>
           <p className="kpi-meta">{currentSuccessful} of {completed} completed deployments</p>
           <Sparkline values={currentBuckets.map((bucket) => bucket.successful)} color="var(--ht-chart-2)" />
@@ -463,6 +608,36 @@ export default function OverviewView({
             <span style={{ width: `${totalServices ? (staticCount / totalServices) * 100 : 0}%`, background: 'var(--ht-chart-3)' }} />
           </div>
           <div className="kpi-split-legend"><span><i style={{ background: 'var(--ht-chart-1)' }} />PM2</span><span><i style={{ background: 'var(--ht-chart-3)' }} />Static</span></div>
+        </article>
+
+        <article className="kpi-card">
+          <div className="kpi-card__top">
+            <span className="kpi-label">Service health</span>
+            <span className="kpi-icon kpi-icon--teal"><MetricIcon name="health" /></span>
+          </div>
+          <div className="kpi-value-row">
+            <strong>{runtime.online}</strong>
+            <span className={`kpi-change ${runtime.stopped || runtime.errored ? 'is-down' : 'kpi-change--muted'}`}>
+              {runtime.total ? `of ${runtime.total} running` : 'no services yet'}
+            </span>
+          </div>
+          <p className="kpi-meta">
+            {runtime.errored ? `${runtime.errored} erroring · ` : ''}{runtime.stopped ? `${runtime.stopped} stopped · ` : ''}
+            {runtime.unknown ? `${runtime.unknown} unknown` : 'all processes reporting'}
+          </p>
+          {runtime.entries.length ? (
+            <div className="health-dots">
+              {runtime.entries.slice(0, 10).map((entry) => (
+                <span
+                  key={entry.service.id}
+                  className={`health-dot health-dot--${entry.status}`}
+                  title={`${entry.service.name}: ${entry.status}${entry.uptime ? ` · up ${formatUptime(entry.uptime)}` : ''}`}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="health-dots health-dots--empty" />
+          )}
         </article>
 
         <article className="kpi-card">
@@ -489,13 +664,54 @@ export default function OverviewView({
         </article>
       </section>
 
+      <section className="panel attention-panel" aria-labelledby="attention-title">
+        <div className="panel__head">
+          <div>
+            <h2 className="panel__title" id="attention-title">
+              Needs attention
+              <span className="attention-count">{attention.length}</span>
+            </h2>
+            <p className="panel__hint">Live problems detected across your services</p>
+          </div>
+          <Link className="panel__link" href="/services">Open services</Link>
+        </div>
+        {attention.length === 0 ? (
+          <div className="attention-empty">
+            <span className="attention-empty__icon" aria-hidden="true">✓</span>
+            <div>
+              <strong>Everything looks healthy</strong>
+              <span>No stopped services, offline agents or failed deployments right now.</span>
+            </div>
+          </div>
+        ) : (
+          <div className="attention-list">
+            {attention.map((item) => (
+              <article key={item.id} className={`attention-item attention-item--${item.tone}`}>
+                <span className="attention-item__icon" aria-hidden="true">{item.tone === 'danger' ? '!' : '⚠'}</span>
+                <div className="attention-item__body">
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                </div>
+                {item.onOpen ? (
+                  <button type="button" className="attention-item__action" onClick={item.onOpen}>{item.action}</button>
+                ) : (
+                  <Link className="attention-item__action" href="/services">{item.action}</Link>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="dash-grid-main">
         <div className="dash-primary">
         <section className="panel chart-panel">
           <div className="panel__head">
             <div>
               <h2 className="panel__title">Deployment activity</h2>
-              <p className="panel__hint">Daily deployments over the last 7 days</p>
+              <p className="panel__hint">
+                {range === '24h' ? 'Hourly deployments over the last 24 hours' : `Daily deployments over ${rangeConfig.label.toLowerCase()}`}
+              </p>
             </div>
             <div className="chart-tabs" role="tablist" aria-label="Deployment activity metric">
               {(Object.keys(METRIC_CONFIG) as ChartMetric[]).map((key) => (
@@ -514,10 +730,13 @@ export default function OverviewView({
           </div>
           <div className="chart-summary">
             <div><span>Total</span><strong>{bucketSum(currentBuckets, metric)}</strong></div>
-            <div><span>Daily average</span><strong>{averagePerDay}</strong></div>
-            <div><span>Best day</span><strong>{bestDay && bestDay.total ? `${weekdayLabel(bestDay.date)} · ${bestDay.total}` : '—'}</strong></div>
+            <div><span>{range === '24h' ? 'Hourly average' : 'Daily average'}</span><strong>{averagePerBucket}</strong></div>
+            <div>
+              <span>{range === '24h' ? 'Busiest hour' : 'Best day'}</span>
+              <strong>{bestBucket && bestBucket.total ? `${bucketLabel(bestBucket.date, rangeConfig.granularity)} · ${bestBucket.total}` : '—'}</strong>
+            </div>
           </div>
-          <ActivityChart buckets={currentBuckets} metric={metric} />
+          <ActivityChart buckets={currentBuckets} metric={metric} granularity={rangeConfig.granularity} />
         </section>
 
         <section className="panel recent-panel">
@@ -535,15 +754,24 @@ export default function OverviewView({
               <div className="recent-head" aria-hidden="true">
                 <span>Service</span><span>Commit</span><span>Branch</span><span>Status</span><span>When</span>
               </div>
-              {recentDeployments.map((deployment) => (
-                <button className="recent-row" type="button" key={deployment.id} onClick={() => onDeployment(deployment.id)}>
-                  <strong>{deployment.service.name}</strong>
-                  <span className="recent-commit"><code>{shortHash(deployment.commitHash)}</code>{deployment.commitMessage || 'Message not reported'}</span>
-                  <span className="recent-branch">{deployment.branch || 'origin/HEAD'}</span>
-                  <span className={`status-pill status-pill--${deployment.status === 'SUCCESS' ? 'success' : deployment.status === 'FAILED' || deployment.status === 'ERROR' ? 'danger' : 'warning'}`}>{deployment.status}</span>
-                  <time>{relativeTime(deployment.startedAt)}</time>
-                </button>
-              ))}
+              {recentDeployments.map((deployment) => {
+                const failed = deployment.status === 'FAILED' || deployment.status === 'ERROR';
+                return (
+                  <button
+                    className={`recent-row${failed ? ' recent-row--failed' : ''}`}
+                    type="button"
+                    key={deployment.id}
+                    onClick={() => onDeployment(deployment.id)}
+                    title={failed ? `Open the full deployment log for ${deployment.service.name}` : `Open deployment details for ${deployment.service.name}`}
+                  >
+                    <strong>{deployment.service.name}</strong>
+                    <span className="recent-commit"><code>{shortHash(deployment.commitHash)}</code>{deployment.commitMessage || 'Message not reported'}</span>
+                    <span className="recent-branch">{deployment.branch || 'origin/HEAD'}</span>
+                    <span className={`status-pill status-pill--${deployment.status === 'SUCCESS' ? 'success' : failed ? 'danger' : 'warning'}`}>{deployment.status}</span>
+                    <time>{relativeTime(deployment.startedAt)}</time>
+                  </button>
+                );
+              })}
             </div>
           )}
         </section>
@@ -554,7 +782,7 @@ export default function OverviewView({
             <div className="panel__head">
               <div>
                 <h2 className="panel__title">Deployment outcomes</h2>
-                <p className="panel__hint">Last 7 days</p>
+                <p className="panel__hint">{rangeConfig.label}</p>
               </div>
             </div>
             <OutcomeDonut successful={currentSuccessful} failed={currentFailed} running={currentRunning} />
