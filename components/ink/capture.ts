@@ -80,8 +80,41 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
       doc.querySelectorAll<HTMLElement>('[data-ink-live]').forEach((el) => {
         el.style.visibility = 'hidden';
       });
+      flattenGradientText(doc);
     },
   });
 
   return { theme, canvas, scale: safeScale, key, ms: performance.now() - t0 };
+}
+
+/**
+ * html2canvas can't clip a background to the glyph outlines, so gradient text — the
+ * accent letters of the HEXTORQ wordmark, the tagline dots — is captured as a solid
+ * block that swallows the letter. In the clone we swap the gradient for a flat colour
+ * (the middle stop) so the letters stay readable while the ink spreads.
+ *
+ * Only the clone is touched: the live page keeps its real gradient.
+ */
+function flattenGradientText(doc: Document): void {
+  const view = doc.defaultView;
+  if (!view) return;
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>('*'))) {
+    if (el.children.length > 0) continue; // gradient text only lives on leaf elements
+    const style = view.getComputedStyle(el);
+    if (style.backgroundClip !== 'text' && style.webkitBackgroundClip !== 'text') continue;
+    const flat = middleGradientColor(style.backgroundImage);
+    if (!flat) continue;
+    el.style.background = flat; // shorthand also drops the gradient image
+    el.style.webkitBackgroundClip = 'border-box';
+    el.style.backgroundClip = 'border-box';
+    el.style.color = flat;
+    el.style.webkitTextFillColor = flat;
+  }
+}
+
+/** The middle colour stop of a gradient, so a flat fill matches the gradient's midpoint. */
+function middleGradientColor(image: string): string | null {
+  const colors = image.match(/rgba?\([^)]+\)/g);
+  if (!colors || colors.length === 0) return null;
+  return colors[Math.floor((colors.length - 1) / 2)];
 }
