@@ -151,6 +151,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const groups: NavGroup[] = isAdmin
     ? [
@@ -207,9 +208,29 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
     return () => window.removeEventListener('keydown', onKey);
   }, [mobileOpen]);
 
+  // The collapsed rail only exists on desktop. When the viewport turns into the drawer
+  // layout the rail state is cleared, so the sidebar can never end up collapsed with no
+  // control left to expand it.
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 900px)');
+    const onChange = (event: MediaQueryListEvent) => {
+      setIsMobile(event.matches);
+      if (event.matches) {
+        setCollapsed(false);
+        setMobileOpen(false);
+      }
+    };
+    setIsMobile(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+
   function toggleSidebar() {
-    if (window.matchMedia('(max-width: 900px)').matches) {
+    if (isMobile) {
       setMobileOpen((current) => !current);
+      // The desktop rail state must never survive into the drawer layout, otherwise
+      // the sidebar can end up collapsed with no visible control to expand it again.
+      setCollapsed(false);
     } else {
       setCollapsed((current) => !current);
     }
@@ -227,17 +248,6 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           <span className="shell-brand__text">
             <Logo size="sm" />
           </span>
-          <button
-            type="button"
-            className="shell-rail-toggle"
-            onClick={() => setCollapsed((current) => !current)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!collapsed}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
         </div>
 
         <nav className="shell-nav">
@@ -295,7 +305,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
 
       <div className="shell-body">
         <header className="shell-topbar">
-          <button type="button" className="shell-menu" onClick={toggleSidebar} aria-label="Toggle navigation" aria-expanded={mobileOpen || !collapsed}>
+          <button type="button" className="shell-menu" onClick={toggleSidebar} aria-label={isMobile ? 'Toggle navigation' : 'Collapse sidebar'} aria-expanded={isMobile ? mobileOpen : !collapsed}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -315,14 +325,10 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
               <path d="m20 20-3.2-3.2" />
             </svg>
             <span className="shell-search__text">Search anything...</span>
-            <kbd className="shell-search__kbd">Ctrl K</kbd>
           </button>
 
           <div className="shell-top-actions">
             <ThemeToggle />
-            <span className="shell-avatar shell-avatar--sm" aria-hidden="true">
-              {initialsFrom(email)}
-            </span>
           </div>
         </header>
 

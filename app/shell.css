@@ -59,24 +59,6 @@ html {
   white-space: nowrap;
 }
 
-.shell-rail-toggle {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  margin: 0 0 0 auto;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--ht-text-muted);
-  cursor: pointer;
-}
-
-.shell-rail-toggle:hover {
-  border-color: var(--ht-line);
-  color: var(--ht-text);
-}
 
 .shell-nav {
   flex: 1;
@@ -214,12 +196,6 @@ html {
   letter-spacing: 0.04em;
 }
 
-.shell-avatar--sm {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
-  font-size: 10px;
-}
 
 .shell-user__meta {
   display: grid;
@@ -275,7 +251,6 @@ html {
 }
 
 .shell.is-collapsed .shell-brand__text,
-.shell.is-collapsed .shell-rail-toggle,
 .shell.is-collapsed .shell-group__label,
 .shell.is-collapsed .shell-link__label,
 .shell.is-collapsed .shell-link__badge,
@@ -404,16 +379,6 @@ html {
   white-space: nowrap;
 }
 
-.shell-search__kbd {
-  margin-left: auto;
-  padding: 2px 6px;
-  border: 1px solid var(--ht-line);
-  border-radius: var(--ht-radius-xs);
-  background: var(--ht-nav);
-  color: var(--ht-text-muted);
-  font: 500 10px/1.4 var(--ht-font-mono);
-  white-space: nowrap;
-}
 
 .shell-top-actions {
   display: flex;
@@ -517,10 +482,6 @@ html {
     padding: 12px;
   }
 
-  .shell .shell-rail-toggle {
-    display: none;
-  }
-
   .shell-topbar {
     padding: 0 14px;
   }
@@ -535,10 +496,7 @@ html {
   }
 
   .shell-search__text,
-  .shell-search__kbd {
-    display: none;
-  }
-
+  
   .shell-main {
     padding: 18px 16px 64px;
   }

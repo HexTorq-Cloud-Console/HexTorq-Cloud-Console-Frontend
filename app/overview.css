@@ -327,10 +327,17 @@
   background: var(--ht-warning);
 }
 
-.dash-grid-main,
-.dash-grid-bottom {
+.dash-grid-main {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* The service registry spans the full width below the two-column area. */
+.dash-grid-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -344,14 +351,7 @@
 .dash-side {
   display: grid;
   gap: 16px;
-}
-
-.dash-grid-bottom .services-panel {
-  order: 1;
-}
-
-.dash-grid-bottom .activity-panel {
-  order: 2;
+  align-content: start;
 }
 
 .panel {
@@ -1058,15 +1058,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .dash-grid-main,
-  .dash-grid-bottom {
+  .dash-grid-main {
     grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.8fr);
   }
 }
 
 @media (max-width: 1080px) {
-  .dash-grid-main,
-  .dash-grid-bottom {
+  .dash-grid-main {
     grid-template-columns: 1fr;
   }
 

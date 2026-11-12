@@ -768,34 +768,35 @@ export default function OverviewView({
               </div>
             )}
           </section>
+
+          <section className="panel activity-panel">
+            <div className="panel__head">
+              <div>
+                <h2 className="panel__title">Recent activity</h2>
+                <p className="panel__hint">Fleet and deployment events</p>
+              </div>
+            </div>
+            {activity.length === 0 ? (
+              <div className="dash-empty">No activity recorded yet.</div>
+            ) : (
+              <ul className="activity-list">
+                {activity.map((item) => (
+                  <li key={item.id}>
+                    <span className={`activity-dot activity-dot--${item.tone}`} />
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.detail}</span>
+                    </div>
+                    <time>{relativeTime(item.at)}</time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       </div>
 
       <div className="dash-grid-bottom">
-        <section className="panel activity-panel">
-          <div className="panel__head">
-            <div>
-              <h2 className="panel__title">Recent activity</h2>
-              <p className="panel__hint">Fleet and deployment events</p>
-            </div>
-          </div>
-          {activity.length === 0 ? (
-            <div className="dash-empty">No activity recorded yet.</div>
-          ) : (
-            <ul className="activity-list">
-              {activity.map((item) => (
-                <li key={item.id}>
-                  <span className={`activity-dot activity-dot--${item.tone}`} />
-                  <div>
-                    <strong>{item.title}</strong>
-                    <span>{item.detail}</span>
-                  </div>
-                  <time>{relativeTime(item.at)}</time>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
 
       <section className="panel services-panel">
         <div className="panel__head">
