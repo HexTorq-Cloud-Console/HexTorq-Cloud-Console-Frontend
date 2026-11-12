@@ -98,30 +98,31 @@ function AccessEntryCard({ entry, onReveal }: { entry: ClientAccess; onReveal?: 
           {entry.type === 'DATABASE' ? 'POSTGRESQL' : 'SFTP'}
         </span>
         <span className={`access-state ${entry.enabled ? 'enabled' : 'disabled'}`}>
-          {entry.enabled ? 'Active' : 'Disabled'}
+          <span className="ht-dot" /> {entry.enabled ? 'Active' : 'Disabled'}
         </span>
       </div>
       <h3>{entry.label}</h3>
       {entry.client && <p className="access-client">{entry.client.name}</p>}
-      <div className="access-fields">
+
+      <dl className="access-fields">
         {fields.map((field) => (
           <div className="access-field" key={field.label}>
-            <span className="access-label">{field.label}</span>
-            <div className="access-value-row">
+            <dt className="access-label">{field.label}</dt>
+            <dd className="access-value-row">
               <code>{field.value || 'Not set'}</code>
               {field.value && (
                 <button type="button" className="mini-button" onClick={() => copyField(field.label, field.value)}>
-                  {copied === field.label ? 'Copied' : 'Copy'}
+                  {copied === field.label ? '✓ Copied' : 'Copy'}
                 </button>
               )}
-            </div>
+            </dd>
           </div>
         ))}
-        <div className="access-field">
-          <span className="access-label">Password</span>
-          <div className="access-value-row">
+        <div className="access-field access-field--secret">
+          <dt className="access-label">Password</dt>
+          <dd className="access-value-row">
             <code className={secretVisible ? 'access-secret is-visible' : 'access-secret'}>
-              {secretVisible ? revealedPassword || '—' : '••••••••'}
+              {secretVisible ? revealedPassword || '—' : '••••••••••'}
             </code>
             {revealReady && (
               <>
@@ -134,24 +135,24 @@ function AccessEntryCard({ entry, onReveal }: { entry: ClientAccess; onReveal?: 
                 )}
                 {secretVisible && revealedPassword && (
                   <button type="button" className="mini-button" onClick={() => copyField('Password', revealedPassword)}>
-                    {copied === 'Password' ? 'Copied' : 'Copy'}
+                    {copied === 'Password' ? '✓ Copied' : 'Copy'}
                   </button>
                 )}
               </>
             )}
-          </div>
+          </dd>
           {revealError && <span className="access-reveal-error">{revealError}</span>}
           {!revealReady && (
             <span className="access-hint">Password is not available in this view.</span>
           )}
         </div>
-      </div>
+      </dl>
 
       <div className="access-connection">
         <div className="access-connection__head">
           <span className="access-label">{entry.type === 'SFTP' ? 'FileZilla connection' : 'PostgreSQL connection'}</span>
           <button type="button" className="mini-button" onClick={() => copyField('Connection', connectionText)}>
-            {copied === 'Connection' ? 'Copied' : 'Copy'}
+            {copied === 'Connection' ? '✓ Copied' : 'Copy'}
           </button>
         </div>
         <pre className="access-connection__text">{connectionText}</pre>
