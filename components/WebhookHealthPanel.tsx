@@ -2,7 +2,7 @@
 
 import type { WebhookHealthData } from '../types/api';
 import { healthStatusClass, healthStatusLabel, intervalLabel, scheduleDateTimeLabel, scheduleHourLabel } from '../lib/format';
-import HealthCheckCard from './HealthCheckCard';
+
 function WebhookHealthPanel({
   health,
   loading,
@@ -23,6 +23,13 @@ function WebhookHealthPanel({
   const completedChecks = run
     ? run.checks.filter((check) => check.status === 'SUCCESS' || check.status === 'FAILED').length
     : 0;
+  const passed = run?.successfulServices || 0;
+  const total = run?.totalServices || 0;
+  const ratio = total ? Math.round((passed / total) * 100) : 0;
+  // Problems first: the panel is a health summary, not a second copy of the full page.
+  const problems = (run?.checks || [])
+    .filter((check) => check.status !== 'SUCCESS')
+    .slice(0, 4);
 
   return (
     <section className="health-panel">
@@ -61,38 +68,32 @@ function WebhookHealthPanel({
       )}
 
       {run && (
-        <div className="health-run">
-          <div className="health-run-head">
-            <div>
-              <span className={`badge ${healthStatusClass(run.status)}`}>{healthStatusLabel(run.status)}</span>
-              <strong>{run.source === 'SCHEDULED' ? 'Automatic check' : 'Manual check'}</strong>
-              <span className="row-meta">
-                {completedChecks} / {run.totalServices} services checked
-              </span>
-            </div>
-            <span className="row-meta">
-              {run.completedAt ? `Finished ${new Date(run.completedAt).toLocaleString()}` : `Started ${new Date(run.startedAt).toLocaleString()}`}
+        <div className="health-panel__summary">
+          <div className="health-panel__score">
+            <span className={`ht-pill ht-pill--${healthStatusClass(run.status)}`}>
+              <span className="ht-dot" />
+              {healthStatusLabel(run.status)}
             </span>
+            <strong>{passed}/{total}</strong>
+            <span>services passed · {completedChecks} checked</span>
           </div>
-          <div className="health-check-grid">
-            {run.checks.map((check) => {
-              const deployment = check.deployment;
-              return (
-                <HealthCheckCard
-                  key={check.id}
-                  serviceName={check.service.name}
-                  serviceType={check.service.type}
-                  status={check.status}
-                  httpStatus={check.httpStatus}
-                  deploymentStatus={deployment?.status ?? null}
-                  message={check.message}
-                  startedAt={check.startedAt}
-                  completedAt={check.completedAt}
-                  durationMs={check.durationMs}
-                />
-              );
-            })}
+          <div className="health-panel__bar">
+            <span style={{ width: `${ratio}%` }} />
           </div>
+          <ul className="health-panel__issues">
+            {problems.length === 0 ? (
+              <li className="is-ok">Every enabled service accepted the webhook and finished its deployment.</li>
+            ) : (
+              problems.map((check) => (
+                <li key={check.id}>
+                  <span className="health-panel__issue-dot" aria-hidden="true" />
+                  <strong>{check.service.name}</strong>
+                  <span>{check.message || `Status ${check.status.toLowerCase()}`}</span>
+                </li>
+              ))
+            )}
+          </ul>
+          <a className="health-panel__link" href="/health">Open the full health report →</a>
         </div>
       )}
     </section>

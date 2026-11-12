@@ -212,4 +212,18 @@ select { padding: 12px 13px; border: 1px solid var(--ht-line); border-radius: va
 .health-chip.bad { border-color: var(--ht-danger-line); color: var(--ht-danger); }
 .health-message { min-height: 32px; margin: 12px 0 8px; color: var(--ht-text-muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .health-check-time { color: var(--ht-text-muted); font-size: 10px; }
+/* Overview health panel — a summary, not a second copy of the full report. */
+.health-panel__summary { display: grid; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--ht-line); }
+.health-panel__score { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.health-panel__score strong { color: var(--ht-text); font: 700 24px/28px var(--ht-font-heading); letter-spacing: -0.02em; }
+.health-panel__score > span:last-child { color: var(--ht-text-muted); font: 400 12px/17px var(--ht-font-body); }
+.health-panel__bar { height: 6px; border-radius: 999px; background: var(--ht-elevated); overflow: hidden; }
+.health-panel__bar span { display: block; height: 100%; border-radius: 999px; background: var(--ht-success); }
+.health-panel__issues { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.health-panel__issues li { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid var(--ht-line); border-radius: var(--ht-radius); background: var(--ht-nav); color: var(--ht-text-secondary); font: 400 12px/17px var(--ht-font-body); }
+.health-panel__issues li.is-ok { border-color: var(--ht-success-line); background: var(--ht-success-fill); color: var(--ht-text-secondary); }
+.health-panel__issues li strong { color: var(--ht-text); font: 600 13px/18px var(--ht-font-body); }
+.health-panel__issue-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--ht-danger); }
+.health-panel__link { justify-self: start; color: var(--ht-link); font: 500 12px/18px var(--ht-font-mono); text-decoration: none; }
+.health-panel__link:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 720px) { .admin-heading { display: block; } .admin-actions { justify-content: flex-start; margin-top: 20px; } .admin-lists { grid-template-columns: 1fr; gap: 22px; } .modal-card { padding: 26px 20px; } .deployment-metadata { grid-template-columns: 1fr; } .form-columns { grid-template-columns: 1fr; } .admin-services, .admin-access, .form-wide { grid-column: auto; } .row-actions { width: 100%; margin-left: 46px; } .access-banner { display: block; padding: 20px; } .access-banner button { margin-top: 16px; } .access-grid { grid-template-columns: 1fr; } .health-panel { padding: 20px; } .health-panel-head { display: block; } .health-panel-actions { justify-content: flex-start; margin-top: 16px; } .health-check-grid { grid-template-columns: 1fr; } }
