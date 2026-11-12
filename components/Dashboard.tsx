@@ -18,7 +18,7 @@ import { apiUrl, errorMessage, responseJson, TOKEN_KEY } from '../lib/api';
 import { clearConsoleCache, readConsoleCache, writeConsoleCache } from '../lib/consoleCache';
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
-import { isErrorLogLine } from '../lib/metrics';
+import { isErrorLogLine, LIVE_INCIDENT_WINDOW_MS } from '../lib/metrics';
 import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, isAdminSection, type ConsoleSection } from '../lib/sections';
 import { clearSessionCache } from '../lib/sessionCache';
 import type {
@@ -27,6 +27,7 @@ import type {
   Deployment,
   DeploymentLog,
   FailureAlert,
+  Incident,
   MetricRange,
   Pm2LogEntry,
   Pm2Status,
@@ -35,6 +36,10 @@ import type {
   WebhookHealthRun,
   WebhookSchedule,
 } from '../types/api';
+const LIVE_SEED_WINDOW_MS = 10 * 60 * 1000; // failures newer than this are shown on first load
+const LIVE_DEPLOYMENT_POLL_MS = 15000;
+const LIVE_SERVICE_POLL_MS = 30000;
+
 function Dashboard({ token, role, email, section }: { token: string; role: string; email?: string; section: ConsoleSection }) {
   const [services, setServices] = useState<Service[]>(() => readConsoleCache(token)?.services ?? []);
   const [deployments, setDeployments] = useState<Deployment[]>(() => readConsoleCache(token)?.deployments ?? []);
@@ -60,6 +65,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [deploymentLogFilter, setDeploymentLogFilter] = useState('');
   const [deploymentLogCopied, setDeploymentLogCopied] = useState<'all' | 'errors' | null>(null);
   const [range, setRange] = useState<MetricRange>('7d');
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
   const [pm2LogEntries, setPm2LogEntries] = useState<Pm2LogEntry[]>([]);
   const [pm2LogError, setPm2LogError] = useState('');
@@ -83,6 +89,11 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   });
   const pm2LogAbortRef = useRef<AbortController | null>(null);
   const healthRunStatusesRef = useRef<Record<string, string>>({});
+  const seenIncidentDeployments = useRef<Set<string>>(new Set());
+  const seenRuntimeStates = useRef<Map<string, string>>(new Map());
+  const incidentBaselineReady = useRef(false);
+  const servicesRef = useRef<Service[]>([]);
+  const pm2StatusRef = useRef<Record<string, Pm2Status>>({});
 
   const loadDashboard = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -136,6 +147,122 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
       cancelled = true;
     };
   }, [range, token]);
+
+  /**
+   * Live incident feed.
+   *
+   * Only problems that happen *now* are raised: a failed deployment, a PM2 process
+   * that stops or starts erroring, an agent that goes offline — plus the recovery
+   * events. The first pass only seeds failures from the last few minutes; anything
+   * older is history (it stays in the Alerts view), not a live incident.
+   */
+  const trackIncidents = useCallback((
+    deploymentList: Deployment[],
+    serviceList: Service[],
+    statusMap: Record<string, Pm2Status>,
+  ) => {
+    const now = Date.now();
+    const created: Incident[] = [];
+
+    for (const deployment of deploymentList) {
+      if (deployment.status !== 'FAILED' && deployment.status !== 'ERROR') continue;
+      if (seenIncidentDeployments.current.has(deployment.id)) continue;
+      const at = deployment.completedAt || deployment.startedAt;
+      const age = now - new Date(at).getTime();
+      seenIncidentDeployments.current.add(deployment.id);
+      // Before the feed is live, only very recent failures are worth surfacing.
+      if (!incidentBaselineReady.current && age > LIVE_SEED_WINDOW_MS) continue;
+      created.push({
+        id: `deployment-${deployment.id}`,
+        kind: 'deployment',
+        severity: 'danger',
+        title: `${deployment.service.name} deployment ${deployment.status === 'ERROR' ? 'errored' : 'failed'}`,
+        detail: deployment.failureReason || 'The deployment pipeline reported a failure.',
+        at,
+        deploymentId: deployment.id,
+        serviceId: deployment.service.id,
+      });
+    }
+
+    for (const service of serviceList) {
+      if (service.type !== 'PM2') continue;
+      const status = statusMap[service.id]?.status?.toLowerCase();
+      if (!status) continue;
+      const previous = seenRuntimeStates.current.get(service.id);
+      if (previous === undefined) {
+        seenRuntimeStates.current.set(service.id, status);
+        continue;
+      }
+      if (previous === status) continue;
+      seenRuntimeStates.current.set(service.id, status);
+      const at = new Date(now).toISOString();
+      const process = service.pm2ProcessName || service.name;
+      if (status === 'stopped' || status === 'errored') {
+        created.push({
+          id: `service-${service.id}-${status}-${now}`,
+          kind: 'service',
+          severity: status === 'errored' ? 'danger' : 'warning',
+          title: `${service.name} is ${status}`,
+          detail: `The PM2 process ${process} is ${status}.`,
+          at,
+          serviceId: service.id,
+        });
+      } else if (previous === 'stopped' || previous === 'errored') {
+        created.push({
+          id: `service-${service.id}-recovered-${now}`,
+          kind: 'service',
+          severity: 'success',
+          title: `${service.name} is running again`,
+          detail: `The PM2 process ${process} recovered.`,
+          at,
+          serviceId: service.id,
+        });
+      }
+    }
+
+    for (const service of serviceList) {
+      const agent = service.agent;
+      if (!agent?.id) continue;
+      const key = `agent-${agent.id}`;
+      const status = agent.status || 'unknown';
+      const previous = seenRuntimeStates.current.get(key);
+      if (previous === undefined) {
+        seenRuntimeStates.current.set(key, status);
+        continue;
+      }
+      if (previous === status) continue;
+      seenRuntimeStates.current.set(key, status);
+      const at = new Date(now).toISOString();
+      if (status === 'offline') {
+        created.push({
+          id: `${key}-offline-${now}`,
+          kind: 'agent',
+          severity: 'danger',
+          title: `${agent.name} is offline`,
+          detail: 'The agent stopped reporting to the control plane.',
+          at,
+        });
+      } else if (previous === 'offline') {
+        created.push({
+          id: `${key}-online-${now}`,
+          kind: 'agent',
+          severity: 'success',
+          title: `${agent.name} is back online`,
+          detail: 'The agent resumed reporting to the control plane.',
+          at,
+        });
+      }
+    }
+
+    if (created.length) {
+      setIncidents((current) => {
+        const known = new Set(current.map((incident) => incident.id));
+        const fresh = created.filter((incident) => !known.has(incident.id)).reverse();
+        return [...fresh, ...current].slice(0, 30);
+      });
+    }
+    incidentBaselineReady.current = true;
+  }, []);
 
   const loadMoreDeployments = useCallback(async () => {    if (!deploymentNextCursor || deploymentLoadingMore) return;
     setDeploymentLoadingMore(true);
@@ -310,9 +437,88 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     return () => window.clearInterval(timer);
   }, [loadHealth, role]);
 
+  // The live polls read the latest services/status through refs so their timers are not
+  // restarted every time the runtime status refreshes.
+  useEffect(() => {
+    servicesRef.current = services;
+  }, [services]);
+
+  useEffect(() => {
+    pm2StatusRef.current = pm2Status;
+  }, [pm2Status]);
+
+  /**
+   * Live polling: new deployments are merged in as they finish, so a failure that
+   * happens while the client is on the console raises an incident immediately.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/deployments?limit=50`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await responseJson<{ deployments?: Deployment[] }>(response);
+        if (cancelled || !data.deployments) return;
+        setDeployments((current) => {
+          const known = new Set(current.map((deployment) => deployment.id));
+          const fresh = data.deployments!.filter((deployment) => !known.has(deployment.id));
+          return fresh.length ? [...fresh, ...current].slice(0, 300) : current;
+        });
+        trackIncidents(data.deployments, servicesRef.current, pm2StatusRef.current);
+      } catch {
+        // A failed poll must never interrupt the console.
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, LIVE_DEPLOYMENT_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [token, trackIncidents]);
+
+  // Agents heartbeat every 30s — refresh the service list at the same pace so an
+  // agent going offline is noticed.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/services`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await responseJson<{ services?: Service[] }>(response);
+        if (cancelled || !data.services) return;
+        setServices(data.services);
+        trackIncidents([], data.services, pm2StatusRef.current);
+      } catch {
+        // Ignore transient failures.
+      }
+    };
+    const timer = window.setInterval(() => { void poll(); }, LIVE_SERVICE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [token, trackIncidents]);
+
+  // Keep the live feed short: incidents older than the window drop out.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setIncidents((current) => {
+        const now = Date.now();
+        return current.filter((incident) => now - new Date(incident.at).getTime() < LIVE_INCIDENT_WINDOW_MS);
+      });
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const loadPm2Statuses = async () => {
+      const collected: Record<string, Pm2Status> = {};
       await Promise.all(services
         .filter((service) => service.type === 'PM2')
         .map(async (service) => {
@@ -322,6 +528,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
             });
             if (!response.ok) return;
             const data = await responseJson<Pm2Status>(response);
+            collected[service.id] = data;
             if (!cancelled) {
               setPm2Status((current) => ({ ...current, [service.id]: data }));
               setPm2FetchedAt((current) => ({ ...current, [service.id]: new Date().toISOString() }));
@@ -330,6 +537,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
             // Status is supplementary; the service card still works without it.
           }
         }));
+      if (!cancelled) trackIncidents([], services, collected);
     };
     void loadPm2Statuses();
     const timer = window.setInterval(() => { void loadPm2Statuses(); }, 5000);
@@ -337,7 +545,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [services, token]);
+  }, [services, token, trackIncidents]);
 
   useEffect(() => {
     if (!selectedDeployment) {
@@ -615,6 +823,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
         role={role}
         range={range}
         onRangeChange={setRange}
+        incidents={incidents}
         failureAlerts={failureAlerts}
         onDeploy={deploy}
         onForceDeploy={requestForceDeploy}

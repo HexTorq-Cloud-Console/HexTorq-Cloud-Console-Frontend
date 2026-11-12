@@ -66,6 +66,21 @@ export type Pm2Status = { status?: string; cpu?: number; memory?: number; restar
 /** Time window used by the dashboard metrics, chart and cards. */
 export type MetricRange = '24h' | '7d' | '30d';
 
+/** A live problem (or recovery) observed while the console was open. */
+export type IncidentSeverity = 'danger' | 'warning' | 'success';
+
+export type Incident = {
+  id: string;
+  kind: 'deployment' | 'service' | 'agent';
+  severity: IncidentSeverity;
+  title: string;
+  detail: string;
+  /** ISO timestamp of when it happened. */
+  at: string;
+  deploymentId?: string;
+  serviceId?: string;
+};
+
 export type WebhookHealthService = {
   id: string;
   name: string;

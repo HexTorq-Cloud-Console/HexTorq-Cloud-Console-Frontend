@@ -1,7 +1,12 @@
 import type { Deployment, Pm2Status, Service } from '../types/api';
 
 /**
- * Shared metric helpers for the client dashboard: time bucketing (hourly and daily),
+ * How long a live incident stays in the feed. Older problems belong to the alert
+ * history, not the live view.
+ */
+export const LIVE_INCIDENT_WINDOW_MS = 30 * 60 * 1000;
+
+/** Shared metric helpers for the client dashboard: time bucketing (hourly and daily),
  * comparisons between windows, and the fleet-health rollup used by the service health
  * card and the "needs attention" list.
  */

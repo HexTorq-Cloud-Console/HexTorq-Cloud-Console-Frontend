@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import Link from 'next/link';
-import type { AnalyticsData, Deployment, MetricRange, Pm2Status, Service, WebhookHealthData } from '../types/api';
+import type { AnalyticsData, Deployment, Incident, MetricRange, Pm2Status, Service, WebhookHealthData } from '../types/api';
 import {
   bucketSum,
   buildBuckets,
@@ -10,6 +10,7 @@ import {
   changeFor,
   fleetHealth,
   formatUptime,
+  LIVE_INCIDENT_WINDOW_MS,
   successRateFor,
   type Bucket,
 } from '../lib/metrics';
@@ -28,6 +29,7 @@ type OverviewViewProps = {
   role: string;
   range: MetricRange;
   onRangeChange: (range: MetricRange) => void;
+  incidents: Incident[];
   failureAlerts: Array<{ id: string; title: string; timestamp: string; details: string }>;
   onDeploy: (serviceId: string, force?: boolean) => void;
   onForceDeploy: (serviceId: string) => void;
@@ -374,6 +376,7 @@ export default function OverviewView({
   role,
   range,
   onRangeChange,
+  incidents,
   failureAlerts,
   onDeploy,
   onForceDeploy,
@@ -439,69 +442,11 @@ export default function OverviewView({
   // Runtime health of every service the console tracks (PM2 status is polled live).
   const runtime = fleetHealth(services, pm2Status);
 
-  // Everything that needs a human: failed deployments, stopped/errored services and
-  // agents that stopped reporting. Shown as soon as the client signs in.
-  const attention: Array<{
-    id: string;
-    tone: 'danger' | 'warning';
-    title: string;
-    detail: string;
-    action: string;
-    onOpen?: () => void;
-  }> = [];
-
-  // Repeated failures of the same service are grouped, so one broken service shows up
-  // once with a count instead of five near-identical rows.
-  const failedByService = new Map<string, Deployment[]>();
-  for (const deployment of deployments) {
-    if (deployment.status !== 'FAILED' && deployment.status !== 'ERROR') continue;
-    const list = failedByService.get(deployment.service.id) ?? [];
-    list.push(deployment);
-    failedByService.set(deployment.service.id, list);
-  }
-  for (const list of failedByService.values()) {
-    const latest = list[0];
-    attention.push({
-      id: `deployment-${latest.service.id}`,
-      tone: 'danger',
-      title: `${latest.service.name} deployment ${latest.status === 'ERROR' ? 'errored' : 'failed'}`,
-      detail: list.length > 1
-        ? `${list.length} failed attempts · ${latest.failureReason || 'open the log for the full output'}`
-        : latest.failureReason || `Last attempt ${relativeTime(latest.startedAt)}.`,
-      action: 'View logs',
-      onOpen: () => onDeployment(latest.id),
-    });
-  }
-  for (const entry of runtime.entries) {
-    if (entry.status === 'errored') {
-      attention.push({
-        id: `service-${entry.service.id}`,
-        tone: 'danger',
-        title: `${entry.service.name} is erroring`,
-        detail: `The PM2 process ${entry.service.pm2ProcessName || entry.service.name} is in an error state${entry.restarts ? ` after ${entry.restarts} restarts` : ''}.`,
-        action: 'Open service',
-      });
-    } else if (entry.status === 'stopped') {
-      attention.push({
-        id: `service-${entry.service.id}`,
-        tone: 'warning',
-        title: `${entry.service.name} is stopped`,
-        detail: `The PM2 process ${entry.service.pm2ProcessName || entry.service.name} is not running.`,
-        action: 'Open service',
-      });
-    }
-  }
-  for (const agent of agents) {
-    if (agent.status === 'offline') {
-      attention.push({
-        id: `agent-${agent.id}`,
-        tone: 'danger',
-        title: `${agent.name} is offline`,
-        detail: 'The agent stopped reporting to the control plane, so its services cannot be reached.',
-        action: 'Open service',
-      });
-    }
-  }
+  // Live feed: only problems that happen right now are listed here. The console raises
+  // them as they occur; older failures stay in the alert history.
+  const liveIncidents = incidents.filter(
+    (incident) => Date.now() - new Date(incident.at).getTime() < LIVE_INCIDENT_WINDOW_MS,
+  );
 
   const rangeLabel = currentBuckets.length
     ? range === '24h'
@@ -534,17 +479,6 @@ export default function OverviewView({
 
   return (
     <div className="overview-page">
-      {failureAlerts.length > 0 && (
-        <section className="overview-alert" aria-live="assertive">
-          <span className="overview-alert__icon" aria-hidden="true">!</span>
-          <div className="overview-alert__body">
-            <strong>{failureAlerts[0].title}</strong>
-            <span>{relativeTime(failureAlerts[0].timestamp)} · {failureAlerts.length} alert{failureAlerts.length === 1 ? '' : 's'} active</span>
-          </div>
-          <Link className="overview-alert__link" href="/alerts">Review alerts</Link>
-        </section>
-      )}
-
       <header className="dash-header">
         <div>
           <p className="dash-kicker"><span className="dash-kicker__dot" /> {isClient ? 'Tenant space · Production runtime' : 'Control plane · All tenants'}</p>
@@ -677,39 +611,44 @@ export default function OverviewView({
         </article>
       </section>
 
-      <section className="panel attention-panel" aria-labelledby="attention-title">
+      <section className="panel incident-panel" aria-labelledby="incident-title">
         <div className="panel__head">
           <div>
-            <h2 className="panel__title" id="attention-title">
-              Needs attention
-              <span className="attention-count">{attention.length}</span>
+            <h2 className="panel__title" id="incident-title">
+              Live incidents
+              <span className="live-pill"><span className="live-pill__dot" />LIVE</span>
             </h2>
-            <p className="panel__hint">Live problems detected across your services</p>
+            <p className="panel__hint">Errors happening right now across your services</p>
           </div>
-          <Link className="panel__link" href="/services">Open services</Link>
+          <Link className="panel__link" href="/alerts">Alert history</Link>
         </div>
-        {attention.length === 0 ? (
+        {liveIncidents.length === 0 ? (
           <div className="attention-empty">
             <span className="attention-empty__icon" aria-hidden="true">✓</span>
             <div>
-              <strong>Everything looks healthy</strong>
-              <span>No stopped services, offline agents or failed deployments right now.</span>
+              <strong>No live incidents</strong>
+              <span>Everything is deploying and reporting normally right now.</span>
             </div>
           </div>
         ) : (
-          <div className="attention-list">
-            {attention.map((item) => (
-              <article key={item.id} className={`attention-item attention-item--${item.tone}`}>
-                <span className="attention-item__icon" aria-hidden="true">{item.tone === 'danger' ? '!' : '⚠'}</span>
-                <div className="attention-item__body">
-                  <strong>{item.title}</strong>
-                  <span>{item.detail}</span>
+          <div className="incident-list">
+            {liveIncidents.map((incident) => (
+              <article key={incident.id} className={`incident-item incident-item--${incident.severity}`}>
+                <span className="incident-item__icon" aria-hidden="true">
+                  {incident.severity === 'success' ? '✓' : incident.severity === 'danger' ? '!' : '⚠'}
+                </span>
+                <div className="incident-item__body">
+                  <strong>{incident.title}</strong>
+                  <span>{incident.detail}</span>
                 </div>
-                {item.onOpen ? (
-                  <button type="button" className="attention-item__action" onClick={item.onOpen}>{item.action}</button>
-                ) : (
-                  <Link className="attention-item__action" href="/services">{item.action}</Link>
-                )}
+                <time className="incident-item__time" dateTime={incident.at}>{relativeTime(incident.at)}</time>
+                {incident.deploymentId ? (
+                  <button type="button" className="incident-item__action" onClick={() => onDeployment(incident.deploymentId as string)}>
+                    View logs
+                  </button>
+                ) : incident.serviceId ? (
+                  <Link className="incident-item__action" href="/services">Open service</Link>
+                ) : null}
               </article>
             ))}
           </div>
