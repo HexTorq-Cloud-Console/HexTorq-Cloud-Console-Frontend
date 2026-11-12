@@ -89,6 +89,10 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   });
   const pm2LogAbortRef = useRef<AbortController | null>(null);
   const healthRunStatusesRef = useRef<Record<string, string>>({});
+  const pm2LogOutputRef = useRef<HTMLPreElement>(null);
+  const deploymentLogOutputRef = useRef<HTMLPreElement>(null);
+  const [pm2LogPinned, setPm2LogPinned] = useState(true);
+  const [deploymentLogPinned, setDeploymentLogPinned] = useState(true);
   const seenIncidentDeployments = useRef<Set<string>>(new Set());
   const seenRuntimeStates = useRef<Map<string, string>>(new Map());
   const incidentBaselineReady = useRef(false);
@@ -547,6 +551,28 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     };
   }, [services, token, trackIncidents]);
 
+  /**
+   * Terminal behaviour for both log viewers: the newest line stays in view, and the
+   * user can scroll up to read history without being yanked back down.
+   */
+  useEffect(() => {
+    const node = pm2LogOutputRef.current;
+    if (!node || !pm2LogPinned) return;
+    node.scrollTop = node.scrollHeight;
+  }, [pm2LogEntries, pm2LogPinned]);
+
+  useEffect(() => {
+    const node = deploymentLogOutputRef.current;
+    if (!node || !deploymentLogPinned) return;
+    node.scrollTop = node.scrollHeight;
+  }, [deploymentLogs, deploymentLogPinned]);
+
+  function trackLogPinned(node: HTMLElement | null, setPinned: (value: boolean) => void) {
+    if (!node) return;
+    const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
+    setPinned(distance < 48);
+  }
+
   useEffect(() => {
     if (!selectedDeployment) {
       setDeploymentLogs([]);
@@ -771,7 +797,8 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
           .filter((line) => line && !line.startsWith(':') && !line.startsWith('event:') && !line.startsWith('id:') && !line.startsWith('retry:'))
           .map((line) => parseLogEvent(line.startsWith('data:') ? line.slice(5).replace(/^ /, '') : line))
           .filter((entry): entry is Pm2LogEntry => Boolean(entry));
-        if (entries.length) setPm2LogEntries((current) => [...entries.reverse(), ...current].slice(0, 500));
+        // Terminal order: oldest first, newest last — the view stays anchored to the bottom.
+        if (entries.length) setPm2LogEntries((current) => [...current, ...entries].slice(-500));
       };
 
       while (true) {
@@ -944,18 +971,34 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
                 {deploymentLogCopied === 'errors' ? '✓ Copied' : '⚠ Copy errors'}
               </button>
             </div>
-            <pre className="deployment-detail-log">
-              {visibleDeploymentLogs.length
-                ? visibleDeploymentLogs.map((log, index) => (
-                    <span
-                      key={`${log.timestamp}-${index}`}
-                      className={`deployment-log-line${isErrorLogLine(log.message) ? ' is-error' : ''}`}
-                    >{`[${new Date(log.timestamp).toLocaleString()}] ${log.message}`}</span>
-                  ))
-                : deploymentLogs.length
-                  ? 'No log lines match the filter.'
-                  : 'Waiting for deployment logs.'}
-            </pre>
+            <div className="deployment-log-output-wrap">
+              <pre className="deployment-detail-log" ref={deploymentLogOutputRef} onScroll={(event) => trackLogPinned(event.currentTarget, setDeploymentLogPinned)}>
+                {visibleDeploymentLogs.length
+                  ? visibleDeploymentLogs.map((log, index) => (
+                      <span
+                        key={`${log.timestamp}-${index}`}
+                        className={`deployment-log-line${isErrorLogLine(log.message) ? ' is-error' : ''}`}
+                      >{`[${new Date(log.timestamp).toLocaleString()}] ${log.message}`}</span>
+                    ))
+                  : deploymentLogs.length
+                    ? 'No log lines match the filter.'
+                    : 'Waiting for deployment logs.'}
+              </pre>
+              {!deploymentLogPinned && (
+                <button
+                  type="button"
+                  className="log-latest-button"
+                  onClick={() => {
+                    const node = deploymentLogOutputRef.current;
+                    if (!node) return;
+                    node.scrollTop = node.scrollHeight;
+                    setDeploymentLogPinned(true);
+                  }}
+                >
+                  ↓ Latest logs
+                </button>
+              )}
+            </div>
             <div className="modal-actions">
               <button className="secondary" onClick={() => setSelectedDeployment(null)}>Close</button>
             </div>
@@ -989,16 +1032,32 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
               <label className="pm2-log-search">⌕<input value={pm2LogFilter} onChange={(event) => setPm2LogFilter(event.target.value)} placeholder="Filter logs…" aria-label="Filter logs" /></label>
               <button type="button" onClick={() => { const text = pm2LogEntries.map((entry) => entry.message).join('\n'); void navigator.clipboard?.writeText(text); }}>▣ Copy</button>
             </div>
-            <pre className="pm2-log-output">
-              {pm2LogEntries.length ? pm2LogEntries.slice(0, pm2LogPausedAt ?? pm2LogEntries.length).filter((entry) => !pm2LogFilter || entry.message.toLowerCase().includes(pm2LogFilter.toLowerCase())).map((entry, index) => (
-                <span className={`pm2-log-line${entry.error ? ' error' : ''}`} key={`${index}-${entry.message}`}>
-                  <span className="pm2-line-number">{String(index + 1).padStart(3, '0')}</span>
-                  <span className="pm2-line-time">{entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : '—'}</span>
-                  <span className={`pm2-line-stream pm2-line-stream--${entry.stream || 'stdout'}`}>{entry.error ? 'stderr' : entry.stream || 'stdout'}</span>
-                  {entry.error ? 'ERR ' : ''}{entry.message}
-                </span>
-              )) : (pm2LogLoading ? 'Connecting to log stream...' : 'Waiting for log output...')}
-            </pre>
+            <div className="pm2-log-output-wrap">
+              <pre className="pm2-log-output" ref={pm2LogOutputRef} onScroll={(event) => trackLogPinned(event.currentTarget, setPm2LogPinned)}>
+                {pm2LogEntries.length ? pm2LogEntries.slice(0, pm2LogPausedAt ?? pm2LogEntries.length).filter((entry) => !pm2LogFilter || entry.message.toLowerCase().includes(pm2LogFilter.toLowerCase())).map((entry, index) => (
+                  <span className={`pm2-log-line${entry.error ? ' error' : ''}`} key={`${index}-${entry.message}`}>
+                    <span className="pm2-line-number">{String(index + 1).padStart(3, '0')}</span>
+                    <span className="pm2-line-time">{entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : '—'}</span>
+                    <span className={`pm2-line-stream pm2-line-stream--${entry.stream || 'stdout'}`}>{entry.error ? 'stderr' : entry.stream || 'stdout'}</span>
+                    {entry.error ? 'ERR ' : ''}{entry.message}
+                  </span>
+                )) : (pm2LogLoading ? 'Connecting to log stream...' : 'Waiting for log output...')}
+              </pre>
+              {!pm2LogPinned && (
+                <button
+                  type="button"
+                  className="log-latest-button"
+                  onClick={() => {
+                    const node = pm2LogOutputRef.current;
+                    if (!node) return;
+                    node.scrollTop = node.scrollHeight;
+                    setPm2LogPinned(true);
+                  }}
+                >
+                  ↓ Latest logs
+                </button>
+              )}
+            </div>
             <div className="pm2-log-footer"><span><span className="ht-dot" /> Connected · stream closes when this window closes</span></div>
             <div className="modal-actions">
               <button className="secondary" onClick={closePm2Logs}>

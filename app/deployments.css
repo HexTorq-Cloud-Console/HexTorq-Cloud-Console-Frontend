@@ -13,3 +13,9 @@
 @media(max-width:1100px){.deployments-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.deployments-search{width:100%;margin-left:0}.deployment-modal{width:min(640px,100%)}}
 @media(max-width:700px){.deployments-page{margin-top:0}.deployments-page__header{display:block}.deployments-total{display:inline-block;margin-top:12px}.deployments-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.deployments-metrics article{min-height:84px;padding:12px}.deployments-metrics strong{margin-top:10px;font-size:23px}.deployments-filters{display:block}.deployments-filters label{margin-bottom:8px}.deployments-filters select{width:100%}.deployments-statuses{overflow:auto}.deployments-search{width:100%}.deployments-table-wrap{display:none}.deployments-mobile-list{display:grid;gap:10px}.deployments-pagination{margin-top:10px;padding:10px 0}.deployment-modal{top:auto;right:0;bottom:0;width:100%;max-height:92dvh;border-radius:var(--ht-radius-lg) var(--ht-radius-lg) 0 0;animation:deployment-sheet-in 180ms ease-out}.deployment-modal .deployment-metadata{grid-template-columns:1fr}.deployment-modal .deployment-detail-log{max-height:38dvh}.deployment-modal .modal-actions{bottom:-26px;margin:18px -20px -26px;padding:12px 20px}}
 @keyframes deployment-sheet-in{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* Deployment log viewer — single scroll region plus the "jump to latest" affordance. */
+.deployment-log-output-wrap{position:relative;margin-top:4px}
+.deployment-log-output-wrap .deployment-detail-log{max-height:42vh;margin-top:0}
+@media(max-width:720px){.deployment-modal .modal-actions{bottom:-26px;margin:18px -20px -26px;padding:12px 20px}}
+
