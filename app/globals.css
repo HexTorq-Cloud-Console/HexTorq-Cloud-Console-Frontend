@@ -67,7 +67,7 @@ button { margin-top: 6px; padding: 13px; border: 0; border-radius: var(--ht-radi
 .retention-form { display: flex; align-items: flex-end; gap: 12px; margin-top: 18px; padding: 16px; border: 1px solid var(--ht-line); border-radius: var(--ht-radius); background: var(--ht-card); }
 .retention-form label { flex: 1; }
 .retention-form button { margin: 0; padding: 10px 16px; }
-.modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--ht-backdrop); backdrop-filter: blur(8px); }
+.modal-backdrop { position: fixed; z-index: 160; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--ht-backdrop); backdrop-filter: blur(8px); }
 .modal-card { position: relative; width: min(680px, 100%); max-height: calc(100vh - 48px); overflow: auto; padding: 32px; border: 1px solid var(--ht-line); border-radius: var(--ht-radius-lg); background: var(--ht-card); box-shadow: var(--ht-shadow-3); }
 .modal-card h2 { margin: 6px 0 8px; font-size: 26px; }
 .modal-subtitle { margin: 0; color: var(--ht-text-muted); font-size: 13px; }
