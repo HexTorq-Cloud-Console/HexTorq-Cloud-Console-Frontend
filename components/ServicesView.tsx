@@ -105,7 +105,10 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
                   <div className="service-tile__meta"><span>{service.agent.name}</span><span>·</span><span>{service.branch || 'origin/HEAD'}</span>{agentOffline ? <span className="service-agent-warning">● agent {service.agent.status || 'unreachable'}</span> : service.agent.status === 'online' ? <span className="service-agent-ok">● agent online</span> : null}</div>
                 <div className="service-tile__commit">
                   {latest?.status === 'SUCCESS' ? <span className="service-success-label">LAST SUCCESS</span> : null}
-                  <code>{latest?.commitHash ? latest.commitHash.slice(0, 8) : '—'}</code><span>{latest?.commitMessage || 'No deployment recorded'}</span>
+                  <div className="service-tile__commit-line">
+                    <code>{latest?.commitHash ? latest.commitHash.slice(0, 8) : '—'}</code>
+                    <span>{latest?.commitMessage || 'No deployment recorded'}</span>
+                  </div>
                 </div>
                 <div className="service-tile__runtime">
                   {service.type === 'PM2' ? (
@@ -116,14 +119,16 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
                     )
                   ) : <>◈ static frontend <span>·</span> {service.deployDirectory || service.workingDirectory}</>}
                 </div>
-                <div className="service-tile__actions">
-                  <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={!service.enabled || busy}>{busy ? 'Deploying...' : service.type === 'PM2' && status?.status === 'stopped' ? 'Start & deploy' : 'Normal deploy'}</button>
-                  <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={!service.enabled || busy}>Force</button>
-                  {service.type === 'PM2' && <button className="ht-btn ht-btn--icon" type="button" onClick={() => onLogs(service)} aria-label={`View live logs for ${service.name}`}>▤</button>}
+                <div className="service-tile__footer">
+                  <div className="service-tile__actions">
+                    <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={!service.enabled || busy}>{busy ? 'Deploying...' : service.type === 'PM2' && status?.status === 'stopped' ? 'Start & deploy' : 'Normal deploy'}</button>
+                    <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={!service.enabled || busy}>Force</button>
+                    {service.type === 'PM2' && <button className="ht-btn ht-btn--icon" type="button" onClick={() => onLogs(service)} aria-label={`View live logs for ${service.name}`}>▤</button>}
+                  </div>
+                  {service.type === 'PM2' && service.enabled && !agentOffline && <div className="service-tile__pm2-actions">
+                    {(['start', 'stop', 'restart', 'reload'] as const).map((pm2ActionName) => <button key={pm2ActionName} type="button" onClick={() => onPm2(service.id, pm2ActionName)} disabled={Boolean(action)}>{action === pm2ActionName ? '...' : pm2ActionName}</button>)}
+                  </div>}
                 </div>
-                {service.type === 'PM2' && service.enabled && !agentOffline && <div className="service-tile__pm2-actions">
-                  {(['start', 'stop', 'restart', 'reload'] as const).map((pm2ActionName) => <button key={pm2ActionName} type="button" onClick={() => onPm2(service.id, pm2ActionName)} disabled={Boolean(action)}>{action === pm2ActionName ? '...' : pm2ActionName}</button>)}
-                </div>}
               </article>
             );
           })}
