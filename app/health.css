@@ -15,7 +15,7 @@
 .health-hero__stats>div{display:grid;gap:5px;min-width:0;padding:0 18px;border-left:1px solid var(--ht-line)}
 .health-hero__stats>div:first-child{padding-left:0;border-left:0}
 .health-hero__stats dt{color:var(--ht-text-muted);font:600 10px/15px var(--ht-font-body);letter-spacing:.08em;text-transform:uppercase}
-.health-hero__stats dd{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ht-text);font:500 13px/18px var(--ht-font-mono)}
+.health-hero__stats dd{margin:0;color:var(--ht-text);font:500 12px/17px var(--ht-font-mono);overflow-wrap:anywhere}
 
 /* ---------- Pipeline stepper ---------- */
 .health-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:0 0 28px;padding:0;list-style:none;border:1px solid var(--ht-line);border-radius:var(--ht-radius-lg);background:var(--ht-card);overflow:hidden}
