@@ -120,14 +120,14 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
                   ) : <>◈ static frontend <span>·</span> {service.deployDirectory || service.workingDirectory}</>}
                 </div>
                 <div className="service-tile__footer">
+                  {service.type === 'PM2' && service.enabled && !agentOffline && <div className="service-tile__pm2-actions">
+                    {(['start', 'stop', 'restart', 'reload'] as const).map((pm2ActionName) => <button key={pm2ActionName} type="button" onClick={() => onPm2(service.id, pm2ActionName)} disabled={Boolean(action)}>{action === pm2ActionName ? '...' : pm2ActionName}</button>)}
+                  </div>}
                   <div className="service-tile__actions">
                     <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={!service.enabled || busy}>{busy ? 'Deploying...' : service.type === 'PM2' && status?.status === 'stopped' ? 'Start & deploy' : 'Normal deploy'}</button>
                     <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={!service.enabled || busy}>Force</button>
                     {service.type === 'PM2' && <button className="ht-btn ht-btn--icon" type="button" onClick={() => onLogs(service)} aria-label={`View live logs for ${service.name}`}>▤</button>}
                   </div>
-                  {service.type === 'PM2' && service.enabled && !agentOffline && <div className="service-tile__pm2-actions">
-                    {(['start', 'stop', 'restart', 'reload'] as const).map((pm2ActionName) => <button key={pm2ActionName} type="button" onClick={() => onPm2(service.id, pm2ActionName)} disabled={Boolean(action)}>{action === pm2ActionName ? '...' : pm2ActionName}</button>)}
-                  </div>}
                 </div>
               </article>
             );

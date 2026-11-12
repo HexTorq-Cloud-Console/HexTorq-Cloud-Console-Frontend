@@ -481,7 +481,7 @@ export default function OverviewView({
     <div className="overview-page">
       <header className="dash-header">
         <div>
-          <p className="dash-kicker"><span className="dash-kicker__dot" /> {isClient ? 'Tenant space · Production runtime' : 'Control plane · All tenants'}</p>
+          <p className="dash-kicker"><span className="dash-kicker__dot" /> {isClient ? 'Production runtime' : 'Control plane · All tenants'}</p>
           <h1>Dashboard</h1>
           <p className="dash-sub">Welcome back, {displayNameFor(email, role)}. Here&apos;s what&apos;s happening across your deployments today.</p>
         </div>
