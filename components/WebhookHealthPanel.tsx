@@ -2,6 +2,7 @@
 
 import type { WebhookHealthData } from '../types/api';
 import { healthStatusClass, healthStatusLabel, intervalLabel, scheduleDateTimeLabel, scheduleHourLabel } from '../lib/format';
+import HealthCheckCard from './HealthCheckCard';
 function WebhookHealthPanel({
   health,
   loading,
@@ -76,33 +77,19 @@ function WebhookHealthPanel({
           <div className="health-check-grid">
             {run.checks.map((check) => {
               const deployment = check.deployment;
-              const webhookAccepted = check.httpStatus !== null && check.httpStatus !== undefined && check.httpStatus >= 200 && check.httpStatus < 300;
               return (
-                <article className={`health-check ${healthStatusClass(check.status)}`} key={check.id}>
-                  <div className="health-check-head">
-                    <div>
-                      <strong>{check.service.name}</strong>
-                      <small>{check.service.type.replace('_', ' ')}</small>
-                    </div>
-                    <span className={`badge ${healthStatusClass(check.status)}`}>{healthStatusLabel(check.status)}</span>
-                  </div>
-                  <div className="health-chips">
-                    <span className={`health-chip ${webhookAccepted ? 'ok' : check.status === 'FAILED' ? 'bad' : ''}`}>
-                      Webhook {check.httpStatus ? `HTTP ${check.httpStatus}` : 'pending'}
-                    </span>
-                    <span className={`health-chip ${deployment?.status === 'SUCCESS' ? 'ok' : deployment && ['FAILED', 'ERROR'].includes(deployment.status) ? 'bad' : ''}`}>
-                      Deployment {deployment ? deployment.status.toLowerCase() : 'waiting'}
-                    </span>
-                  </div>
-                  <p className="health-message">{check.message || 'Waiting for the pipeline.'}</p>
-                  <small className="health-check-time">
-                    {check.completedAt
-                      ? `Completed ${new Date(check.completedAt).toLocaleString()}`
-                      : check.startedAt
-                        ? `Started ${new Date(check.startedAt).toLocaleTimeString()}`
-                        : 'Queued'}
-                  </small>
-                </article>
+                <HealthCheckCard
+                  key={check.id}
+                  serviceName={check.service.name}
+                  serviceType={check.service.type}
+                  status={check.status}
+                  httpStatus={check.httpStatus}
+                  deploymentStatus={deployment?.status ?? null}
+                  message={check.message}
+                  startedAt={check.startedAt}
+                  completedAt={check.completedAt}
+                  durationMs={check.durationMs}
+                />
               );
             })}
           </div>

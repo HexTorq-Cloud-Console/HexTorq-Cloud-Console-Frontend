@@ -2,6 +2,7 @@
 
 import type { WebhookHealthData } from '../types/api';
 import { healthStatusClass, healthStatusLabel, intervalLabel, scheduleDateTimeLabel, scheduleHourLabel } from '../lib/format';
+import HealthCheckCard from './HealthCheckCard';
 
 type WebhookHealthViewProps = { health: WebhookHealthData | null; loading: boolean; error: string; runLoading: boolean; onSettings: () => void; onRun: () => void };
 
@@ -25,13 +26,38 @@ export default function WebhookHealthView({ health, loading, error, runLoading, 
       </header>
 
       <section className="health-summary">
-        <div><span className="health-summary__label">Latest execution</span><div className="health-summary__main"><span className={`ht-pill ht-pill--${run ? healthStatusClass(run.status) : 'neutral'}`}>{run ? healthStatusLabel(run.status) : 'NOT RUN'}</span><strong>{run ? `${passed}/${total} passed` : 'No run recorded'}</strong></div></div>
+        <div className="health-summary__lead">
+          <span className="health-summary__label">Latest execution</span>
+          <div className="health-summary__main">
+            <span className={`ht-pill ht-pill--${run ? healthStatusClass(run.status) : 'neutral'}`}>{run ? healthStatusLabel(run.status) : 'NOT RUN'}</span>
+            <strong>{run ? `${passed}/${total} passed` : 'No run recorded'}</strong>
+          </div>
+          {total > 0 && (
+            <>
+              <div className="health-summary__bar"><span style={{ width: `${Math.round((passed / total) * 100)}%` }} /></div>
+              <small className="health-summary__note">{Math.round((passed / total) * 100)}% of enabled services accepted the webhook</small>
+            </>
+          )}
+        </div>
         <div><span className="health-summary__label">Started</span><strong>{run ? scheduleDateTimeLabel(run.startedAt, health?.schedule.timeZone || 'UTC') : '—'}</strong></div>
         <div><span className="health-summary__label">Duration</span><strong>{run ? duration(run.completedAt ? new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime() : null) : '—'}</strong></div>
         <div className="health-summary__next"><span className="health-summary__label">Next scheduled run</span><strong>{health?.schedule.enabled && health.schedule.nextRunAt ? scheduleDateTimeLabel(health.schedule.nextRunAt, health.schedule.timeZone) : 'Schedule disabled'}</strong></div>
       </section>
 
-      <div className="health-pipeline" aria-label="Health check pipeline"><span><b>1</b> Call webhook</span><i>→</i><span><b>2</b> HTTP response</span><i>→</i><span><b>3</b> Find deployment</span><i>→</i><span><b>4</b> Wait for result</span><i>→</i><span><b>5</b> Mark result</span></div>
+      <div className="health-pipeline" aria-label="Health check pipeline">
+        {[
+          ['Call webhook', 'Each enabled service is triggered'],
+          ['HTTP response', 'The webhook HTTP code is recorded'],
+          ['Find deployment', 'The run is matched to its pipeline'],
+          ['Wait for result', 'The deployment is polled until it ends'],
+          ['Mark result', 'Each service is marked pass or fail'],
+        ].map(([title, description], index) => (
+          <div className="health-pipeline__step" key={title}>
+            <span className="health-pipeline__index">{index + 1}</span>
+            <span className="health-pipeline__text"><b>{title}</b><small>{description}</small></span>
+          </div>
+        ))}
+      </div>
 
       {error && <p className="error">{error}</p>}
       {loading && !health && <div className="ht-card ht-empty">Loading webhook health…</div>}
@@ -39,11 +65,24 @@ export default function WebhookHealthView({ health, loading, error, runLoading, 
 
       {run && <>
         <div className="health-checks-heading"><h3>Service checks <span>{checks.length} total</span></h3><code>Run ID #{run.id.slice(-8)}</code></div>
-        <div className="health-service-grid">{checks.map((check) => { const accepted = check.httpStatus != null && check.httpStatus >= 200 && check.httpStatus < 300; const deployment = check.deployment; return <article className={`health-service-card health-service-card--${healthStatusClass(check.status)}`} key={check.id}>
-          <div className="health-service-card__head"><div><h3>{check.service.name}</h3><div><span className="ht-badge">{check.service.type === 'STATIC_FRONTEND' ? 'STATIC' : 'PM2'}</span><span className={`health-http ${accepted ? 'is-ok' : check.status === 'FAILED' ? 'is-bad' : ''}`}>HTTP {check.httpStatus || '—'}</span></div></div><span className={`ht-pill ht-pill--${healthStatusClass(check.status)}`}><span className="ht-dot" />{healthStatusLabel(check.status)}</span></div>
-          <p className={check.status === 'FAILED' ? 'is-error' : ''}>{check.message || (deployment?.status === 'SUCCESS' ? 'Deployment finished cleanly.' : 'Waiting for the pipeline.')}</p>
-          <div className="health-service-card__meta"><span>{check.startedAt ? scheduleDateTimeLabel(check.startedAt, health?.schedule.timeZone || 'UTC') : 'Queued'}</span><strong>{duration(check.durationMs)}</strong></div>
-        </article>; })}</div>
+        <div className="health-service-grid">{checks.map((check) => {
+          const deployment = check.deployment;
+          return (
+            <HealthCheckCard
+              key={check.id}
+              serviceName={check.service.name}
+              serviceType={check.service.type}
+              status={check.status}
+              httpStatus={check.httpStatus}
+              deploymentStatus={deployment?.status ?? null}
+              message={check.message}
+              startedAt={check.startedAt}
+              completedAt={check.completedAt}
+              durationMs={check.durationMs}
+              timeZone={health?.schedule.timeZone || 'UTC'}
+            />
+          );
+        })}</div>
       </>}
 
       <section className="health-history"><div className="health-checks-heading"><h3>Run history</h3><code>Last {health?.recentRuns.length || 0} execution records</code></div><div className="health-history__table"><div className="health-history__header"><span>Started</span><span>Source</span><span>Status</span><span>Services</span><span>Passed</span><span>Failed</span><span>Duration</span></div>{(health?.recentRuns || []).map((item) => <div className="health-history__row" key={item.id}><time>{scheduleDateTimeLabel(item.startedAt, health?.schedule.timeZone || 'UTC')}</time><span>{item.source === 'SCHEDULED' ? 'Scheduled' : 'Manual'}</span><span className={`ht-pill ht-pill--${healthStatusClass(item.status)}`}>{healthStatusLabel(item.status)}</span><span>{item.totalServices}</span><strong className="is-good">{item.successfulServices}</strong><strong className={item.failedServices ? 'is-error' : ''}>{item.failedServices}</strong><code>{duration(item.completedAt ? new Date(item.completedAt).getTime() - new Date(item.startedAt).getTime() : null)}</code></div>)}</div></section>

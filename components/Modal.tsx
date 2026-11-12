@@ -1,5 +1,18 @@
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
+
 function Modal({ open, title, subtitle, onClose, children, className }: { open: boolean; title: string; subtitle: string; onClose: () => void; children: ReactNode; className?: string }) {
+  // The page behind a dialog must not scroll: the backdrop is fixed, so without this
+  // the content slides underneath while the dialog is open.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
   if (!open) return null;
   return (
     <div

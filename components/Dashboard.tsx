@@ -65,6 +65,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [deploymentLogFilter, setDeploymentLogFilter] = useState('');
   const [deploymentLogCopied, setDeploymentLogCopied] = useState<'all' | 'errors' | null>(null);
   const [range, setRange] = useState<MetricRange>('7d');
+  const [deployMetrics, setDeployMetrics] = useState<AnalyticsData['summary'] | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
   const [pm2LogEntries, setPm2LogEntries] = useState<Pm2LogEntry[]>([]);
@@ -450,6 +451,30 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   useEffect(() => {
     pm2StatusRef.current = pm2Status;
   }, [pm2Status]);
+
+  // The deployment metrics are aggregated by the server over the full 30 day window,
+  // so the numbers are not limited to the 100 records loaded into the browser.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/analytics?days=30`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await responseJson<AnalyticsData>(response);
+        if (!cancelled && data.summary) setDeployMetrics(data.summary);
+      } catch {
+        // Keep the previous aggregate.
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => { void load(); }, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [token]);
 
   /**
    * Live polling: new deployments are merged in as they finish, so a failure that
@@ -873,7 +898,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
         onDetails={setSelectedService}
       />}
 
-      {section === 'deployments' && <DeploymentsView deployments={deployments} services={services} hasMore={deploymentHasMore} loadingMore={deploymentLoadingMore} onLoadMore={() => void loadMoreDeployments()} onOpen={setSelectedDeployment} />}
+      {section === 'deployments' && <DeploymentsView deployments={deployments} services={services} metrics={deployMetrics} hasMore={deploymentHasMore} loadingMore={deploymentLoadingMore} onLoadMore={() => void loadMoreDeployments()} onOpen={setSelectedDeployment} />}
 
       {section === 'health' && role === 'CLIENT' && <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={runWebhookHealth} />}
 

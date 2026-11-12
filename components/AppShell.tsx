@@ -193,9 +193,10 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
   const activeLabel = activeItem?.label || (isAdmin ? 'Admin Overview' : 'Overview');
 
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = mobileOpen ? 'hidden' : previous;
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = previous;
     };
   }, [mobileOpen]);
 

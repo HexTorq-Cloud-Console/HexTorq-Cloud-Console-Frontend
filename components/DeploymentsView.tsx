@@ -3,7 +3,16 @@
 import { useMemo, useState } from 'react';
 import type { Deployment, Service } from '../types/api';
 
-type DeploymentsViewProps = { deployments: Deployment[]; services: Service[]; hasMore: boolean; loadingMore: boolean; onLoadMore: () => void; onOpen: (deploymentId: string) => void };
+type DeploymentsViewProps = {
+  deployments: Deployment[];
+  services: Service[];
+  /** Server-side aggregate over the trailing 30 days (not limited to the loaded page). */
+  metrics?: { total: number; successful: number; failed: number; running: number; successRate: number | null } | null;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+  onOpen: (deploymentId: string) => void;
+};
 type StatusFilter = 'ALL' | 'SUCCESS' | 'FAILED' | 'ERROR' | 'DEPLOYING';
 
 function duration(value?: number) {
@@ -22,7 +31,7 @@ function pillStatus(status: string) {
   return 'danger';
 }
 
-export default function DeploymentsView({ deployments, services, hasMore, loadingMore, onLoadMore, onOpen }: DeploymentsViewProps) {
+export default function DeploymentsView({ deployments, services, metrics, hasMore, loadingMore, onLoadMore, onOpen }: DeploymentsViewProps) {
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [serviceId, setServiceId] = useState('ALL');
   const [query, setQuery] = useState('');
@@ -53,14 +62,30 @@ export default function DeploymentsView({ deployments, services, hasMore, loadin
           <h2 id="deployments-title">Deployments</h2>
           <p>Records are retrieved in batches of up to 100; {deployments.length} loaded{hasMore ? ' so far' : ''}.</p>
         </div>
-        <span className="deployments-total">{deployments.length} recorded</span>
+        <span className="deployments-total">{deployments.length} loaded</span>
       </header>
 
       <div className="deployments-metrics">
-        <article><span>Success ratio</span><strong>{completed.length ? `${Math.round((success / completed.length) * 1000) / 10}%` : '—'}</strong></article>
-        <article><span>Completed runs</span><strong>{completed.length}</strong></article>
-        <article><span>Active deployments</span><strong>{active}</strong></article>
-        <article><span>Failed / error</span><strong className={completed.length - success ? 'is-danger' : ''}>{completed.length - success}</strong></article>
+        <article>
+          <span>Success ratio</span>
+          <strong>{metrics ? (metrics.successRate === null ? '—' : `${metrics.successRate}%`) : '—'}</strong>
+          <small>Last 30 days</small>
+        </article>
+        <article>
+          <span>Completed runs</span>
+          <strong>{metrics ? metrics.successful + metrics.failed : '—'}</strong>
+          <small>{metrics ? `${metrics.successful} successful · ${metrics.failed} failed` : 'Last 30 days'}</small>
+        </article>
+        <article>
+          <span>Active deployments</span>
+          <strong>{active}</strong>
+          <small>Running right now</small>
+        </article>
+        <article>
+          <span>Failed / error</span>
+          <strong className={metrics && metrics.failed ? 'is-danger' : ''}>{metrics ? metrics.failed : '—'}</strong>
+          <small>Last 30 days</small>
+        </article>
       </div>
 
       <div className="deployments-filters">
