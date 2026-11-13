@@ -10,7 +10,7 @@
  * display without guessing.
  */
 
-const SW_VERSION = '2';
+const SW_VERSION = '3';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
@@ -69,9 +69,14 @@ async function showNotification(data) {
   }
 }
 
+async function broadcast(data) {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  clients.forEach((client) => client.postMessage({ type: 'push-received', data }));
+}
+
 self.addEventListener('push', (event) => {
   const data = readPayload(event);
-  event.waitUntil(showNotification(data));
+  event.waitUntil(Promise.all([showNotification(data), broadcast(data)]));
 });
 
 // Lets the page trigger a notification through this exact same path, so a

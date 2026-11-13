@@ -21,6 +21,7 @@ import { emptyAccessForm } from '../lib/forms';
 import { isErrorLogLine, LIVE_INCIDENT_WINDOW_MS } from '../lib/metrics';
 import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, isAdminSection, type ConsoleSection } from '../lib/sections';
 import { clearSessionCache } from '../lib/sessionCache';
+import { addNotification, loadNotifications } from '../lib/notificationStore';
 import type {
   AnalyticsData,
   ClientAccess,
@@ -299,6 +300,32 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     window.addEventListener('keydown', onPaletteKey);
     return () => window.removeEventListener('keydown', onPaletteKey);
   }, []);
+
+  const seenStatusRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    loadNotifications(email || role);
+  }, [email, role]);
+  useEffect(() => {
+    if (loading) return;
+    const seen = seenStatusRef.current;
+    const next = new Map(deployments.map((deployment) => [deployment.id, deployment.status] as const));
+    seenStatusRef.current = next;
+    if (!seen) return;
+    for (const deployment of deployments) {
+      const previous = seen.get(deployment.id);
+      if (previous === deployment.status) continue;
+      const name = deployment.service?.name || 'Service';
+      const status = deployment.status.toUpperCase();
+      const url = '/deployments?deployment=' + deployment.id;
+      if (status === 'SUCCESS') {
+        addNotification({ id: deployment.id + ':SUCCESS', kind: 'success', title: name + ' deployed', body: deployment.commitMessage || 'Deployment completed successfully.', url });
+      } else if (status === 'FAILED' || status === 'ERROR') {
+        addNotification({ id: deployment.id + ':FAILED', kind: 'failed', title: name + ' deployment failed', body: deployment.failureReason || 'Deployment failed.', url });
+      } else if (previous === undefined && (status === 'RUNNING' || status === 'QUEUED' || status === 'PENDING')) {
+        addNotification({ id: deployment.id + ':STARTED', kind: 'running', title: name + ' deployment started', body: deployment.commitMessage || 'Deployment is in progress.', url });
+      }
+    }
+  }, [deployments, loading]);
 
   function addFailureAlert(alert: FailureAlert) {
     setFailureAlerts((current) => current.some((item) => item.id === alert.id) ? current : [alert, ...current].slice(0, 10));

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import NotificationCenter from './NotificationCenter';
 
 type IconName =
   | 'overview'
@@ -329,6 +330,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </button>
 
           <div className="shell-top-actions">
+            <NotificationCenter />
             <ThemeToggle />
           </div>
         </header>
