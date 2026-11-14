@@ -30,7 +30,8 @@ html[data-ink-active='1'] .shell-topbar {
   z-index: auto;
 }
 
-html[data-ink-active='1'] .shell-top-actions .theme-toggle {
+html[data-ink-active='1'] .shell-top-actions .theme-toggle,
+html[data-ink-active='1'] .shell-top-actions .notif-center__button {
   z-index: 1100;
 }
 

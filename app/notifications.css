@@ -53,6 +53,11 @@
 
 /* Notification center */
 .notif-center{position:relative}
+/* The bell mirrors the theme toggle's icon-button look without borrowing its class —
+   otherwise "the first .theme-toggle in the topbar" is the bell, not the theme switch. */
+.notif-center__button{position:relative;display:grid;place-items:center;width:34px;height:34px;margin:0;padding:0;border:1px solid var(--ht-line);border-radius:var(--ht-radius);background:var(--ht-card);color:var(--ht-text-secondary);cursor:pointer;transition:background var(--ht-transition),border-color var(--ht-transition),color var(--ht-transition)}
+.notif-center__button:hover{border-color:var(--ht-line-focus);background:var(--ht-elevated);color:var(--ht-text)}
+.notif-center__button:focus-visible{outline:none;box-shadow:0 0 0 2px var(--ht-canvas),0 0 0 4px var(--ht-blue)}
 .notif-center__badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--ht-danger-text,#dc2626);color:#fff;font:600 10px/16px var(--ht-font-body);text-align:center}
 .notif-center__panel{position:absolute;top:calc(100% + 8px);right:0;z-index:60;width:380px;max-width:calc(100vw - 24px);max-height:70vh;display:flex;flex-direction:column;border:1px solid var(--ht-line);border-radius:var(--ht-radius-md);background:var(--ht-card);box-shadow:0 18px 48px rgba(0,0,0,.18);overflow:hidden}
 .notif-center__head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--ht-line-subtle)}

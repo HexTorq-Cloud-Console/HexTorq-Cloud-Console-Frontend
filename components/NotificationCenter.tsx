@@ -84,7 +84,7 @@ export default function NotificationCenter() {
     <div className="notif-center" ref={rootRef}>
       <button
         type="button"
-        className="theme-toggle notif-center__button"
+        className="notif-center__button"
         onClick={() => setOpen((value) => !value)}
         aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
         aria-expanded={open}
