@@ -329,8 +329,8 @@
 
 .dash-grid-main {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.8fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 2.33fr) minmax(300px, 1fr);
+  gap: 18px;
   align-items: start;
 }
 
@@ -707,13 +707,13 @@
 .recent-head,
 .recent-row {
   display: grid;
-  grid-template-columns: minmax(110px, 1.1fr) minmax(0, 1.8fr) minmax(80px, 0.8fr) 88px 58px;
+  grid-template-columns: 22% 38% 15% 13% 12%;
   align-items: center;
-  gap: 12px;
+  gap: 0;
 }
 
 .recent-head {
-  padding: 0 4px 9px;
+  padding: 0 12px 9px;
   border-bottom: 1px solid var(--ht-line-subtle);
   color: var(--ht-text-muted);
   font: 600 9px/14px var(--ht-font-mono);
@@ -723,8 +723,9 @@
 
 .recent-row {
   width: 100%;
+  min-height: 48px;
   margin: 0;
-  padding: 12px 4px;
+  padding: 10px 12px;
   border: 0;
   border-bottom: 1px solid var(--ht-line-subtle);
   border-radius: 0;

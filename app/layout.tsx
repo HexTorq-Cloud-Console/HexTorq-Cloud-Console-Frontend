@@ -19,6 +19,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Manrope } from 'next/font/google';
 import InkThemeLayer from '../components/ink/InkThemeLayer';
 import PushRegistration from '../components/PushRegistration';
+import SmoothScroll from '../components/SmoothScroll';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', display: 'swap' });
@@ -53,7 +54,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
-        {children}
+        <SmoothScroll>{children}</SmoothScroll>
         <InkThemeLayer />
         <PushRegistration />
       </body>

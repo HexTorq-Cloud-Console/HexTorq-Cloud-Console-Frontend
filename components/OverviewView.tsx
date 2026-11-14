@@ -717,7 +717,7 @@ export default function OverviewView({
                     title={failed ? `Open the full deployment log for ${deployment.service.name}` : `Open deployment details for ${deployment.service.name}`}
                   >
                     <strong>{deployment.service.name}</strong>
-                    <span className="recent-commit"><code>{shortHash(deployment.commitHash)}</code>{deployment.commitMessage || 'Message not reported'}</span>
+                    <span className="recent-commit" title={deployment.commitMessage || undefined}><code>{shortHash(deployment.commitHash)}</code>{deployment.commitMessage || 'Message not reported'}</span>
                     <span className="recent-branch">{deployment.branch || 'origin/HEAD'}</span>
                     <span className={`status-pill status-pill--${deployment.status === 'SUCCESS' ? 'success' : failed ? 'danger' : 'warning'}`}>{deployment.status}</span>
                     <time>{relativeTime(deployment.startedAt)}</time>
@@ -743,7 +743,7 @@ export default function OverviewView({
           <section className="panel">
             <div className="panel__head">
               <div>
-                <h2 className="panel__title">Platform goals</h2>
+                <h2 className="panel__title">Workspace Health</h2>
                 <p className="panel__hint">Live coverage across your workspace</p>
               </div>
             </div>
@@ -772,26 +772,80 @@ export default function OverviewView({
           <section className="panel activity-panel">
             <div className="panel__head">
               <div>
-                <h2 className="panel__title">Recent activity</h2>
-                <p className="panel__hint">Fleet and deployment events</p>
+                <h2 className="panel__title">
+                  Needs Attention
+                  {(() => {
+                    const failedDeploys = deployments.filter(
+                      (d) => (d.status === 'FAILED' || d.status === 'ERROR') &&
+                        Date.now() - new Date(d.startedAt).getTime() < 7 * 24 * 60 * 60 * 1000
+                    ).slice(0, 3);
+                    const offlineAgents = agents.filter((a) => a.status !== 'online');
+                    const erroredServices = runtime.entries.filter((e) => e.status === 'errored' || e.status === 'stopped');
+                    const count = failedDeploys.length + offlineAgents.length + erroredServices.length;
+                    return count > 0 ? <span className="attention-count">{count}</span> : null;
+                  })()}
+                </h2>
+                <p className="panel__hint">Issues requiring your attention</p>
               </div>
             </div>
-            {activity.length === 0 ? (
-              <div className="dash-empty">No activity recorded yet.</div>
-            ) : (
-              <ul className="activity-list">
-                {activity.map((item) => (
-                  <li key={item.id}>
-                    <span className={`activity-dot activity-dot--${item.tone}`} />
+            {(() => {
+              const failedDeploys = deployments.filter(
+                (d) => (d.status === 'FAILED' || d.status === 'ERROR') &&
+                  Date.now() - new Date(d.startedAt).getTime() < 7 * 24 * 60 * 60 * 1000
+              ).slice(0, 3);
+              const offlineAgents = agents.filter((a) => a.status !== 'online');
+              const erroredServices = runtime.entries.filter((e) => e.status === 'errored' || e.status === 'stopped');
+              const hasIssues = failedDeploys.length > 0 || offlineAgents.length > 0 || erroredServices.length > 0;
+
+              if (!hasIssues) {
+                return (
+                  <div className="attention-empty">
+                    <span className="attention-empty__icon" aria-hidden="true">✓</span>
                     <div>
-                      <strong>{item.title}</strong>
-                      <span>{item.detail}</span>
+                      <strong>Everything looks healthy</strong>
+                      <span>No failed deployments, offline agents or service errors right now.</span>
                     </div>
-                    <time>{relativeTime(item.at)}</time>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="attention-list">
+                  {failedDeploys.map((d) => (
+                    <div key={d.id} className="attention-item attention-item--danger">
+                      <span className="attention-item__icon" aria-hidden="true">!</span>
+                      <div className="attention-item__body">
+                        <strong>{d.service.name}</strong>
+                        <span>Deployment {d.status.toLowerCase()} · {d.branch || 'origin/HEAD'} · {relativeTime(d.startedAt)}</span>
+                      </div>
+                      <button type="button" className="attention-item__action" onClick={() => onDeployment(d.id)}>
+                        View logs
+                      </button>
+                    </div>
+                  ))}
+                  {offlineAgents.map((a) => (
+                    <div key={a.id} className="attention-item attention-item--warning">
+                      <span className="attention-item__icon" aria-hidden="true">⚠</span>
+                      <div className="attention-item__body">
+                        <strong>{a.name}</strong>
+                        <span>VPS agent is {a.status || 'offline'} — services on this node may be unreachable</span>
+                      </div>
+                      <Link className="attention-item__action" href="/services">View node</Link>
+                    </div>
+                  ))}
+                  {erroredServices.map((e) => (
+                    <div key={e.service.id} className="attention-item attention-item--warning">
+                      <span className="attention-item__icon" aria-hidden="true">⚠</span>
+                      <div className="attention-item__body">
+                        <strong>{e.service.name}</strong>
+                        <span>PM2 process is {e.status} — check service logs</span>
+                      </div>
+                      <Link className="attention-item__action" href="/services">Open service</Link>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </section>
         </div>
       </div>
@@ -829,7 +883,7 @@ export default function OverviewView({
                     <p className="service-row__path">{service.type === 'PM2' ? service.pm2ProcessName || service.workingDirectory : service.deployDirectory || service.workingDirectory}</p>
                     <p className="service-row__meta">
                       {service.type === 'PM2' && hasRuntime ? (
-                        <>{status?.status || 'unknown'}{typeof status?.cpu === 'number' ? ` · CPU ${status.cpu}%` : ''}{typeof status?.memory === 'number' ? ` · ${Math.round(status.memory / 1024 / 1024)} MB` : ''}</>
+                        <>{status?.status || 'unknown'}</>
                       ) : service.type === 'PM2' ? (
                         <>Runtime telemetry unavailable</>
                       ) : (
