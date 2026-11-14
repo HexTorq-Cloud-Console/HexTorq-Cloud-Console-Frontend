@@ -11,10 +11,13 @@
 
 html {
   scrollbar-gutter: stable;
+  max-width: 100%;
 }
 
 body {
   margin: 0;
+  max-width: 100%;
+  overflow-x: clip;
   background: var(--ht-canvas);
   color: var(--ht-text);
   font-family: var(--ht-font-body);
