@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { AsciiReveal } from 'ascii-reveal';
 import {
   addNotification,
   clearNotifications,
@@ -98,6 +99,7 @@ export default function NotificationCenter() {
 
       {open && (
         <div className="notif-center__panel" role="dialog" aria-label="Notifications">
+          <AsciiReveal preset="dither" origin="top-left" speed={1.5}>
           <div className="notif-center__head">
             <strong>Notifications</strong>
             <div className="notif-center__actions">
@@ -124,6 +126,7 @@ export default function NotificationCenter() {
               ))}
             </ul>
           )}
+          </AsciiReveal>
         </div>
       )}
     </div>

@@ -513,7 +513,7 @@ export default function OverviewView({
       </header>
 
       <section className="kpi-grid" aria-label="Workspace metrics">
-        <article className="kpi-card">
+        <article data-ascii="surface" className="kpi-card">
           <div className="kpi-card__top">
             <span className="kpi-label">Deployments ({rangeConfig.short})</span>
             <span className="kpi-icon kpi-icon--orange"><MetricIcon name="deployments" /></span>
@@ -526,7 +526,7 @@ export default function OverviewView({
           <Sparkline values={currentBuckets.map((bucket) => bucket.total)} color="var(--ht-chart-1)" />
         </article>
 
-        <article className="kpi-card">
+        <article data-ascii="surface" className="kpi-card">
           <div className="kpi-card__top">
             <span className="kpi-label">Success rate</span>
             <span className="kpi-icon kpi-icon--teal"><MetricIcon name="success" /></span>
@@ -539,7 +539,7 @@ export default function OverviewView({
           <Sparkline values={currentBuckets.map((bucket) => bucket.successful)} color="var(--ht-chart-2)" />
         </article>
 
-        <article className="kpi-card">
+        <article data-ascii="surface" className="kpi-card">
           <div className="kpi-card__top">
             <span className="kpi-label">Services</span>
             <span className="kpi-icon kpi-icon--navy"><MetricIcon name="services" /></span>
@@ -556,7 +556,7 @@ export default function OverviewView({
           <div className="kpi-split-legend"><span><i style={{ background: 'var(--ht-chart-1)' }} />PM2</span><span><i style={{ background: 'var(--ht-chart-3)' }} />Static</span></div>
         </article>
 
-        <article className="kpi-card">
+        <article data-ascii="surface" className="kpi-card">
           <div className="kpi-card__top">
             <span className="kpi-label">Service health</span>
             <span className="kpi-icon kpi-icon--teal"><MetricIcon name="health" /></span>
@@ -587,7 +587,7 @@ export default function OverviewView({
           )}
         </article>
 
-        <article className="kpi-card">
+        <article data-ascii="surface" className="kpi-card">
           <div className="kpi-card__top">
             <span className="kpi-label">Agents online</span>
             <span className="kpi-icon kpi-icon--amber"><MetricIcon name="agents" /></span>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { AsciiReveal } from 'ascii-reveal';
 import type { ReactNode } from 'react';
 
 function Modal({ open, title, subtitle, onClose, children, className }: { open: boolean; title: string; subtitle: string; onClose: () => void; children: ReactNode; className?: string }) {
@@ -22,7 +23,7 @@ function Modal({ open, title, subtitle, onClose, children, className }: { open: 
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className={`modal-card${className ? ` ${className}` : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <AsciiReveal as="section" preset="dither" origin="top-left" speed={1.25} className={`modal-card${className ? ` ${className}` : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <button className="modal-close" aria-label="Close" onClick={onClose}>
           x
         </button>
@@ -30,7 +31,7 @@ function Modal({ open, title, subtitle, onClose, children, className }: { open: 
         <h2>{title}</h2>
         <p className="modal-subtitle">{subtitle}</p>
         {children}
-      </section>
+      </AsciiReveal>
     </div>
   );
 }

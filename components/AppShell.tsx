@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { AsciiReveal } from 'ascii-reveal';
 import { usePathname } from 'next/navigation';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
@@ -29,6 +30,8 @@ type AppShellProps = {
   alertCount?: number;
   onSignOut: () => void;
   onOpenPalette?: () => void;
+  /** Mirrors the page's existing data-loading flag; only drives the visual reveal. */
+  loading?: boolean;
   children: ReactNode;
 };
 
@@ -147,7 +150,15 @@ const CLIENT_GROUPS: NavGroup[] = [
   },
 ];
 
-export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpenPalette, children }: AppShellProps) {
+// The sidebar remounts with every route, so it only decodes in once per browser session
+// instead of flashing on each navigation click.
+let sidebarRevealed = false;
+
+export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpenPalette, loading = false, children }: AppShellProps) {
+  const [revealSidebar] = useState(() => !sidebarRevealed);
+  useEffect(() => {
+    sidebarRevealed = true;
+  }, []);
   const isAdmin = role === 'SUPER_ADMIN';
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -252,7 +263,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </span>
         </div>
 
-        <nav className="shell-nav">
+        <AsciiReveal as="nav" className="shell-nav" preset="dither" origin="top-left" speed={0.75} revealOnMount={revealSidebar}>
           {groups.map((group) => (
             <div className="shell-group" key={group.label}>
               <p className="shell-group__label">
@@ -280,7 +291,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
               </ul>
             </div>
           ))}
-        </nav>
+        </AsciiReveal>
 
         <div className="shell-user">
           <span className="shell-avatar">{initialsFrom(email)}</span>
@@ -335,7 +346,9 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </div>
         </header>
 
-        <main className="shell-main">{children}</main>
+        <AsciiReveal as="main" key={pathname} className="shell-main" loading={loading} revealOnMount={!loading} preset="dither" origin="top-left" speed={0.75}>
+          {children}
+        </AsciiReveal>
       </div>
     </div>
   );

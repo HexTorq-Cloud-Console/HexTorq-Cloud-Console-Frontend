@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Deployment, Pm2Status, Service } from '../types/api';
+import { AsciiReveal } from 'ascii-reveal';
 
 type Props = {
   service: Service;
@@ -96,6 +97,7 @@ export default function ServiceDetailDrawer({
   return (
     <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside className="detail-drawer" role="dialog" aria-modal="true" aria-label={`Details for ${service.name}`}>
+        <AsciiReveal preset="dither" origin="top-left" speed={1.25} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <header className="detail-drawer__header">
           <div className="detail-drawer__title">
             <p className="eyebrow">SERVICE DETAILS</p>
@@ -232,6 +234,7 @@ export default function ServiceDetailDrawer({
             )
           )}
         </div>
+        </AsciiReveal>
       </aside>
     </div>
   );

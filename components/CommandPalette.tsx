@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AsciiReveal } from 'ascii-reveal';
 import type { Service } from '../types/api';
 import { FOCUS_SERVICE_KEY, SECTION_PATHS, type ConsoleSection } from '../lib/sections';
 
@@ -120,7 +121,7 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
 
   return (
     <div className="command-palette-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette">
+      <AsciiReveal className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" preset="dither" origin="top-left" speed={1.5}>
         <div className="command-palette__input-row">
           <span aria-hidden="true">⌕</span>
           <input
@@ -154,7 +155,7 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
             ))
           )}
         </ul>
-      </div>
+      </AsciiReveal>
     </div>
   );
 }

@@ -202,7 +202,7 @@ export default function NotificationSettings() {
 
   if (!pushSupported()) {
     return (
-      <section className="ht-card notify-card" aria-labelledby="notify-title">
+      <section data-ascii="surface" className="ht-card notify-card" aria-labelledby="notify-title">
         <div className="notify-card__head">
           <span className="notify-card__icon" aria-hidden="true">◈</span>
           <div>
@@ -215,7 +215,7 @@ export default function NotificationSettings() {
   }
 
   return (
-    <section className="ht-card notify-card" aria-labelledby="notify-title">
+    <section data-ascii="surface" className="ht-card notify-card" aria-labelledby="notify-title">
       <div className="notify-card__head">
         <span className="notify-card__icon" aria-hidden="true">◉</span>
         <div>

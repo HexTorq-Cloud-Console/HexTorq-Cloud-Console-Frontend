@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "ascii-reveal": "^0.3.0",
     "html2canvas": "^1.4.1",
     "next": "^15.5.4",
     "react": "^19.1.1",
