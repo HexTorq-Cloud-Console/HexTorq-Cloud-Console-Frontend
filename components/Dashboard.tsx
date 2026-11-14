@@ -19,6 +19,7 @@ import { clearConsoleCache, readConsoleCache, writeConsoleCache } from '../lib/c
 import { intervalLabel, parseLogEvent, scheduleHourLabel } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
 import { isErrorLogLine, LIVE_INCIDENT_WINDOW_MS } from '../lib/metrics';
+import { useScrollLock } from '../lib/useScrollLock';
 import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, isAdminSection, type ConsoleSection } from '../lib/sections';
 import { clearSessionCache } from '../lib/sessionCache';
 import { addNotification, loadNotifications } from '../lib/notificationStore';
@@ -326,6 +327,9 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
       }
     }
   }, [deployments, loading]);
+
+  // Dialogs must not let the page scroll behind them (Lenis included).
+  useScrollLock(Boolean(pm2LogService) || Boolean(selectedDeployment));
 
   function addFailureAlert(alert: FailureAlert) {
     setFailureAlerts((current) => current.some((item) => item.id === alert.id) ? current : [alert, ...current].slice(0, 10));

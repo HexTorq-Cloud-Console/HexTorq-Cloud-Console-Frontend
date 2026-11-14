@@ -19,6 +19,8 @@ export default function SmoothScroll({ children }: { children: React.ReactNode }
         smoothWheel: true,
         touchMultiplier: 2,
       });
+      // Exposed so dialogs can pause the smooth scroll while they are open.
+      (window as unknown as { __lenis?: unknown }).__lenis = lenis;
 
       function raf(time: number) {
         lenis!.raf(time);
@@ -30,6 +32,7 @@ export default function SmoothScroll({ children }: { children: React.ReactNode }
     return () => {
       cancelAnimationFrame(animFrame);
       lenis?.destroy();
+      (window as unknown as { __lenis?: unknown }).__lenis = undefined;
     };
   }, []);
 
