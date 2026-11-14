@@ -80,6 +80,12 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
       doc.querySelectorAll<HTMLElement>('[data-ink-live]').forEach((el) => {
         el.style.visibility = 'hidden';
       });
+      // The ASCII reveal keeps its overlay canvas in the DOM after it finishes, with the
+      // last glyph frame still painted on it. Snapshotting that would freeze the glyphs
+      // on top of the real text, so the overlay is left out of the capture.
+      doc.querySelectorAll<HTMLElement>('.ar-overlay').forEach((el) => {
+        el.style.visibility = 'hidden';
+      });
       flattenGradientText(doc);
     },
   });
