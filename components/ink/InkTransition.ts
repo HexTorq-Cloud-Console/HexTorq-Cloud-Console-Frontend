@@ -354,7 +354,9 @@ export class InkTransition {
 
     // A reveal animation is running: the real text is temporarily hidden behind the
     // ASCII overlay, so a snapshot taken now would freeze glyphs instead of content.
-    if (document.querySelector('.ar-overlay')) {
+    // The overlay element itself stays in the DOM after the reveal, but the root
+    // carries the `ars` class only while it animates.
+    if (document.querySelector('.ars')) {
       this.deferCapture();
       return;
     }
