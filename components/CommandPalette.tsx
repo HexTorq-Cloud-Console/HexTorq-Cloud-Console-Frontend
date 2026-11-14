@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AsciiReveal } from 'ascii-reveal';
 import type { Service } from '../types/api';
 import { FOCUS_SERVICE_KEY, SECTION_PATHS, type ConsoleSection } from '../lib/sections';
+import { useScrollLock } from '../lib/useScrollLock';
 
 type PaletteItem = {
   id: string;
@@ -42,6 +43,8 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const isAdmin = role === 'SUPER_ADMIN';
+
+  useScrollLock(open);
 
   const commands = useMemo<PaletteItem[]>(() => {
     const navItems: PaletteItem[] = [
@@ -121,7 +124,7 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
 
   return (
     <div className="command-palette-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <AsciiReveal className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" preset="dither" origin="top-left" speed={1.5}>
+      <AsciiReveal data-lenis-prevent className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" preset="dither" origin="top-left" speed={0.7}>
         <div className="command-palette__input-row">
           <span aria-hidden="true">⌕</span>
           <input
@@ -135,7 +138,7 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
           />
           <kbd className="command-palette__kbd">ESC</kbd>
         </div>
-        <ul className="command-palette__list" role="listbox" aria-label="Commands">
+        <ul data-lenis-prevent className="command-palette__list" role="listbox" aria-label="Commands">
           {filtered.length === 0 ? (
             <li className="command-palette__empty">No matching commands.</li>
           ) : (

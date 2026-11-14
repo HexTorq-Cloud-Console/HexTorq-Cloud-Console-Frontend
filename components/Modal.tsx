@@ -19,7 +19,7 @@ function Modal({ open, title, subtitle, onClose, children, className }: { open: 
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <AsciiReveal as="section" preset="dither" origin="top-left" speed={1.25} className={`modal-card${className ? ` ${className}` : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <AsciiReveal as="section" data-lenis-prevent preset="dither" origin="top-left" speed={0.7} className={`modal-card${className ? ` ${className}` : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <button className="modal-close" aria-label="Close" onClick={onClose}>
           x
         </button>

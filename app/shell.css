@@ -495,8 +495,10 @@ html {
     background: transparent;
   }
 
-  .shell-search__text,
-  
+  .shell-search__text {
+    display: none;
+  }
+
   .shell-main {
     padding: 18px 16px 64px;
   }

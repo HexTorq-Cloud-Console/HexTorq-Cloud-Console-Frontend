@@ -98,8 +98,8 @@ export default function NotificationCenter() {
       </button>
 
       {open && (
-        <div className="notif-center__panel" role="dialog" aria-label="Notifications">
-          <AsciiReveal preset="dither" origin="top-left" speed={1.5}>
+        <div className="notif-center__panel" data-lenis-prevent role="dialog" aria-label="Notifications">
+          <AsciiReveal preset="dither" origin="top-left" speed={0.7}>
           <div className="notif-center__head">
             <strong>Notifications</strong>
             <div className="notif-center__actions">
@@ -110,7 +110,7 @@ export default function NotificationCenter() {
           {items.length === 0 ? (
             <p className="notif-center__empty">No notifications yet. Deployment updates will appear here.</p>
           ) : (
-            <ul className="notif-center__list">
+            <ul className="notif-center__list" data-lenis-prevent>
               {items.map((item) => (
                 <li key={item.id} className={`notif-item notif-item--${item.kind}${item.read ? '' : ' notif-item--unread'}`}>
                   <button type="button" className="notif-item__main" onClick={() => openItem(item.id, item.url)}>

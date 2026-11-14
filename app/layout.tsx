@@ -1,3 +1,4 @@
+import 'lenis/dist/lenis.css';
 import './globals.css';
 import './tokens.css';
 import './components.css';
@@ -15,6 +16,7 @@ import './states.css';
 import './enhancements.css';
 import './ink.css';
 import './notifications.css';
+import './ascii.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Manrope } from 'next/font/google';
 import InkThemeLayer from '../components/ink/InkThemeLayer';

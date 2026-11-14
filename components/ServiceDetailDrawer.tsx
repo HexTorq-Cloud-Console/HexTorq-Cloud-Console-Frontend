@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Deployment, Pm2Status, Service } from '../types/api';
 import { AsciiReveal } from 'ascii-reveal';
+import { useScrollLock } from '../lib/useScrollLock';
 
 type Props = {
   service: Service;
@@ -60,15 +61,15 @@ export default function ServiceDetailDrawer({
   const runtimeStatus = pm2Status?.status || (hasTelemetry ? 'unknown' : 'unavailable');
   const agentOnline = service.agent.status === 'online';
 
+  useScrollLock(true);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
     }
     window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
     };
   }, [onClose]);
 
@@ -96,8 +97,8 @@ export default function ServiceDetailDrawer({
 
   return (
     <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <aside className="detail-drawer" role="dialog" aria-modal="true" aria-label={`Details for ${service.name}`}>
-        <AsciiReveal preset="dither" origin="top-left" speed={1.25} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <aside className="detail-drawer" data-lenis-prevent role="dialog" aria-modal="true" aria-label={`Details for ${service.name}`}>
+        <AsciiReveal preset="dither" origin="top-left" speed={0.7} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <header className="detail-drawer__header">
           <div className="detail-drawer__title">
             <p className="eyebrow">SERVICE DETAILS</p>
@@ -145,7 +146,7 @@ export default function ServiceDetailDrawer({
           ))}
         </nav>
 
-        <div className="detail-drawer__body">
+        <div className="detail-drawer__body" data-lenis-prevent>
           {tab === 'overview' && (
             <>
               <section className="detail-group">

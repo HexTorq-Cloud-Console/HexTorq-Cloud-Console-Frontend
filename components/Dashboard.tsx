@@ -52,6 +52,14 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [loading, setLoading] = useState(() => !readConsoleCache(token));
   const [error, setError] = useState('');
+  // Display-only: keeps the ASCII skeleton on screen briefly on every page load so the reveal
+  // always has something to decode from, even when cached data is ready instantly.
+  const [skeletonWarmup, setSkeletonWarmup] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSkeletonWarmup(false), 800);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const showSkeleton = loading || skeletonWarmup;
   const [deploying, setDeploying] = useState<string | null>(null);
   const [pm2Action, setPm2Action] = useState<string | null>(null);
   const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>(() => readConsoleCache(token)?.pm2Status ?? {});
@@ -889,10 +897,10 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     : deploymentLogs;
 
   return (
-      <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut} onOpenPalette={() => setPaletteOpen(true)} loading={!isAdminSection(section) && loading}>
+      <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut} onOpenPalette={() => setPaletteOpen(true)} loading={showSkeleton}>
       {isAdminSection(section) && role === 'SUPER_ADMIN' && <AdminPanel token={token} section={section} onChanged={loadDashboard} />}
 
-      {!isAdminSection(section) && (loading ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
+      {!isAdminSection(section) && (showSkeleton ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
       {section === 'overview' && <OverviewView
         services={services}
         deployments={deployments}
@@ -986,7 +994,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
             if (event.target === event.currentTarget) setSelectedDeployment(null);
           }}
         >
-          <section className="modal-card deployment-modal" role="dialog" aria-modal="true" aria-label={`Deployment details for ${selectedDeploymentRecord.service.name}`}>
+          <section data-lenis-prevent className="modal-card deployment-modal" role="dialog" aria-modal="true" aria-label={`Deployment details for ${selectedDeploymentRecord.service.name}`}>
             <button className="modal-close" aria-label="Close" onClick={() => setSelectedDeployment(null)}>x</button>
             <p className="eyebrow">DEPLOYMENT DETAILS</p>
             <h2>{selectedDeploymentRecord.service.name}</h2>
@@ -1028,7 +1036,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
               </button>
             </div>
             <div className="deployment-log-output-wrap">
-              <pre className="deployment-detail-log" ref={deploymentLogOutputRef} onScroll={(event) => trackLogPinned(event.currentTarget, setDeploymentLogPinned)}>
+              <pre data-lenis-prevent className="deployment-detail-log" ref={deploymentLogOutputRef} onScroll={(event) => trackLogPinned(event.currentTarget, setDeploymentLogPinned)}>
                 {visibleDeploymentLogs.length
                   ? visibleDeploymentLogs.map((log, index) => (
                       <span
@@ -1070,7 +1078,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
             if (event.target === event.currentTarget) closePm2Logs();
           }}
         >
-          <section className="modal-card pm2-log-card" role="dialog" aria-modal="true" aria-label={`PM2 logs for ${pm2LogService.name}`}>
+          <section data-lenis-prevent className="modal-card pm2-log-card" role="dialog" aria-modal="true" aria-label={`PM2 logs for ${pm2LogService.name}`}>
             <button className="modal-close" aria-label="Close" onClick={closePm2Logs}>
               x
             </button>
@@ -1089,7 +1097,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
               <button type="button" onClick={() => { const text = pm2LogEntries.map((entry) => entry.message).join('\n'); void navigator.clipboard?.writeText(text); }}>▣ Copy</button>
             </div>
             <div className="pm2-log-output-wrap">
-              <pre className="pm2-log-output" ref={pm2LogOutputRef} onScroll={(event) => trackLogPinned(event.currentTarget, setPm2LogPinned)}>
+              <pre data-lenis-prevent className="pm2-log-output" ref={pm2LogOutputRef} onScroll={(event) => trackLogPinned(event.currentTarget, setPm2LogPinned)}>
                 {pm2LogEntries.length ? pm2LogEntries.slice(0, pm2LogPausedAt ?? pm2LogEntries.length).filter((entry) => !pm2LogFilter || entry.message.toLowerCase().includes(pm2LogFilter.toLowerCase())).map((entry, index) => (
                   <span className={`pm2-log-line${entry.error ? ' error' : ''}`} key={`${index}-${entry.message}`}>
                     <span className="pm2-line-number">{String(index + 1).padStart(3, '0')}</span>

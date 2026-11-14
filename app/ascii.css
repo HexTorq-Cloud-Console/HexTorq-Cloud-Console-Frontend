@@ -1,0 +1,86 @@
+/* HexTorq ASCII Reveal & Skeleton Performance Optimization
+   Hardware-accelerated composite layers (translateZ / will-change),
+   strict layout & paint containment to prevent layout thrashing and maintain 60/120fps. */
+
+:root {
+  --ascii-font: var(--ht-font-mono);
+  --ascii-skeleton: var(--ht-text-muted);
+  --ascii-accent: var(--ht-link);
+  --ascii-surface: var(--ht-card);
+}
+
+/* ASCII Reveal Overlay: isolate to its own GPU composite layer */
+.ar-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+  will-change: opacity;
+  transform: translateZ(0);
+  contain: layout paint;
+}
+
+.ar-overlay > canvas {
+  position: absolute;
+  pointer-events: none;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* ASCII Skeleton: prevent layout thrashing with strict containment */
+:where(.ars) {
+  position: relative;
+  display: block;
+  font-family: var(--ascii-font, var(--ht-font-mono));
+  color: var(--ascii-skeleton, currentColor);
+  user-select: none;
+  pointer-events: none;
+  contain: layout paint;
+  will-change: opacity;
+}
+
+.ars-line,
+.ars-block {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  white-space: pre;
+  line-height: 1.3;
+  contain: inline-size layout paint style;
+}
+
+.ars > canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* Surfaces and reveals */
+[data-ascii="surface"] {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+[data-ascii="fade"] {
+  will-change: opacity;
+}
+
+/* Respect user's motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .ar-overlay,
+  .ars > canvas {
+    display: none !important;
+  }
+  .ars-base {
+    opacity: 0.3 !important;
+  }
+}

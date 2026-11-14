@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationCenter from './NotificationCenter';
+import { useScrollLock } from '../lib/useScrollLock';
 
 type IconName =
   | 'overview'
@@ -204,13 +205,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
   const activeItem = groups.flatMap((group) => group.items).find(isActive);
   const activeLabel = activeItem?.label || (isAdmin ? 'Admin Overview' : 'Overview');
 
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = mobileOpen ? 'hidden' : previous;
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [mobileOpen]);
+  useScrollLock(mobileOpen);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -253,7 +248,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
 
   return (
     <div className={`shell${collapsed ? ' is-collapsed' : ''}${mobileOpen ? ' is-open' : ''}`}>
-      <aside className="shell-sidebar" aria-label="Primary navigation">
+      <aside className="shell-sidebar" data-lenis-prevent aria-label="Primary navigation">
         <div className="shell-brand">
           <span className="shell-brand__mark" aria-hidden="true">
             H
@@ -263,7 +258,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </span>
         </div>
 
-        <AsciiReveal as="nav" className="shell-nav" preset="dither" origin="top-left" speed={0.75} revealOnMount={revealSidebar}>
+        <AsciiReveal as="nav" className="shell-nav" preset="dither" origin="top-left" speed={0.7} revealOnMount={revealSidebar}>
           {groups.map((group) => (
             <div className="shell-group" key={group.label}>
               <p className="shell-group__label">
@@ -346,7 +341,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </div>
         </header>
 
-        <AsciiReveal as="main" key={pathname} className="shell-main" loading={loading} revealOnMount={!loading} preset="dither" origin="top-left" speed={0.75}>
+        <AsciiReveal as="main" key={pathname} className="shell-main" loading={loading} revealOnMount={!loading} preset="dither" origin="top-left" speed={0.7}>
           {children}
         </AsciiReveal>
       </div>
