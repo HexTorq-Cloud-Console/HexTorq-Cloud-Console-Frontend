@@ -67,6 +67,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [pm2Confirm, setPm2Confirm] = useState<{ serviceId: string; action: string } | null>(null);
   const [forceDeployService, setForceDeployService] = useState<Service | null>(null);
+  const [healthRunConfirm, setHealthRunConfirm] = useState(false);
   const [pm2LogFilter, setPm2LogFilter] = useState('');
   const [pm2LogPausedAt, setPm2LogPausedAt] = useState<number | null>(null);
   const [historyServiceId, setHistoryServiceId] = useState<string | null>(null);
@@ -748,14 +749,14 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     }
   }
 
-  async function runWebhookHealth() {
+  async function runWebhookHealth(force = false) {
     setHealthRunLoading(true);
     setHealthError('');
     try {
       const response = await fetch(`${apiUrl}/webhook-health/run`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ force }),
       });
       const data = await responseJson<{ run?: WebhookHealthRun; message?: string }>(response);
       if (!response.ok) throw new Error(data.message || 'Unable to start webhook health check');
@@ -897,7 +898,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
         onForceDeploy={requestForceDeploy}
         deploying={deploying}
         onHealthSettings={openHealthSettings}
-        onRunHealth={runWebhookHealth}
+        onRunHealth={() => setHealthRunConfirm(true)}
         onDeployment={setSelectedDeployment}
       />}
 
@@ -917,7 +918,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
 
       {section === 'deployments' && <DeploymentsView deployments={deployments} services={services} metrics={deployMetrics} hasMore={deploymentHasMore} loadingMore={deploymentLoadingMore} onLoadMore={() => void loadMoreDeployments()} onOpen={setSelectedDeployment} />}
 
-      {section === 'health' && role === 'CLIENT' && <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={runWebhookHealth} />}
+      {section === 'health' && role === 'CLIENT' && <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={() => setHealthRunConfirm(true)} />}
 
       {section === 'access' && role === 'CLIENT' && <AccessView entries={accessEntries} token={token} />}
       {section === 'alerts' && role === 'CLIENT' && <AlertsView alerts={failureAlerts} onDismiss={(id) => setFailureAlerts((current) => current.filter((alert) => alert.id !== id))} onDismissAll={() => setFailureAlerts([])} />}
@@ -948,6 +949,45 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
           </section>
         </div>;
       })()}
+
+      {healthRunConfirm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHealthRunConfirm(false); }}>
+        <section className="confirm-card confirm-card--warning" role="dialog" aria-modal="true" aria-labelledby="health-run-confirm-title">
+          <div className="confirm-card__icon confirm-card__icon--warning">⌁</div>
+          <p className="confirm-card__eyebrow">WEBHOOK HEALTH PROBE</p>
+          <h2 id="health-run-confirm-title">Run all webhook checks?</h2>
+          <p>This calls the webhook for every enabled service and waits for the deployment to finish.</p>
+          <div className="health-run-options">
+            <button
+              type="button"
+              className="health-run-option"
+              disabled={healthRunLoading}
+              onClick={() => { setHealthRunConfirm(false); void runWebhookHealth(false); }}
+            >
+              <span className="health-run-option__icon">◎</span>
+              <span className="health-run-option__text">
+                <strong>Normal run</strong>
+                <span>Respects change detection. Services with no new commits are skipped, so this is safe and fast.</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="health-run-option health-run-option--force"
+              disabled={healthRunLoading}
+              onClick={() => { setHealthRunConfirm(false); void runWebhookHealth(true); }}
+            >
+              <span className="health-run-option__icon">⚡</span>
+              <span className="health-run-option__text">
+                <strong>Force run</strong>
+                <span>Bypasses change detection and redeploys every service even when nothing changed. Use this to prove the full pipeline still works.</span>
+              </span>
+            </button>
+          </div>
+          <div className="confirm-card__warning">⚠ A force run restarts every service it touches.</div>
+          <div className="confirm-card__actions">
+            <button className="ht-btn ht-btn--ghost" type="button" onClick={() => setHealthRunConfirm(false)}>Cancel</button>
+          </div>
+        </section>
+      </div>}
 
       {forceDeployService && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setForceDeployService(null); }}>
         <section className="confirm-card confirm-card--warning" role="dialog" aria-modal="true" aria-labelledby="force-confirm-title">

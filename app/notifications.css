@@ -122,3 +122,16 @@
 .notification-history__mark,.notification-history__read{align-self:center;flex:0 0 auto;margin-right:12px;padding:6px 12px;border:1px solid var(--ht-line);border-radius:var(--ht-radius-pill);background:var(--ht-card);color:var(--ht-text-secondary);font:500 11px/1 var(--ht-font-body);cursor:pointer}
 .notification-history__read{border:0;background:none;color:var(--ht-text-muted);cursor:default}
 .notification-history__more{display:flex;justify-content:center;margin-top:14px}
+
+/* Webhook health run confirmation — normal vs force */
+.health-run-options{display:grid;gap:10px;margin:18px 0 14px}
+.health-run-option{display:flex;align-items:flex-start;gap:12px;width:100%;padding:14px;border:1px solid var(--ht-line);border-radius:var(--ht-radius);background:var(--ht-nav);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.health-run-option:hover:not(:disabled){border-color:var(--ht-line-focus);background:var(--ht-elevated)}
+.health-run-option:disabled{opacity:.55;cursor:not-allowed}
+.health-run-option--force{border-color:var(--ht-warning-line);background:var(--ht-warning-fill)}
+.health-run-option--force:hover:not(:disabled){border-color:var(--ht-warning)}
+.health-run-option__icon{display:grid;place-items:center;flex:0 0 auto;width:30px;height:30px;border-radius:9px;background:var(--ht-elevated);color:var(--ht-text-secondary);font-size:15px}
+.health-run-option--force .health-run-option__icon{background:var(--ht-warning);color:#fff}
+.health-run-option__text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.health-run-option__text strong{color:var(--ht-text);font:600 13px/18px var(--ht-font-body)}
+.health-run-option__text span{color:var(--ht-text-secondary);font:400 12px/18px var(--ht-font-body)}
