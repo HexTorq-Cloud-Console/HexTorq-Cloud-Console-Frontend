@@ -456,27 +456,6 @@ export default function OverviewView({
   const averagePerBucket = currentBuckets.length ? Math.round((currentTotal / currentBuckets.length) * 10) / 10 : 0;
   const latestRun = health?.latestRun;
 
-  const activity = [
-    ...deployments.slice(0, 4).map((deployment) => ({
-      id: `deployment-${deployment.id}`,
-      title: deployment.service.name,
-      detail: `${deployment.status.toLowerCase()} · ${deployment.branch || 'origin/HEAD'}`,
-      at: deployment.completedAt || deployment.startedAt,
-      tone: deployment.status === 'SUCCESS' ? 'success' : deployment.status === 'FAILED' || deployment.status === 'ERROR' ? 'danger' : 'warning',
-    })),
-    ...(isClient && latestRun
-      ? [{
-          id: `health-${latestRun.id}`,
-          title: 'Webhook health run',
-          detail: `${latestRun.successfulServices}/${latestRun.totalServices} checks passed`,
-          at: latestRun.startedAt,
-          tone: latestRun.status === 'SUCCESS' ? 'success' : latestRun.status === 'FAILED' ? 'danger' : 'warning',
-        }]
-      : []),
-  ]
-    .sort((first, second) => new Date(second.at).getTime() - new Date(first.at).getTime())
-    .slice(0, 5);
-
   return (
     <div className="overview-page">
       <header className="dash-header">
@@ -730,7 +709,7 @@ export default function OverviewView({
         </div>
 
         <div className="dash-side">
-          <section className="panel">
+          <section className="panel outcome-panel">
             <div className="panel__head">
               <div>
                 <h2 className="panel__title">Deployment outcomes</h2>
@@ -740,7 +719,7 @@ export default function OverviewView({
             <OutcomeDonut successful={currentSuccessful} failed={currentFailed} running={currentRunning} />
           </section>
 
-          <section className="panel">
+          <section className="panel workspace-health-panel">
             <div className="panel__head">
               <div>
                 <h2 className="panel__title">Workspace Health</h2>
@@ -767,85 +746,6 @@ export default function OverviewView({
                 {health?.schedule.nextRunAt ? <em>Next {relativeTime(health.schedule.nextRunAt)}</em> : null}
               </div>
             )}
-          </section>
-
-          <section className="panel activity-panel">
-            <div className="panel__head">
-              <div>
-                <h2 className="panel__title">
-                  Needs Attention
-                  {(() => {
-                    const failedDeploys = deployments.filter(
-                      (d) => (d.status === 'FAILED' || d.status === 'ERROR') &&
-                        Date.now() - new Date(d.startedAt).getTime() < 7 * 24 * 60 * 60 * 1000
-                    ).slice(0, 3);
-                    const offlineAgents = agents.filter((a) => a.status !== 'online');
-                    const erroredServices = runtime.entries.filter((e) => e.status === 'errored' || e.status === 'stopped');
-                    const count = failedDeploys.length + offlineAgents.length + erroredServices.length;
-                    return count > 0 ? <span className="attention-count">{count}</span> : null;
-                  })()}
-                </h2>
-                <p className="panel__hint">Issues requiring your attention</p>
-              </div>
-            </div>
-            {(() => {
-              const failedDeploys = deployments.filter(
-                (d) => (d.status === 'FAILED' || d.status === 'ERROR') &&
-                  Date.now() - new Date(d.startedAt).getTime() < 7 * 24 * 60 * 60 * 1000
-              ).slice(0, 3);
-              const offlineAgents = agents.filter((a) => a.status !== 'online');
-              const erroredServices = runtime.entries.filter((e) => e.status === 'errored' || e.status === 'stopped');
-              const hasIssues = failedDeploys.length > 0 || offlineAgents.length > 0 || erroredServices.length > 0;
-
-              if (!hasIssues) {
-                return (
-                  <div className="attention-empty">
-                    <span className="attention-empty__icon" aria-hidden="true">✓</span>
-                    <div>
-                      <strong>Everything looks healthy</strong>
-                      <span>No failed deployments, offline agents or service errors right now.</span>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="attention-list">
-                  {failedDeploys.map((d) => (
-                    <div key={d.id} className="attention-item attention-item--danger">
-                      <span className="attention-item__icon" aria-hidden="true">!</span>
-                      <div className="attention-item__body">
-                        <strong>{d.service.name}</strong>
-                        <span>Deployment {d.status.toLowerCase()} · {d.branch || 'origin/HEAD'} · {relativeTime(d.startedAt)}</span>
-                      </div>
-                      <button type="button" className="attention-item__action" onClick={() => onDeployment(d.id)}>
-                        View logs
-                      </button>
-                    </div>
-                  ))}
-                  {offlineAgents.map((a) => (
-                    <div key={a.id} className="attention-item attention-item--warning">
-                      <span className="attention-item__icon" aria-hidden="true">⚠</span>
-                      <div className="attention-item__body">
-                        <strong>{a.name}</strong>
-                        <span>VPS agent is {a.status || 'offline'} — services on this node may be unreachable</span>
-                      </div>
-                      <Link className="attention-item__action" href="/services">View node</Link>
-                    </div>
-                  ))}
-                  {erroredServices.map((e) => (
-                    <div key={e.service.id} className="attention-item attention-item--warning">
-                      <span className="attention-item__icon" aria-hidden="true">⚠</span>
-                      <div className="attention-item__body">
-                        <strong>{e.service.name}</strong>
-                        <span>PM2 process is {e.status} — check service logs</span>
-                      </div>
-                      <Link className="attention-item__action" href="/services">Open service</Link>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
           </section>
         </div>
       </div>
