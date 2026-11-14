@@ -151,23 +151,21 @@ export class InkTransition {
       return;
     }
 
-    await this.captureAll();
-    if (gen !== this.toggleGen) return; // a newer click took over
-
-    let key2 = layoutKey(renderScale());
-    if (!renderer.hasValid(to, key2) || !renderer.hasValid(getTheme(), key2)) {
-      // The wait above may have been deferred (the user is interacting); force a capture.
-      await this.captureAll(true);
-      if (gen !== this.toggleGen) return;
-      key2 = layoutKey(renderScale());
+    // Capture on demand, then spread. A short retry loop covers the cases where the
+    // capture was deferred — e.g. a reveal animation was still running.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await this.captureAll(attempt > 0);
+      if (gen !== this.toggleGen) return; // a newer click took over
+      const key2 = layoutKey(renderScale());
+      if (renderer.hasValid(to, key2) && renderer.hasValid(getTheme(), key2)) {
+        this.spreadInk(point, seed, false);
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
     }
 
-    if (renderer.hasValid(to, key2) && renderer.hasValid(getTheme(), key2)) {
-      this.spreadInk(point, seed, false);
-    } else {
-      this.applyNow(to, true);
-      this.scheduleCapture(0);
-    }
+    this.applyNow(to, true);
+    this.scheduleCapture(0);
   }
 
   destroy(): void {
@@ -350,6 +348,13 @@ export class InkTransition {
     // Don't stall the page while the user is moving around (an explicit theme switch
     // asks for force and skips this).
     if (!force && performance.now() - this.lastInteraction < INTERACTION_QUIET_MS) {
+      this.deferCapture();
+      return;
+    }
+
+    // A reveal animation is running: the real text is temporarily hidden behind the
+    // ASCII overlay, so a snapshot taken now would freeze glyphs instead of content.
+    if (document.querySelector('.ar-overlay')) {
       this.deferCapture();
       return;
     }
