@@ -254,6 +254,8 @@ h4 {
 /* Runtime dot */
 
 .ht-dot {
+  display: inline-block;
+  vertical-align: middle;
   width: 6px;
   height: 6px;
   flex: 0 0 6px;
