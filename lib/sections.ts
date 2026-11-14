@@ -8,9 +8,12 @@ export type ConsoleSection =
   | 'admin'
   | 'admin-clients'
   | 'admin-agents'
+  | 'admin-resources'
   | 'admin-services'
   | 'admin-access'
-  | 'admin-notifications';
+  | 'admin-audit-logs'
+  | 'admin-notifications'
+  | 'admin-settings';
 
 export const SECTION_PATHS: Record<ConsoleSection, string> = {
   overview: '/overview',
@@ -22,9 +25,12 @@ export const SECTION_PATHS: Record<ConsoleSection, string> = {
   admin: '/admin',
   'admin-clients': '/admin/clients',
   'admin-agents': '/admin/agents',
+  'admin-resources': '/admin/resources',
   'admin-services': '/admin/services',
   'admin-access': '/admin/access',
+  'admin-audit-logs': '/admin/audit-logs',
   'admin-notifications': '/admin/notifications',
+  'admin-settings': '/admin/settings',
 };
 
 // Legacy hash links are kept so bookmarks from the old single-page admin
@@ -44,9 +50,12 @@ const LEGACY_HASHES: Record<string, ConsoleSection> = {
   '#admin': 'admin',
   '#admin-clients': 'admin-clients',
   '#admin-agents': 'admin-agents',
+  '#admin-resources': 'admin-resources',
   '#admin-services': 'admin-services',
   '#admin-access': 'admin-access',
+  '#admin-audit-logs': 'admin-audit-logs',
   '#admin-notifications': 'admin-notifications',
+  '#admin-settings': 'admin-settings',
 };
 
 export function sectionFromLegacyHash(hash: string): ConsoleSection | null {

@@ -22,7 +22,6 @@ import { isErrorLogLine, LIVE_INCIDENT_WINDOW_MS } from '../lib/metrics';
 import { useScrollLock } from '../lib/useScrollLock';
 import { FAILURE_ALERTS_KEY, FOCUS_SERVICE_KEY, isAdminSection, type ConsoleSection } from '../lib/sections';
 import { clearSessionCache } from '../lib/sessionCache';
-import { addNotification, loadNotifications } from '../lib/notificationStore';
 import type {
   AnalyticsData,
   ClientAccess,
@@ -310,31 +309,9 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     return () => window.removeEventListener('keydown', onPaletteKey);
   }, []);
 
-  const seenStatusRef = useRef<Map<string, string> | null>(null);
-  useEffect(() => {
-    loadNotifications(email || role);
-  }, [email, role]);
-  useEffect(() => {
-    if (loading) return;
-    const seen = seenStatusRef.current;
-    const next = new Map(deployments.map((deployment) => [deployment.id, deployment.status] as const));
-    seenStatusRef.current = next;
-    if (!seen) return;
-    for (const deployment of deployments) {
-      const previous = seen.get(deployment.id);
-      if (previous === deployment.status) continue;
-      const name = deployment.service?.name || 'Service';
-      const status = deployment.status.toUpperCase();
-      const url = '/deployments?deployment=' + deployment.id;
-      if (status === 'SUCCESS') {
-        addNotification({ id: deployment.id + ':SUCCESS', kind: 'success', title: name + ' deployed', body: deployment.commitMessage || 'Deployment completed successfully.', url });
-      } else if (status === 'FAILED' || status === 'ERROR') {
-        addNotification({ id: deployment.id + ':FAILED', kind: 'failed', title: name + ' deployment failed', body: deployment.failureReason || 'Deployment failed.', url });
-      } else if (previous === undefined && (status === 'RUNNING' || status === 'QUEUED' || status === 'PENDING')) {
-        addNotification({ id: deployment.id + ':STARTED', kind: 'running', title: name + ' deployment started', body: deployment.commitMessage || 'Deployment is in progress.', url });
-      }
-    }
-  }, [deployments, loading]);
+  // Notification history is created server-side from real deployment events and
+  // delivered through the bell/toast/history feed, so the console no longer
+  // fabricates notifications from polled deployment status.
 
   // Dialogs must not let the page scroll behind them (Lenis included).
   useScrollLock(Boolean(pm2LogService) || Boolean(selectedDeployment));
@@ -928,6 +905,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
         services={services}
         deployments={deployments}
         pm2Status={pm2Status}
+        role={role}
         deploying={deploying}
         pm2Action={pm2Action}
         onDeploy={deploy}
@@ -950,13 +928,23 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
       {pm2Confirm && (() => {
         const service = services.find((item) => item.id === pm2Confirm.serviceId);
         if (!service) return null;
+        const isStop = pm2Confirm.action === 'stop';
         return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPm2Confirm(null); }}>
-          <section className="confirm-card" role="dialog" aria-modal="true" aria-labelledby="pm2-confirm-title">
-            <div className="confirm-card__icon">↻</div>
-            <p className="confirm-card__eyebrow">PM2 INSTANCE ACTION</p>
+          <section className={`confirm-card${isStop ? ' confirm-card--warning' : ''}`} role="dialog" aria-modal="true" aria-labelledby="pm2-confirm-title">
+            <div className={`confirm-card__icon${isStop ? ' confirm-card__icon--warning' : ''}`}>{isStop ? '⚠' : '↻'}</div>
+            <p className="confirm-card__eyebrow">RUNTIME PROCESS CONTROL</p>
             <h2 id="pm2-confirm-title">{pm2Confirm.action.charAt(0).toUpperCase() + pm2Confirm.action.slice(1)} {service.pm2ProcessName || service.name}?</h2>
-            <p>This will send the {pm2Confirm.action} action to the selected PM2 process.</p>
-            <div className="confirm-card__actions"><button className="ht-btn ht-btn--ghost" type="button" onClick={() => setPm2Confirm(null)}>Cancel</button><button className="ht-btn ht-btn--primary" type="button" onClick={() => { const current = pm2Confirm; setPm2Confirm(null); void controlPm2(current.serviceId, current.action); }}>{pm2Confirm.action.charAt(0).toUpperCase() + pm2Confirm.action.slice(1)} process</button></div>
+            <p>
+              {isStop
+                ? 'Stopping this process will take the application offline immediately. It will remain unreachable until manually started again.'
+                : `Executing a ${pm2Confirm.action} signal will recycle the worker process. Active HTTP sessions or background tasks may experience a momentary blip.`}
+            </p>
+            <div className="confirm-card__actions">
+              <button className="ht-btn ht-btn--ghost" type="button" onClick={() => setPm2Confirm(null)}>Cancel</button>
+              <button className={`ht-btn ${isStop ? 'ht-btn--danger' : 'ht-btn--primary'}`} type="button" onClick={() => { const current = pm2Confirm; setPm2Confirm(null); void controlPm2(current.serviceId, current.action); }}>
+                Confirm {pm2Confirm.action}
+              </button>
+            </div>
           </section>
         </div>;
       })()}
@@ -978,6 +966,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
           deployments={deployments}
           pm2Status={pm2Status[selectedService.id]}
           pm2FetchedAt={pm2FetchedAt[selectedService.id] || null}
+          role={role}
           deploying={deploying === selectedService.id}
           onDeploy={(serviceId) => { onCloseServiceDetails(); void deploy(serviceId); }}
           onForceDeploy={(serviceId) => { onCloseServiceDetails(); requestForceDeploy(serviceId); }}

@@ -495,7 +495,8 @@ html {
     background: transparent;
   }
 
-  .shell-search__text {
+  .shell-search__text,
+  .shell-search__kbd {
     display: none;
   }
 
@@ -511,6 +512,21 @@ html {
 
   .shell-crumbs svg {
     display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .shell-topbar {
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .shell-top-actions {
+    gap: 6px;
+  }
+
+  .shell-main {
+    padding: 16px 12px 64px;
   }
 }
 

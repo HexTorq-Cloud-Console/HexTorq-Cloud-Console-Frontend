@@ -96,8 +96,8 @@ export type RuntimeStatus = 'online' | 'stopped' | 'errored' | 'unknown';
 export type ServiceHealth = {
   service: Service;
   status: RuntimeStatus;
-  uptime?: number;
-  restarts?: number;
+  uptime?: number | null;
+  restarts?: number | null;
   cpu?: number;
   memory?: number;
 };

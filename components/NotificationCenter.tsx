@@ -1,19 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { AsciiReveal } from 'ascii-reveal';
-import {
-  addNotification,
-  clearNotifications,
-  markAllRead,
-  markRead,
-  removeNotification,
-  useNotifications,
-  type NotificationKind,
-} from '../lib/notificationStore';
+import { notificationTarget, useNotificationFeed, type AppNotification } from '../lib/notificationStore';
 
-function timeAgo(timestamp: number) {
-  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+function timeAgo(value: string) {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 1000));
   if (seconds < 60) return 'just now';
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -22,24 +15,20 @@ function timeAgo(timestamp: number) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-const KIND_LABEL: Record<NotificationKind, string> = {
-  success: 'Success',
-  failed: 'Failed',
-  running: 'Started',
-  error: 'Error',
-  info: 'Info',
-};
+function kindFor(type: string): 'success' | 'failed' | 'running' | 'info' {
+  if (type === 'deployment.success') return 'success';
+  if (type === 'deployment.failed') return 'failed';
+  if (type === 'deployment.started') return 'running';
+  return 'info';
+}
 
 export default function NotificationCenter() {
-  const items = useNotifications();
+  const { items, unreadCount, loading, error, toasts, refresh, markRead, markAllRead, dismissToast } = useNotificationFeed();
   const [open, setOpen] = useState(false);
-  const [, setTick] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  const unread = items.filter((item) => !item.read).length;
 
   useEffect(() => {
     if (!open) return;
-    setTick((value) => value + 1);
     function onPointer(event: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     }
@@ -55,80 +44,88 @@ export default function NotificationCenter() {
   }, [open]);
 
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-    function onMessage(event: MessageEvent) {
-      const message = event.data;
-      if (!message || message.type !== 'push-received' || !message.data) return;
-      const data = message.data;
-      const status = String(data.status || '').toUpperCase();
-      addNotification({
-        id: data.deploymentId ? `${data.deploymentId}:${status || 'PUSH'}` : undefined,
-        kind: status === 'FAILED' || status === 'ERROR' ? 'failed' : status === 'SUCCESS' ? 'success' : 'info',
-        title: data.title || 'HexTorq Cloud Console',
-        body: data.body || '',
-        url: data.url,
-      });
-    }
-    navigator.serviceWorker.addEventListener('message', onMessage);
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
-  }, []);
+    if (!toasts.length) return;
+    const timers = toasts.map((toast) => window.setTimeout(() => dismissToast(toast.id), 6000));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [toasts, dismissToast]);
 
-  function openItem(id: string, url?: string) {
-    markRead(id);
-    if (!url) return;
+  function openItem(item: AppNotification) {
+    if (!item.read) void markRead(item.id);
+    const target = notificationTarget(item);
     setOpen(false);
-    window.location.assign(url);
+    if (target) window.location.assign(target);
   }
 
   return (
-    <div className="notif-center" ref={rootRef}>
-      <button
-        type="button"
-        className="notif-center__button"
-        onClick={() => setOpen((value) => !value)}
-        aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
-        aria-expanded={open}
-        title="Notifications"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-        </svg>
-        {unread > 0 && <span className="notif-center__badge">{unread > 99 ? '99+' : unread}</span>}
-      </button>
+    <>
+      <div className="notif-center" ref={rootRef}>
+        <button
+          type="button"
+          className="notif-center__button"
+          onClick={() => { setOpen((value) => !value); if (!open) void refresh(); }}
+          aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+          aria-expanded={open}
+          title="Notifications"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+          {unreadCount > 0 && <span className="notif-center__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+        </button>
 
-      {open && (
-        <div className="notif-center__panel" data-lenis-prevent role="dialog" aria-label="Notifications">
-          <AsciiReveal preset="dither" origin="top-left" speed={0.7}>
-          <div className="notif-center__head">
-            <strong>Notifications</strong>
-            <div className="notif-center__actions">
-              <button type="button" onClick={markAllRead} disabled={!unread}>Mark all read</button>
-              <button type="button" onClick={clearNotifications} disabled={!items.length}>Clear all</button>
-            </div>
+        {open && (
+          <div className="notif-center__panel" data-lenis-prevent role="dialog" aria-label="Notifications">
+            <AsciiReveal preset="dither" origin="top-left" speed={0.7}>
+              <div className="notif-center__head">
+                <strong>Notifications</strong>
+                <div className="notif-center__actions">
+                  <button type="button" onClick={() => void markAllRead()} disabled={!unreadCount}>Mark all read</button>
+                </div>
+              </div>
+              {error ? (
+                <p className="notif-center__empty">{error}</p>
+              ) : items.length === 0 ? (
+                <p className="notif-center__empty">{loading ? 'Loading notifications...' : 'No notifications yet. Deployment updates will appear here.'}</p>
+              ) : (
+                <ul className="notif-center__list" data-lenis-prevent>
+                  {items.map((item) => (
+                    <li key={item.id} className={`notif-item notif-item--${kindFor(item.type)}${item.read ? '' : ' notif-item--unread'}`}>
+                      <button type="button" className="notif-item__main" onClick={() => openItem(item)}>
+                        <span className="notif-item__dot" aria-hidden="true" />
+                        <span className="notif-item__text">
+                          <span className="notif-item__title">{item.title}</span>
+                          {item.body ? <span className="notif-item__body">{item.body}</span> : null}
+                          <span className="notif-item__meta">{timeAgo(item.createdAt)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="notif-center__actions" style={{ justifyContent: 'center', padding: '10px 14px', borderTop: '1px solid var(--ht-line-subtle)' }}>
+                <Link href="/alerts" onClick={() => setOpen(false)} style={{ color: 'var(--ht-violet-text)', font: '500 12px/17px var(--ht-font-body)' }}>View all notifications</Link>
+              </div>
+            </AsciiReveal>
           </div>
-          {items.length === 0 ? (
-            <p className="notif-center__empty">No notifications yet. Deployment updates will appear here.</p>
-          ) : (
-            <ul className="notif-center__list" data-lenis-prevent>
-              {items.map((item) => (
-                <li key={item.id} className={`notif-item notif-item--${item.kind}${item.read ? '' : ' notif-item--unread'}`}>
-                  <button type="button" className="notif-item__main" onClick={() => openItem(item.id, item.url)}>
-                    <span className="notif-item__dot" aria-hidden="true" />
-                    <span className="notif-item__text">
-                      <span className="notif-item__title">{item.title}</span>
-                      <span className="notif-item__body">{item.body}</span>
-                      <span className="notif-item__meta">{KIND_LABEL[item.kind]} · {timeAgo(item.createdAt)}</span>
-                    </span>
-                  </button>
-                  <button type="button" className="notif-item__remove" onClick={() => removeNotification(item.id)} aria-label="Remove notification">×</button>
-                </li>
-              ))}
-            </ul>
-          )}
-          </AsciiReveal>
+        )}
+      </div>
+
+      {toasts.length > 0 && (
+        <div className="notif-toasts" role="status" aria-live="polite">
+          {toasts.map((toast) => (
+            <button
+              key={toast.id}
+              type="button"
+              className={`notif-toast notif-toast--${kindFor(toast.type)}`}
+              onClick={() => { void markRead(toast.id); dismissToast(toast.id); const target = notificationTarget(toast); if (target) window.location.assign(target); }}
+            >
+              <span className="notif-toast__title">{toast.title}</span>
+              {toast.body ? <span className="notif-toast__body">{toast.body}</span> : null}
+            </button>
+          ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

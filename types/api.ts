@@ -18,6 +18,7 @@ export type Service = {
   templateKey?: string | null;
   customCommands?: Record<string, string> | null;
   enabled: boolean;
+  clientControlEnabled?: boolean;
   client: { id: string; name: string; email: string };
   agent: { id: string; name: string; baseUrl: string; enabled: boolean; lastSeenAt?: string | null; status?: AgentStatus };
 };
@@ -61,7 +62,83 @@ export type AnalyticsData = {
   services: { total: number; enabled: number; disabled: number; pm2: number; static: number };
 };
 
-export type Pm2Status = { status?: string; cpu?: number; memory?: number; restarts?: number; uptime?: number };
+export type ClientPm2Status = {
+  serviceId?: string;
+  status?: string;
+  uptime?: number | null;
+  restarts?: number | null;
+  lastUpdatedAt?: string | null;
+  telemetryAvailable?: boolean;
+  telemetryStale?: boolean;
+};
+
+export type AdminPm2Metrics = {
+  serviceId?: string;
+  agentId?: string;
+  processName?: string;
+  status?: string | null;
+  cpuPercent?: number | null;
+  memoryBytes?: number | null;
+  memoryMb?: number | null;
+  restarts?: number | null;
+  uptime?: number | null;
+  collectedAt?: string | null;
+  available?: boolean;
+  reason?: string | null;
+};
+
+export type AdminProcessMetric = {
+  serviceId: string;
+  serviceName: string;
+  processName: string;
+  status: string | null;
+  cpuPercent: number | null;
+  memoryBytes: number | null;
+  restarts: number | null;
+  uptime: number | null;
+};
+
+export type AdminAgentProcessesResponse = {
+  agentId: string;
+  agentStatus: string;
+  collectedAt: string;
+  available: boolean;
+  reason?: string | null;
+  processes: AdminProcessMetric[];
+};
+
+export type AuditLogEntry = {
+  id: string;
+  actorEmail: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type AuditLogsResponse = {
+  logs: AuditLogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};
+
+export type PlatformSettings = {
+  logRetentionDays: number;
+};
+
+export type Pm2Status = {
+  status?: string;
+  cpu?: number;
+  memory?: number;
+  restarts?: number | null;
+  uptime?: number | null;
+  lastUpdatedAt?: string | null;
+  telemetryAvailable?: boolean;
+  telemetryStale?: boolean;
+};
 
 /** Time window used by the dashboard metrics, chart and cards. */
 export type MetricRange = '24h' | '7d' | '30d';
@@ -204,8 +281,6 @@ export type ClientNotificationStatus = {
   enabled: boolean;
   pushDevices: number;
   pushEnabled: boolean;
-  emailEnabled: boolean;
-  emailAddress: string | null;
   notifyStarted: boolean;
   notifyCompleted: boolean;
   notifyFailed: boolean;

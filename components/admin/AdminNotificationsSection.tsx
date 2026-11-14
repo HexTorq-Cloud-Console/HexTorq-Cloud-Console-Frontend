@@ -13,13 +13,13 @@ export default function AdminNotificationsSection({
       <div className="list-heading">
         <div>
           <span className="list-kicker">DEPLOYMENT NOTIFICATIONS</span>
-          <h3>Browser push & email alerts</h3>
+          <h3>Browser & in-app alerts</h3>
         </div>
         <span className="list-count">{clients.length}</span>
       </div>
       <p className="muted admin-section__intro">
         Configure notifications for this console account, and check which clients have alerts enabled.
-        Every client controls their own devices and channels on their Alerts page.
+        Every client controls their own devices on their Alerts page. Notifications are always saved to history.
       </p>
 
       <NotificationSettings />
@@ -31,7 +31,6 @@ export default function AdminNotificationsSection({
           <div className="notify-admin-row notify-admin-row--head" role="row">
             <span role="columnheader">Client</span>
             <span role="columnheader">Push devices</span>
-            <span role="columnheader">Email</span>
             <span role="columnheader">Notify on</span>
           </div>
           {clients.map((entry) => (
@@ -45,13 +44,6 @@ export default function AdminNotificationsSection({
                   entry.pushDevices > 0
                     ? <span className="notify-admin-ok">{entry.pushDevices} device(s)</span>
                     : <span className="notify-admin-warn">Enabled, no device</span>
-                ) : (
-                  <span className="notify-admin-off">Off</span>
-                )}
-              </span>
-              <span role="cell">
-                {entry.emailEnabled && entry.emailAddress ? (
-                  <span className="notify-admin-ok">{entry.emailAddress}</span>
                 ) : (
                   <span className="notify-admin-off">Off</span>
                 )}

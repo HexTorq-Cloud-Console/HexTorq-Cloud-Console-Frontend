@@ -7,6 +7,7 @@ type ServicesViewProps = {
   services: Service[];
   deployments: Deployment[];
   pm2Status: Record<string, Pm2Status>;
+  role?: string;
   deploying: string | null;
   pm2Action: string | null;
   onDeploy: (serviceId: string, force?: boolean) => void;
@@ -26,7 +27,8 @@ function latestSuccessfulFor(service: Service, deployments: Deployment[]) {
   return deployments.find((deployment) => deployment.service.id === service.id && deployment.status === 'SUCCESS');
 }
 
-export default function ServicesView({ services, deployments, pm2Status, deploying, pm2Action, onDeploy, onForceDeploy, onPm2, onLogs, onDetails }: ServicesViewProps) {
+export default function ServicesView({ services, deployments, pm2Status, role, deploying, pm2Action, onDeploy, onForceDeploy, onPm2, onLogs, onDetails }: ServicesViewProps) {
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const [filter, setFilter] = useState<Filter>('ALL');
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
@@ -113,16 +115,35 @@ export default function ServicesView({ services, deployments, pm2Status, deployi
                 <div className="service-tile__runtime">
                   {service.type === 'PM2' ? (
                     hasRuntime ? (
-                      <><span className={`ht-dot ${status?.status === 'online' ? 'ht-dot--live' : ''}`} style={status?.status === 'online' ? { color: 'var(--ht-success)' } : { color: 'var(--ht-danger)' }} /> {status?.status || 'unknown'}{typeof status?.cpu === 'number' ? <> <span>·</span> CPU {status.cpu}%</> : null}{typeof status?.memory === 'number' ? <> <span>·</span> {Math.round(status.memory / 1024 / 1024)} MB</> : null}{typeof status?.restarts === 'number' ? <> <span>·</span> {status.restarts} restarts</> : null}{typeof status?.cpu !== 'number' && typeof status?.memory !== 'number' && typeof status?.restarts !== 'number' ? ' · telemetry limited' : null}</>
+                      <>
+                        <span className={`ht-dot ${status?.status === 'online' ? 'ht-dot--live' : ''}`} style={status?.status === 'online' ? { color: 'var(--ht-success)' } : { color: 'var(--ht-danger)' }} />
+                        {' '}{status?.status || 'unknown'}
+                        {isSuperAdmin && typeof status?.cpu === 'number' ? <> <span>·</span> CPU {status.cpu}%</> : null}
+                        {isSuperAdmin && typeof status?.memory === 'number' ? <> <span>·</span> {Math.round(status.memory / 1024 / 1024)} MB</> : null}
+                        {typeof status?.restarts === 'number' ? <> <span>·</span> {status.restarts} restarts</> : null}
+                        {isSuperAdmin && typeof status?.cpu !== 'number' && typeof status?.memory !== 'number' && typeof status?.restarts !== 'number' ? ' · telemetry limited' : null}
+                      </>
                     ) : (
                       <>Runtime telemetry unavailable</>
                     )
                   ) : <>◈ static frontend <span>·</span> {service.deployDirectory || service.workingDirectory}</>}
                 </div>
                 <div className="service-tile__footer">
-                  {service.type === 'PM2' && service.enabled && !agentOffline && <div className="service-tile__pm2-actions">
-                    {(['start', 'stop', 'restart', 'reload'] as const).map((pm2ActionName) => <button key={pm2ActionName} type="button" onClick={() => onPm2(service.id, pm2ActionName)} disabled={Boolean(action)}>{action === pm2ActionName ? '...' : pm2ActionName}</button>)}
-                  </div>}
+                  {service.type === 'PM2' && service.enabled && !agentOffline && (
+                    (isSuperAdmin || service.clientControlEnabled !== false) ? (
+                      <div className="service-tile__pm2-actions">
+                        {(isSuperAdmin ? (['start', 'stop', 'restart', 'reload'] as const) : (['start', 'stop', 'restart'] as const)).map((pm2ActionName) => (
+                          <button key={pm2ActionName} type="button" onClick={() => onPm2(service.id, pm2ActionName)} disabled={Boolean(action)}>
+                            {action === pm2ActionName ? '...' : pm2ActionName}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="service-tile__pm2-disabled" title="Process control is disabled for this service by the administrator">
+                        <span>Control disabled</span>
+                      </div>
+                    )
+                  )}
                   <div className="service-tile__actions">
                     <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={!service.enabled || busy}>{busy ? 'Deploying...' : service.type === 'PM2' && status?.status === 'stopped' ? 'Start & deploy' : 'Normal deploy'}</button>
                     <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={!service.enabled || busy}>Force</button>

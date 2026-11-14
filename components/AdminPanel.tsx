@@ -9,6 +9,9 @@ import AdminClientsSection from './admin/AdminClientsSection';
 import AdminNotificationsSection from './admin/AdminNotificationsSection';
 import AdminOverviewSection from './admin/AdminOverviewSection';
 import AdminServicesSection from './admin/AdminServicesSection';
+import AdminResourcesSection from './admin/AdminResourcesSection';
+import AdminAuditSection from './admin/AdminAuditSection';
+import AdminSettingsSection from './admin/AdminSettingsSection';
 import { apiUrl, errorMessage, responseJson } from '../lib/api';
 import { liveRepositorySlug, serviceWebhookUrl, toSlug } from '../lib/format';
 import { emptyAccessForm } from '../lib/forms';
@@ -33,8 +36,11 @@ const ADMIN_SECTION_TITLES: Partial<Record<ConsoleSection, { title: string; subt
   'admin-clients': { title: 'Clients', subtitle: 'Accounts that sign in to this console and see their own services.' },
   'admin-agents': { title: 'VPS agents', subtitle: 'Servers connected to the control plane that run your deployments.' },
   'admin-services': { title: 'Services', subtitle: 'Repositories, branches, and pipelines assigned to a client and an agent.' },
+  'admin-resources': { title: 'Resource Monitoring', subtitle: 'Live CPU, memory, and runtime process metrics across your VPS fleet.' },
   'admin-access': { title: 'Access management', subtitle: 'Encrypted SFTP and database credentials shared with clients.' },
+  'admin-audit-logs': { title: 'Audit history', subtitle: 'Immutable record of platform events, deployments, and administrative actions.' },
   'admin-notifications': { title: 'Notifications', subtitle: 'Browser push and email alerts for deployment activity.' },
+  'admin-settings': { title: 'Platform settings', subtitle: 'Configure deployment log retention and global system preferences.' },
 };
 
 function AdminPanel({ token, section, onChanged }: { token: string; section: ConsoleSection; onChanged?: () => void }) {
@@ -673,8 +679,25 @@ function AdminPanel({ token, section, onChanged }: { token: string; section: Con
         />
       )}
 
+      {section === 'admin-resources' && (
+        <AdminResourcesSection
+          token={token}
+          agents={agents}
+          services={services}
+          clients={clients}
+        />
+      )}
+
+      {section === 'admin-audit-logs' && (
+        <AdminAuditSection token={token} />
+      )}
+
       {section === 'admin-notifications' && (
         <AdminNotificationsSection clients={notificationClients} />
+      )}
+
+      {section === 'admin-settings' && (
+        <AdminSettingsSection token={token} />
       )}
 
       <Modal open={modal === 'client'} title="Create client" subtitle="Issue a secure temporary login for a new client." onClose={() => setModal(null)}>

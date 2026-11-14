@@ -10,6 +10,7 @@ type Props = {
   deployments: Deployment[];
   pm2Status?: Pm2Status;
   pm2FetchedAt?: string | null;
+  role?: string;
   deploying: boolean;
   onDeploy: (serviceId: string) => void;
   onForceDeploy: (serviceId: string) => void;
@@ -28,7 +29,7 @@ function duration(value?: number) {
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
 }
 
-function uptime(value?: number) {
+function uptime(value?: number | null) {
   if (!value || value <= 0) return '—';
   const seconds = Math.floor((Date.now() - value) / 1000);
   if (seconds < 60) return `${seconds}s`;
@@ -46,6 +47,7 @@ export default function ServiceDetailDrawer({
   deployments,
   pm2Status,
   pm2FetchedAt,
+  role,
   deploying,
   onDeploy,
   onForceDeploy,
@@ -55,6 +57,11 @@ export default function ServiceDetailDrawer({
 }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState('');
+
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const availableTabs: Tab[] = isSuperAdmin
+    ? ['overview', 'metrics', 'deployments']
+    : ['overview', 'deployments'];
 
   const serviceDeployments = deployments.filter((deployment) => deployment.service.id === service.id);
   const hasTelemetry = Boolean(pm2Status);
@@ -133,7 +140,7 @@ export default function ServiceDetailDrawer({
         </div>
 
         <nav className="detail-tabs" aria-label="Service detail tabs">
-          {(['overview', 'metrics', 'deployments'] as Tab[]).map((item) => (
+          {availableTabs.map((item) => (
             <button
               key={item}
               type="button"
@@ -141,7 +148,7 @@ export default function ServiceDetailDrawer({
               aria-selected={tab === item}
               onClick={() => setTab(item)}
             >
-              {item === 'overview' ? 'Overview' : item === 'metrics' ? 'Metrics' : `Deployments (${serviceDeployments.length})`}
+              {item === 'overview' ? 'Overview' : item === 'metrics' ? 'Resources' : `Deployments (${serviceDeployments.length})`}
             </button>
           ))}
         </nav>
@@ -193,7 +200,7 @@ export default function ServiceDetailDrawer({
             </>
           )}
 
-          {tab === 'metrics' && (
+          {tab === 'metrics' && isSuperAdmin && (
             service.type === 'PM2' ? (
               hasTelemetry ? (
                 <>

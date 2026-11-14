@@ -618,3 +618,21 @@ h4 {
     transition: none;
   }
 }
+
+/* Responsive card padding and table momentum scrolling */
+@media (max-width: 768px) {
+  .ht-card {
+    padding: var(--ht-space-lg);
+  }
+
+  .ht-card__header {
+    gap: var(--ht-space-sm);
+    margin-bottom: var(--ht-space-md);
+  }
+}
+
+.ht-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
