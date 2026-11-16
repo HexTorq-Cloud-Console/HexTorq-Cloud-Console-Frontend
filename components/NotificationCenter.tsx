@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AsciiReveal } from 'ascii-reveal';
+import { ASCII_REVEAL } from '../lib/asciiReveal';
 import { notificationTarget, useNotificationFeed, type AppNotification } from '../lib/notificationStore';
 
 function timeAgo(value: string) {
@@ -87,7 +88,7 @@ export default function NotificationCenter() {
 
         {open && (
           <div className="notif-center__panel" data-lenis-prevent role="dialog" aria-label="Notifications">
-            <AsciiReveal preset="dither" origin="top-left" speed={0.7}>
+            <AsciiReveal {...ASCII_REVEAL}>
               <div className="notif-center__head">
                 <strong>Notifications</strong>
                 <div className="notif-center__actions">
