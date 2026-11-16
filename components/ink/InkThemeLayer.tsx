@@ -32,15 +32,11 @@ export default function InkThemeLayer() {
     if (!canvas) return;
     const ink = new InkTransition(canvas);
     inkRef.current = ink;
-    // One warm-up capture while the browser is idle, so the first theme switch
-    // on a light page is instant.
-    //
-    // The transition is deliberately NOT recreated on navigation: rebuilding it
-    // disposed the GPU textures and forced a fresh pair of full-page snapshots
-    // on every route change, which was the main source of the background
-    // jank. Long pages are never snapshotted at all (see capture.ts).
-    ink.refresh(2000);
-
+    // The transition is deliberately NOT recreated on navigation and it does not
+    // capture snapshots in the background: rebuilding it disposed the GPU
+    // textures and forced a fresh pair of full-page html2canvas snapshots on
+    // every route change, which was the source of the background jank. The
+    // theme switch captures on demand instead.
     return () => {
       ink.destroy();
       if (inkRef.current === ink) inkRef.current = null;
