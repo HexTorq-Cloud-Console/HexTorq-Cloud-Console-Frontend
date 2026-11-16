@@ -939,6 +939,77 @@ html:has(.auth-page) {
     margin-bottom: 6px;
   }
 
+  /* Compact so the whole login still fits one screen on a phone. */
+  .auth-page {
+    padding: 14px 14px 12px;
+  }
+
+  .auth-shell {
+    gap: 16px;
+  }
+
+  .auth-brand {
+    gap: 10px;
+  }
+
+  .auth-features {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .auth-feature {
+    padding: 10px 8px;
+  }
+
+  .auth-feature h3 {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  .auth-lede {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .auth-card {
+    padding: 16px 16px;
+  }
+
+  .auth-sub {
+    display: none;
+  }
+
+  .auth-form {
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .auth-input {
+    height: 40px;
+  }
+
+  .auth-submit {
+    height: 40px;
+  }
+
+  .auth-divider {
+    margin: 14px 0 10px;
+  }
+
+  .auth-google {
+    min-height: 40px;
+  }
+
+  .auth-foot {
+    display: none;
+  }
+
+  .auth-footer {
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
   .auth-footer__description {
     display: none;
   }
