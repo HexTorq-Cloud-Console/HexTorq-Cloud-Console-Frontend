@@ -1,5 +1,5 @@
 import { tween, type TweenLike } from './tween';
-import { capturePage, layoutKey, renderScale } from './capture';
+import { capturePage, isHeavyDocument, layoutKey, renderScale } from './capture';
 import { inkParams } from './gl/params';
 import { InkRenderer, type InkFrame, type InkSource } from './gl/renderer';
 import { applyTheme, getTheme, otherTheme, type Theme } from './theme';
@@ -132,6 +132,15 @@ export class InkTransition {
       this.cancel();
       this.applyNow(to, !reduced);
       if (renderer && !reduced) this.scheduleCapture(0);
+      return;
+    }
+
+    // A long page is not worth snapshotting: the capture would block the main
+    // thread for hundreds of milliseconds. Switch with the short CSS cross-fade
+    // instead, which is instant and smooth.
+    if (isHeavyDocument()) {
+      this.cancel();
+      this.applyNow(to, true);
       return;
     }
 
@@ -337,6 +346,11 @@ export class InkTransition {
   private async runCapture(force: boolean): Promise<void> {
     const renderer = this.renderer;
     if (!renderer || renderer.isLost || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    // Long pages are never snapshotted. The capture clones and re-renders the
+    // whole document twice, which is what made the console feel like it was
+    // struggling in the background.
+    if (isHeavyDocument()) return;
 
     // Capturing blocks the main thread; never do it mid-animation (or mid CSS fade, which
     // would bake half-transitioned colours into the snapshot).
