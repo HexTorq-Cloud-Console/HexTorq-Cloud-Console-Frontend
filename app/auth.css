@@ -945,7 +945,7 @@ html:has(.auth-page) {
   }
 
   .auth-shell {
-    gap: 16px;
+    gap: 12px;
   }
 
   .auth-brand {
@@ -958,7 +958,13 @@ html:has(.auth-page) {
   }
 
   .auth-feature {
-    padding: 10px 8px;
+    padding: 8px 6px;
+  }
+
+  .auth-feature__icon {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 4px;
   }
 
   .auth-feature h3 {
@@ -968,11 +974,15 @@ html:has(.auth-page) {
 
   .auth-lede {
     font-size: 12px;
-    line-height: 18px;
+    line-height: 17px;
+  }
+
+  .auth-benefits {
+    display: none;
   }
 
   .auth-card {
-    padding: 16px 16px;
+    padding: 13px 14px;
   }
 
   .auth-sub {
@@ -980,24 +990,24 @@ html:has(.auth-page) {
   }
 
   .auth-form {
-    gap: 12px;
-    margin-top: 16px;
+    gap: 10px;
+    margin-top: 14px;
   }
 
   .auth-input {
-    height: 40px;
+    height: 38px;
   }
 
   .auth-submit {
-    height: 40px;
+    height: 38px;
   }
 
   .auth-divider {
-    margin: 14px 0 10px;
+    margin: 10px 0 8px;
   }
 
   .auth-google {
-    min-height: 40px;
+    min-height: 38px;
   }
 
   .auth-foot {
@@ -1005,9 +1015,13 @@ html:has(.auth-page) {
   }
 
   .auth-footer {
-    gap: 6px;
-    margin-top: 10px;
-    padding-top: 10px;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .auth-footer__brand {
+    display: none;
   }
 
   .auth-footer__description {
