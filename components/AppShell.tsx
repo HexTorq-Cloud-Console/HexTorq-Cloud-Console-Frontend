@@ -371,9 +371,9 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </div>
         </header>
 
-        <AsciiReveal as="main" key={pathname} className="shell-main" loading={loading} revealOnMount={!loading} {...ASCII_REVEAL_SHELL}>
+        <main key={pathname} className="shell-main" data-loaded={loading ? 'false' : 'true'}>
           {children}
-        </AsciiReveal>
+        </main>
       </div>
     </div>
   );
