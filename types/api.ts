@@ -197,6 +197,8 @@ export type WebhookHealthRun = {
   source: 'MANUAL' | 'SCHEDULED';
   status: 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED';
   requestedBy?: string | null;
+  /// A forced run bypasses the pipeline change detection.
+  force?: boolean;
   totalServices: number;
   successfulServices: number;
   failedServices: number;
@@ -219,6 +221,7 @@ export type WebhookRunSummary = {
   id: string;
   source: 'MANUAL' | 'SCHEDULED';
   status: 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  force?: boolean;
   totalServices: number;
   successfulServices: number;
   failedServices: number;

@@ -89,7 +89,7 @@ export default function WebhookHealthView({ health, loading, error, runLoading, 
           <dl className="health-hero__stats">
             <div><dt>Started</dt><dd>{scheduleDateTimeLabel(run.startedAt, timeZone)}</dd></div>
             <div><dt>Duration</dt><dd>{duration(run.completedAt ? new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime() : null)}</dd></div>
-            <div><dt>Trigger</dt><dd>{run.source === 'SCHEDULED' ? 'Scheduled' : 'Manual'}</dd></div>
+            <div><dt>Trigger</dt><dd>{run.source === 'SCHEDULED' ? 'Scheduled' : 'Manual'}{run.force ? ' · Force' : ''}</dd></div>
             <div><dt>Next run</dt><dd>{health?.schedule.enabled && health.schedule.nextRunAt ? scheduleDateTimeLabel(health.schedule.nextRunAt, timeZone) : 'Schedule disabled'}</dd></div>
           </dl>
         </section>
@@ -184,7 +184,7 @@ export default function WebhookHealthView({ health, loading, error, runLoading, 
           {(health?.recentRuns || []).map((item) => (
             <div className="health-history__row" key={item.id}>
               <time>{scheduleDateTimeLabel(item.startedAt, timeZone)}</time>
-              <span>{item.source === 'SCHEDULED' ? 'Scheduled' : 'Manual'}</span>
+              <span>{item.source === 'SCHEDULED' ? 'Scheduled' : 'Manual'}{item.force ? ' · Force' : ''}</span>
               <span className={`ht-pill ht-pill--${healthStatusClass(item.status)}`}>{healthStatusLabel(item.status)}</span>
               <span>{item.totalServices}</span>
               <strong className="is-good">{item.successfulServices}</strong>
