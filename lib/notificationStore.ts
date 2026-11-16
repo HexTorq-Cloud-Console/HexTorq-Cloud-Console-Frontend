@@ -124,11 +124,31 @@ export async function sendTestNotification(): Promise<{ push?: { sent?: number }
   return { push: data.result?.push, message: data.message };
 }
 
-/** Where a notification should navigate, if anywhere. */
+/**
+ * Where a notification should navigate, if anywhere.
+ *
+ * The path is always relative so a click stays on the origin the user is
+ * signed in to (the console can be served from more than one host) and so the
+ * target page can pick up the deep link.
+ */
 export function notificationTarget(item: AppNotification): string | null {
+  // A deployment notification opens that deployment's detail drawer, which
+  // shows the failure reason and the full deployment log.
+  if (item.resourceType === 'deployment' && item.resourceId) {
+    return `/deployments?deployment=${encodeURIComponent(item.resourceId)}`;
+  }
   const url = (item.metadata as { url?: string } | null)?.url;
-  if (typeof url === 'string' && url) return url;
-  if (item.resourceType === 'deployment' && item.resourceId) return `/deployments?deployment=${encodeURIComponent(item.resourceId)}`;
+  if (typeof url !== 'string' || !url) return null;
+  if (url.startsWith('/')) return url;
+  // An absolute URL from another origin is kept only if it is not this app.
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      const parsed = new URL(url);
+      return parsed.origin === window.location.origin ? `${parsed.pathname}${parsed.search}` : null;
+    } catch {
+      return null;
+    }
+  }
   return null;
 }
 

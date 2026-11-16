@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import Logo from './Logo';
+import AuthFooter from './AuthFooter';
 import PasswordChange from './PasswordChange';
 import ThemeToggle from './ThemeToggle';
 import { apiUrl, errorMessage, TOKEN_KEY, responseJson } from '../lib/api';
@@ -188,52 +189,68 @@ export default function LoginPage() {
             <span className="is-sep">•</span> Elevate
           </p>
 
-          <h1 className="auth-headline">
-            Enterprise multi-tenant VPS orchestration &amp; instant Git deployment pipeline.
-          </h1>
+          <h1 className="auth-headline">HexTorq Cloud Console</h1>
 
           <p className="auth-lede">
-            Deterministic node virtualization, sub-second rollout automation, and high-frequency real-time
-            telemetry built for high-throughput engineering teams.
+            A unified control plane to deploy, monitor, and manage your applications and infrastructure.
           </p>
 
           <div className="auth-features">
             <article className="auth-feature">
               <span className="auth-feature__icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91 0Z" />
                   <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z" />
                   <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
                   <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
                 </svg>
               </span>
-              <h3>One-click Git deploys</h3>
-              <p>Automated zero-downtime rolling releases triggered from GitHub/GitLab pushes.</p>
+              <h3>Deploy</h3>
+              <p>Push, build and deploy from Git.</p>
             </article>
 
             <article className="auth-feature">
               <span className="auth-feature__icon auth-feature__icon--violet" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="3" width="20" height="14" rx="2" />
                   <path d="M8 21h8M12 17v4" />
                   <path d="m7 8 3 2.5L7 13" />
                 </svg>
               </span>
-              <h3>Live PM2 controls</h3>
-              <p>Real-time telemetry, memory &amp; CPU tracking, instant process restarts and hot reloads.</p>
+              <h3>Monitor</h3>
+              <p>Track VPS, agents and service health.</p>
             </article>
 
             <article className="auth-feature">
               <span className="auth-feature__icon auth-feature__icon--indigo" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                  <circle cx="12" cy="12" r="3" />
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                  <circle cx="9" cy="7" r="2" />
+                  <circle cx="15" cy="12" r="2" />
+                  <circle cx="8" cy="17" r="2" />
                 </svg>
               </span>
-              <h3>Scheduled webhooks</h3>
-              <p>Proactive uptime monitoring, automated failover pings, and multi-channel alerts.</p>
+              <h3>Manage</h3>
+              <p>Control PM2 processes securely.</p>
+            </article>
+
+            <article className="auth-feature">
+              <span className="auth-feature__icon auth-feature__icon--violet" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </span>
+              <h3>Notify</h3>
+              <p>Get real-time alerts and updates.</p>
             </article>
           </div>
+
+          <ul className="auth-benefits" aria-label="Platform benefits">
+            <li>Secure Access</li>
+            <li>Multi-tenant</li>
+            <li>Real-time Control</li>
+          </ul>
 
           <p className="auth-brand__foot">Need access? Contact your HexTorq administrator.</p>
         </section>
@@ -365,6 +382,8 @@ export default function LoginPage() {
           <p className="auth-foot">Access is provisioned by your administrator.</p>
         </section>
       </div>
+
+      <AuthFooter />
 
       {googleClientId && <Script src="https://accounts.google.com/gsi/client" onLoad={initializeGoogle} />}
     </main>

@@ -4,10 +4,11 @@
 .auth-page {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 48px 24px;
+  padding: 48px 24px 32px;
   overflow-x: hidden;
   overflow-y: auto;
   background: var(--ht-canvas);
@@ -25,6 +26,11 @@
 .auth-center-card,
 .auth-loading {
   margin-block: auto;
+}
+
+/* The shell sits above the full-width footer, so it keeps its own spacing. */
+.auth-page > .auth-shell {
+  margin-block: 0;
 }
 
 .auth-glow {
@@ -112,29 +118,29 @@
 
 .auth-headline {
   margin: 0;
-  max-width: 17ch;
-  font: 700 clamp(30px, 3.2vw, 44px) / 1.12 var(--ht-font-heading);
-  letter-spacing: -0.03em;
+  max-width: 24ch;
+  font: 700 clamp(28px, 2.7vw, 38px) / 1.14 var(--ht-font-heading);
+  letter-spacing: -0.025em;
   color: var(--ht-text);
 }
 
 .auth-lede {
   margin: 0;
-  max-width: 54ch;
+  max-width: 52ch;
   font: 400 15px/24px var(--ht-font-body);
   color: var(--ht-text-secondary);
 }
 
 .auth-features {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .auth-feature {
   min-width: 0;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--ht-line);
   border-radius: var(--ht-radius-md);
   background: var(--ht-card);
@@ -143,9 +149,9 @@
 .auth-feature__icon {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-bottom: 12px;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 10px;
   border-radius: var(--ht-radius);
   background: var(--ht-blue-fill);
   color: var(--ht-link);
@@ -177,6 +183,129 @@
   margin: 4px 0 0;
   font: 400 12px/18px var(--ht-font-body);
   color: var(--ht-text-muted);
+}
+
+/* Benefits strip — Secure Access | Multi-tenant | Real-time Control */
+.auth-benefits {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-benefits li {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font: 600 11px/16px var(--ht-font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ht-text-secondary);
+}
+
+.auth-benefits li + li::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ht-violet);
+  opacity: 0.7;
+}
+
+/* ------------------------------------------------------------------ Footer */
+
+.auth-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  width: 100%;
+  max-width: 1240px;
+  margin-top: 40px;
+  padding: 22px 2px 4px;
+  border-top: 1px solid var(--ht-line);
+}
+
+.auth-footer__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.auth-footer__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-footer__product {
+  color: var(--ht-text-secondary);
+  font: 600 10px/16px var(--ht-font-body);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.auth-footer__description {
+  margin: 0;
+  max-width: 40ch;
+  font: 400 12px/18px var(--ht-font-body);
+  color: var(--ht-text-muted);
+}
+
+.auth-footer__links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.auth-footer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ht-violet-text);
+  font: 600 13px/18px var(--ht-font-body);
+  text-decoration: none;
+  transition: color var(--ht-transition);
+}
+
+.auth-footer__link:hover {
+  color: var(--ht-violet);
+  text-decoration: underline;
+}
+
+.auth-footer__link:focus-visible {
+  outline: 2px solid var(--ht-line-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.auth-footer__external {
+  flex: 0 0 auto;
+}
+
+.auth-footer__domain {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--ht-violet-line);
+  border-radius: var(--ht-radius-pill);
+  background: var(--ht-violet-fill);
+  color: var(--ht-violet-text);
+  font: 500 11px/16px var(--ht-font-mono);
+}
+
+.auth-footer__copyright {
+  margin: 0;
+  color: var(--ht-text-muted);
+  font: 400 12px/18px var(--ht-font-body);
 }
 
 /* ------------------------------------------------------------------ Card */
@@ -620,13 +749,13 @@
 
 @media (max-width: 1024px) {
   .auth-page {
-    padding: 40px 20px;
+    padding: 40px 20px 28px;
   }
 
   .auth-shell {
     grid-template-columns: 1fr;
     gap: 32px;
-    max-width: 560px;
+    max-width: 620px;
   }
 
   .auth-card,
@@ -636,18 +765,23 @@
   }
 
   .auth-features {
-    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .auth-headline {
     max-width: none;
     font-size: 30px;
   }
+
+  .auth-footer {
+    max-width: 620px;
+    margin-top: 32px;
+  }
 }
 
 @media (max-width: 560px) {
   .auth-page {
-    padding: 24px 14px;
+    padding: 24px 14px 24px;
   }
 
   .auth-card {
@@ -658,7 +792,33 @@
     gap: 18px;
   }
 
+  .auth-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .auth-feature {
+    padding: 12px;
+  }
+
+  .auth-benefits {
+    gap: 8px 12px;
+  }
+
+  .auth-benefits li {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
   .auth-brand__foot {
     display: none;
+  }
+
+  .auth-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-top: 26px;
+    padding-top: 18px;
   }
 }

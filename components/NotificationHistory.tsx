@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   fetchNotifications,
   markAllNotificationsRead,
@@ -29,6 +30,7 @@ function kindFor(type: string): 'success' | 'failed' | 'running' | 'info' {
 }
 
 export default function NotificationHistory() {
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -67,7 +69,10 @@ export default function NotificationHistory() {
   async function onOpen(item: AppNotification) {
     await onMarkRead(item);
     const target = notificationTarget(item);
-    if (target) window.location.assign(target);
+    if (!target) return;
+    // Stay on the current origin and let the target page handle the deep link.
+    if (target.startsWith('/')) router.push(target);
+    else window.location.assign(target);
   }
 
   async function onMarkAll() {
