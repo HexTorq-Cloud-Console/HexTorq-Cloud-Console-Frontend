@@ -5,6 +5,7 @@ import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import Logo from './Logo';
 import AuthFooter from './AuthFooter';
+import Reveal from './Reveal';
 import PasswordChange from './PasswordChange';
 import ThemeToggle from './ThemeToggle';
 import { apiUrl, errorMessage, TOKEN_KEY, responseJson } from '../lib/api';
@@ -145,6 +146,44 @@ export default function LoginPage() {
     setMessage('');
   }
 
+  // The login screen is exactly one screen tall, so the document itself must
+  // not scroll. Lenis (mounted at the app root) sets `height: auto` on the
+  // html element, which would otherwise leave a stray scrollbar behind. On
+  // small screens the screen is taller than the viewport, so scrolling stays
+  // available there.
+  const showLogin = sessionChecked && !token && !forcePasswordChange;
+  useEffect(() => {
+    if (!showLogin) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtml = html.style.overflow;
+    const previousBody = body.style.overflow;
+    const previousGutter = html.style.scrollbarGutter;
+
+    const apply = () => {
+      const fits = document.documentElement.scrollHeight <= window.innerHeight + 1;
+      if (fits) {
+        html.style.overflow = 'hidden';
+        body.style.overflow = 'hidden';
+        html.style.scrollbarGutter = 'auto';
+      } else {
+        html.style.overflow = previousHtml;
+        body.style.overflow = previousBody;
+        html.style.scrollbarGutter = previousGutter;
+      }
+    };
+
+    const frame = requestAnimationFrame(apply);
+    window.addEventListener('resize', apply);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', apply);
+      html.style.overflow = previousHtml;
+      body.style.overflow = previousBody;
+      html.style.scrollbarGutter = previousGutter;
+    };
+  }, [showLogin]);
+
   if (!sessionChecked || (token && !forcePasswordChange)) {
     return (
       <main className="auth-page">
@@ -179,24 +218,26 @@ export default function LoginPage() {
 
       <div className="auth-shell">
         <section className="auth-brand">
-          <div className="auth-brand__head">
+          <Reveal className="auth-brand__head" delay={0}>
             <Logo size="md" />
             <span className="auth-brand__chip">Cloud Console</span>
-          </div>
+          </Reveal>
 
-          <p className="auth-tagline">
+          <Reveal as="p" className="auth-tagline" delay={70}>
             Code <span className="is-sep">•</span> <span className="is-accent">Innovate</span>{' '}
             <span className="is-sep">•</span> Elevate
-          </p>
+          </Reveal>
 
-          <h1 className="auth-headline">HexTorq Cloud Console</h1>
+          <Reveal as="h1" className="auth-headline" delay={130}>
+            HexTorq Cloud Console
+          </Reveal>
 
-          <p className="auth-lede">
+          <Reveal as="p" className="auth-lede" delay={200}>
             A unified control plane to deploy, monitor, and manage your applications and infrastructure.
-          </p>
+          </Reveal>
 
           <div className="auth-features">
-            <article className="auth-feature">
+            <Reveal as="article" className="auth-feature" delay={270}>
               <span className="auth-feature__icon" aria-hidden="true">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91 0Z" />
@@ -207,9 +248,9 @@ export default function LoginPage() {
               </span>
               <h3>Deploy</h3>
               <p>Push, build and deploy from Git.</p>
-            </article>
+            </Reveal>
 
-            <article className="auth-feature">
+            <Reveal as="article" className="auth-feature" delay={330}>
               <span className="auth-feature__icon auth-feature__icon--violet" aria-hidden="true">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -219,9 +260,9 @@ export default function LoginPage() {
               </span>
               <h3>Monitor</h3>
               <p>Track VPS, agents and service health.</p>
-            </article>
+            </Reveal>
 
-            <article className="auth-feature">
+            <Reveal as="article" className="auth-feature" delay={390}>
               <span className="auth-feature__icon auth-feature__icon--indigo" aria-hidden="true">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 7h16M4 12h16M4 17h16" />
@@ -232,9 +273,9 @@ export default function LoginPage() {
               </span>
               <h3>Manage</h3>
               <p>Control PM2 processes securely.</p>
-            </article>
+            </Reveal>
 
-            <article className="auth-feature">
+            <Reveal as="article" className="auth-feature" delay={450}>
               <span className="auth-feature__icon auth-feature__icon--violet" aria-hidden="true">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
@@ -243,19 +284,21 @@ export default function LoginPage() {
               </span>
               <h3>Notify</h3>
               <p>Get real-time alerts and updates.</p>
-            </article>
+            </Reveal>
           </div>
 
-          <ul className="auth-benefits" aria-label="Platform benefits">
+          <Reveal as="ul" className="auth-benefits" delay={510} aria-label="Platform benefits">
             <li>Secure Access</li>
             <li>Multi-tenant</li>
             <li>Real-time Control</li>
-          </ul>
+          </Reveal>
 
-          <p className="auth-brand__foot">Need access? Contact your HexTorq administrator.</p>
+          <Reveal as="p" className="auth-brand__foot" delay={560}>
+            Need access? Contact your HexTorq administrator.
+          </Reveal>
         </section>
 
-        <section className="auth-card" aria-labelledby="auth-title">
+        <Reveal as="section" className="auth-card" delay={150} aria-labelledby="auth-title">
           <p className="auth-eyebrow">HexTorq Cloud</p>
           <h2 id="auth-title" className="auth-title">
             Sign in to Cloud Console
@@ -380,7 +423,7 @@ export default function LoginPage() {
           )}
 
           <p className="auth-foot">Access is provisioned by your administrator.</p>
-        </section>
+        </Reveal>
       </div>
 
       <AuthFooter />

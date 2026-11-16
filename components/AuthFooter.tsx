@@ -1,6 +1,7 @@
 'use client';
 
 import Logo from './Logo';
+import Reveal from './Reveal';
 
 /**
  * Login-page footer. Spans the full width below the two columns and links
@@ -9,7 +10,7 @@ import Logo from './Logo';
 export default function AuthFooter() {
   return (
     <footer className="auth-footer">
-      <div className="auth-footer__brand">
+      <Reveal className="auth-footer__brand" delay={620}>
         <span className="auth-footer__logo">
           <Logo size="sm" />
           <span className="auth-footer__product">Cloud Console</span>
@@ -17,9 +18,9 @@ export default function AuthFooter() {
         <p className="auth-footer__description">
           A unified control plane for deployment, monitoring and operations.
         </p>
-      </div>
+      </Reveal>
 
-      <div className="auth-footer__links">
+      <Reveal className="auth-footer__links" delay={680}>
         <a
           className="auth-footer__link"
           href="https://hextorq.tech"
@@ -45,9 +46,11 @@ export default function AuthFooter() {
           </svg>
         </a>
         <span className="auth-footer__domain">hextorq.tech</span>
-      </div>
+      </Reveal>
 
-      <p className="auth-footer__copyright">&copy; 2026 HexTorq. All rights reserved.</p>
+      <Reveal as="p" className="auth-footer__copyright" delay={730}>
+        &copy; 2026 HexTorq. All rights reserved.
+      </Reveal>
     </footer>
   );
 }
