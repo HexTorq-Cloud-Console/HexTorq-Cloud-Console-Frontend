@@ -4,8 +4,8 @@ import Logo from './Logo';
 import Reveal from './Reveal';
 
 /**
- * Login-page footer. Spans the full width below the two columns and links
- * back to the main HexTorq site (opened in a new tab).
+ * Login-page footer. Spans the full width below the two columns: brand on the
+ * left, the copyright centred, and the link to the main site on the right.
  */
 export default function AuthFooter() {
   return (
@@ -20,7 +20,11 @@ export default function AuthFooter() {
         </p>
       </Reveal>
 
-      <Reveal className="auth-footer__links" delay={680}>
+      <Reveal as="p" className="auth-footer__copyright" delay={700}>
+        &copy; 2026 HexTorq. All rights reserved.
+      </Reveal>
+
+      <Reveal className="auth-footer__links" delay={740}>
         <a
           className="auth-footer__link"
           href="https://hextorq.tech"
@@ -46,10 +50,6 @@ export default function AuthFooter() {
           </svg>
         </a>
         <span className="auth-footer__domain">hextorq.tech</span>
-      </Reveal>
-
-      <Reveal as="p" className="auth-footer__copyright" delay={730}>
-        &copy; 2026 HexTorq. All rights reserved.
       </Reveal>
     </footer>
   );

@@ -146,44 +146,6 @@ export default function LoginPage() {
     setMessage('');
   }
 
-  // The login screen is exactly one screen tall, so the document itself must
-  // not scroll. Lenis (mounted at the app root) sets `height: auto` on the
-  // html element, which would otherwise leave a stray scrollbar behind. On
-  // small screens the screen is taller than the viewport, so scrolling stays
-  // available there.
-  const showLogin = sessionChecked && !token && !forcePasswordChange;
-  useEffect(() => {
-    if (!showLogin) return;
-    const html = document.documentElement;
-    const body = document.body;
-    const previousHtml = html.style.overflow;
-    const previousBody = body.style.overflow;
-    const previousGutter = html.style.scrollbarGutter;
-
-    const apply = () => {
-      const fits = document.documentElement.scrollHeight <= window.innerHeight + 1;
-      if (fits) {
-        html.style.overflow = 'hidden';
-        body.style.overflow = 'hidden';
-        html.style.scrollbarGutter = 'auto';
-      } else {
-        html.style.overflow = previousHtml;
-        body.style.overflow = previousBody;
-        html.style.scrollbarGutter = previousGutter;
-      }
-    };
-
-    const frame = requestAnimationFrame(apply);
-    window.addEventListener('resize', apply);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('resize', apply);
-      html.style.overflow = previousHtml;
-      body.style.overflow = previousBody;
-      html.style.scrollbarGutter = previousGutter;
-    };
-  }, [showLogin]);
-
   if (!sessionChecked || (token && !forcePasswordChange)) {
     return (
       <main className="auth-page">
