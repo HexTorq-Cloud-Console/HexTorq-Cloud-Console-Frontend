@@ -65,15 +65,15 @@
   --ht-danger: #d92d20;
   --ht-info: #2563eb;
 
-  /* Status tints (10% fill / 20% border) */
-  --ht-success-fill: rgba(15, 157, 110, 0.09);
-  --ht-success-line: rgba(15, 157, 110, 0.22);
-  --ht-warning-fill: rgba(180, 83, 9, 0.09);
-  --ht-warning-line: rgba(180, 83, 9, 0.22);
-  --ht-danger-fill: rgba(217, 45, 32, 0.08);
-  --ht-danger-line: rgba(217, 45, 32, 0.22);
-  --ht-info-fill: rgba(37, 99, 235, 0.08);
-  --ht-info-line: rgba(37, 99, 235, 0.2);
+  /* Status tints: readable surfaces for pills and inline state labels. */
+  --ht-success-fill: rgba(15, 157, 110, 0.14);
+  --ht-success-line: rgba(15, 157, 110, 0.3);
+  --ht-warning-fill: rgba(180, 83, 9, 0.14);
+  --ht-warning-line: rgba(180, 83, 9, 0.3);
+  --ht-danger-fill: rgba(217, 45, 32, 0.13);
+  --ht-danger-line: rgba(217, 45, 32, 0.3);
+  --ht-info-fill: rgba(37, 99, 235, 0.13);
+  --ht-info-line: rgba(37, 99, 235, 0.28);
   --ht-blue-fill: rgba(37, 99, 235, 0.09);
   --ht-blue-line: rgba(37, 99, 235, 0.26);
   --ht-violet-fill: rgba(124, 58, 237, 0.09);
@@ -177,14 +177,14 @@
   --ht-danger: #ff5c6c;
   --ht-info: #3b82f6;
 
-  --ht-success-fill: rgba(47, 208, 138, 0.1);
-  --ht-success-line: rgba(47, 208, 138, 0.2);
-  --ht-warning-fill: rgba(245, 184, 61, 0.1);
-  --ht-warning-line: rgba(245, 184, 61, 0.2);
-  --ht-danger-fill: rgba(255, 92, 108, 0.1);
-  --ht-danger-line: rgba(255, 92, 108, 0.25);
-  --ht-info-fill: rgba(59, 130, 246, 0.1);
-  --ht-info-line: rgba(59, 130, 246, 0.2);
+  --ht-success-fill: rgba(47, 208, 138, 0.16);
+  --ht-success-line: rgba(47, 208, 138, 0.32);
+  --ht-warning-fill: rgba(245, 184, 61, 0.16);
+  --ht-warning-line: rgba(245, 184, 61, 0.32);
+  --ht-danger-fill: rgba(255, 92, 108, 0.16);
+  --ht-danger-line: rgba(255, 92, 108, 0.34);
+  --ht-info-fill: rgba(59, 130, 246, 0.16);
+  --ht-info-line: rgba(59, 130, 246, 0.3);
   --ht-blue-fill: rgba(31, 94, 255, 0.12);
   --ht-blue-line: rgba(31, 94, 255, 0.35);
   --ht-violet-fill: rgba(123, 47, 214, 0.12);
