@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { AsciiReveal } from 'ascii-reveal';
+import { ASCII_REVEAL, ASCII_REVEAL_SHELL } from '../lib/asciiReveal';
 import { usePathname } from 'next/navigation';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
@@ -287,7 +288,7 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </span>
         </div>
 
-        <AsciiReveal as="nav" className="shell-nav" preset="dither" origin="top-left" speed={0.7} revealOnMount={revealSidebar}>
+        <AsciiReveal as="nav" className="shell-nav" {...ASCII_REVEAL_SHELL} revealOnMount={revealSidebar}>
           {groups.map((group) => (
             <div className="shell-group" key={group.label}>
               <p className="shell-group__label">
@@ -370,9 +371,9 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
           </div>
         </header>
 
-        <AsciiReveal as="main" key={pathname} className="shell-main" loading={loading} revealOnMount={!loading} preset="dither" origin="top-left" speed={0.7}>
+        <main key={pathname} className="shell-main" data-loaded={loading ? 'false' : 'true'}>
           {children}
-        </AsciiReveal>
+        </main>
       </div>
     </div>
   );

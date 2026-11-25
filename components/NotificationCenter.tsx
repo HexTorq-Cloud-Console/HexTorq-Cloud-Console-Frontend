@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AsciiReveal } from 'ascii-reveal';
+import { ASCII_REVEAL } from '../lib/asciiReveal';
 import { notificationTarget, useNotificationFeed, type AppNotification } from '../lib/notificationStore';
 
 function timeAgo(value: string) {
@@ -26,6 +28,16 @@ export default function NotificationCenter() {
   const { items, unreadCount, loading, error, toasts, refresh, markRead, markAllRead, dismissToast } = useNotificationFeed();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Client-side navigation keeps the console session intact and lets the
+  // target page pick up the deep link (for example the deployment drawer with
+  // its logs).
+  function goTo(target: string | null) {
+    if (!target) return;
+    if (target.startsWith('/')) router.push(target);
+    else window.location.assign(target);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +65,7 @@ export default function NotificationCenter() {
     if (!item.read) void markRead(item.id);
     const target = notificationTarget(item);
     setOpen(false);
-    if (target) window.location.assign(target);
+    goTo(target);
   }
 
   return (
@@ -76,7 +88,7 @@ export default function NotificationCenter() {
 
         {open && (
           <div className="notif-center__panel" data-lenis-prevent role="dialog" aria-label="Notifications">
-            <AsciiReveal preset="dither" origin="top-left" speed={0.7}>
+            <AsciiReveal {...ASCII_REVEAL}>
               <div className="notif-center__head">
                 <strong>Notifications</strong>
                 <div className="notif-center__actions">
@@ -118,7 +130,7 @@ export default function NotificationCenter() {
               key={toast.id}
               type="button"
               className={`notif-toast notif-toast--${kindFor(toast.type)}`}
-              onClick={() => { void markRead(toast.id); dismissToast(toast.id); const target = notificationTarget(toast); if (target) window.location.assign(target); }}
+              onClick={() => { void markRead(toast.id); dismissToast(toast.id); goTo(notificationTarget(toast)); }}
             >
               <span className="notif-toast__title">{toast.title}</span>
               {toast.body ? <span className="notif-toast__body">{toast.body}</span> : null}

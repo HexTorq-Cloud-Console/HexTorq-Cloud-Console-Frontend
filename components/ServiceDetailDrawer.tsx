@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Deployment, Pm2Status, Service } from '../types/api';
 import { AsciiReveal } from 'ascii-reveal';
+import { ASCII_REVEAL } from '../lib/asciiReveal';
 import { useScrollLock } from '../lib/useScrollLock';
 
 type Props = {
@@ -105,7 +106,7 @@ export default function ServiceDetailDrawer({
   return (
     <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside className="detail-drawer" data-lenis-prevent role="dialog" aria-modal="true" aria-label={`Details for ${service.name}`}>
-        <AsciiReveal preset="dither" origin="top-left" speed={0.7} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <AsciiReveal {...ASCII_REVEAL} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <header className="detail-drawer__header">
           <div className="detail-drawer__title">
             <p className="eyebrow">SERVICE DETAILS</p>

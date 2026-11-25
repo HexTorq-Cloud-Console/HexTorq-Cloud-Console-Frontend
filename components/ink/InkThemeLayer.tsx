@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { usePathname } from 'next/navigation';
 import { InkTransition, type Point } from './InkTransition';
 
 /**
@@ -27,22 +26,22 @@ export function requestInkThemeToggle(point?: Point): boolean {
 
 export default function InkThemeLayer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pathname = usePathname();
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ink = new InkTransition(canvas);
     inkRef.current = ink;
-    // Snapshots are captured while the browser is idle (see InkTransition), so this
-    // only needs to nudge a refresh after the navigation has painted.
-    ink.refresh(600);
-
+    // The transition is deliberately NOT recreated on navigation and it does not
+    // capture snapshots in the background: rebuilding it disposed the GPU
+    // textures and forced a fresh pair of full-page html2canvas snapshots on
+    // every route change, which was the source of the background jank. The
+    // theme switch captures on demand instead.
     return () => {
       ink.destroy();
       if (inkRef.current === ink) inkRef.current = null;
     };
-  }, [pathname]);
+  }, []);
 
   return <canvas ref={canvasRef} className="ink-canvas" aria-hidden="true" data-html2canvas-ignore="true" />;
 }

@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import Logo from './Logo';
+import AuthFooter from './AuthFooter';
+import Reveal from './Reveal';
 import PasswordChange from './PasswordChange';
 import ThemeToggle from './ThemeToggle';
 import { apiUrl, errorMessage, TOKEN_KEY, responseJson } from '../lib/api';
@@ -178,67 +180,87 @@ export default function LoginPage() {
 
       <div className="auth-shell">
         <section className="auth-brand">
-          <div className="auth-brand__head">
+          <Reveal className="auth-brand__head" delay={0}>
             <Logo size="md" />
             <span className="auth-brand__chip">Cloud Console</span>
-          </div>
+          </Reveal>
 
-          <p className="auth-tagline">
+          <Reveal as="p" className="auth-tagline" delay={70}>
             Code <span className="is-sep">•</span> <span className="is-accent">Innovate</span>{' '}
             <span className="is-sep">•</span> Elevate
-          </p>
+          </Reveal>
 
-          <h1 className="auth-headline">
-            Enterprise multi-tenant VPS orchestration &amp; instant Git deployment pipeline.
-          </h1>
+          <Reveal as="h1" className="auth-headline" delay={130}>
+            HexTorq Cloud Console
+          </Reveal>
 
-          <p className="auth-lede">
-            Deterministic node virtualization, sub-second rollout automation, and high-frequency real-time
-            telemetry built for high-throughput engineering teams.
-          </p>
+          <Reveal as="p" className="auth-lede" delay={200}>
+            A unified control plane to deploy, monitor, and manage your applications and infrastructure.
+          </Reveal>
 
           <div className="auth-features">
-            <article className="auth-feature">
+            <Reveal as="article" className="auth-feature" delay={270}>
               <span className="auth-feature__icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91 0Z" />
                   <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z" />
                   <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
                   <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
                 </svg>
               </span>
-              <h3>One-click Git deploys</h3>
-              <p>Automated zero-downtime rolling releases triggered from GitHub/GitLab pushes.</p>
-            </article>
+              <h3>Deploy</h3>
+              <p>Push, build and deploy from Git.</p>
+            </Reveal>
 
-            <article className="auth-feature">
+            <Reveal as="article" className="auth-feature" delay={330}>
               <span className="auth-feature__icon auth-feature__icon--violet" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="3" width="20" height="14" rx="2" />
                   <path d="M8 21h8M12 17v4" />
                   <path d="m7 8 3 2.5L7 13" />
                 </svg>
               </span>
-              <h3>Live PM2 controls</h3>
-              <p>Real-time telemetry, memory &amp; CPU tracking, instant process restarts and hot reloads.</p>
-            </article>
+              <h3>Monitor</h3>
+              <p>Track VPS, agents and service health.</p>
+            </Reveal>
 
-            <article className="auth-feature">
+            <Reveal as="article" className="auth-feature" delay={390}>
               <span className="auth-feature__icon auth-feature__icon--indigo" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                  <circle cx="12" cy="12" r="3" />
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                  <circle cx="9" cy="7" r="2" />
+                  <circle cx="15" cy="12" r="2" />
+                  <circle cx="8" cy="17" r="2" />
                 </svg>
               </span>
-              <h3>Scheduled webhooks</h3>
-              <p>Proactive uptime monitoring, automated failover pings, and multi-channel alerts.</p>
-            </article>
+              <h3>Manage</h3>
+              <p>Control PM2 processes securely.</p>
+            </Reveal>
+
+            <Reveal as="article" className="auth-feature" delay={450}>
+              <span className="auth-feature__icon auth-feature__icon--violet" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </span>
+              <h3>Notify</h3>
+              <p>Get real-time alerts and updates.</p>
+            </Reveal>
           </div>
 
-          <p className="auth-brand__foot">Need access? Contact your HexTorq administrator.</p>
+          <Reveal as="ul" className="auth-benefits" delay={510} aria-label="Platform benefits">
+            <li>Secure Access</li>
+            <li>Multi-tenant</li>
+            <li>Real-time Control</li>
+          </Reveal>
+
+          <Reveal as="p" className="auth-brand__foot" delay={560}>
+            Need access? Contact your HexTorq administrator.
+          </Reveal>
         </section>
 
-        <section className="auth-card" aria-labelledby="auth-title">
+        <Reveal as="section" className="auth-card" delay={150} aria-labelledby="auth-title">
           <p className="auth-eyebrow">HexTorq Cloud</p>
           <h2 id="auth-title" className="auth-title">
             Sign in to Cloud Console
@@ -363,8 +385,10 @@ export default function LoginPage() {
           )}
 
           <p className="auth-foot">Access is provisioned by your administrator.</p>
-        </section>
+        </Reveal>
       </div>
+
+      <AuthFooter />
 
       {googleClientId && <Script src="https://accounts.google.com/gsi/client" onLoad={initializeGoogle} />}
     </main>

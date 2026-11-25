@@ -1,5 +1,5 @@
 import { tween, type TweenLike } from './tween';
-import { capturePage, layoutKey, renderScale } from './capture';
+import { capturePage, isHeavyDocument, layoutKey, renderScale } from './capture';
 import { inkParams } from './gl/params';
 import { InkRenderer, type InkFrame, type InkSource } from './gl/renderer';
 import { applyTheme, getTheme, otherTheme, type Theme } from './theme';
@@ -52,6 +52,8 @@ export class InkTransition {
   private captureTimer = 0;
   private toggleGen = 0;
   private lastInteraction = 0;
+  /** Background snapshots are opt-in; see scheduleCapture. */
+  private autoCapture = false;
   private disposers: Array<() => void> = [];
 
   constructor(canvas: HTMLCanvasElement) {
@@ -135,6 +137,15 @@ export class InkTransition {
       return;
     }
 
+    // A long page is not worth snapshotting: the capture would block the main
+    // thread for hundreds of milliseconds. Switch with the short CSS cross-fade
+    // instead, which is instant and smooth.
+    if (isHeavyDocument()) {
+      this.cancel();
+      this.applyNow(to, true);
+      return;
+    }
+
     const valid = renderer.hasValid(to, key) && (interrupting || renderer.hasValid(getTheme(), key));
     if (valid) {
       if (gen === this.toggleGen) this.spreadInk(point, seed, interrupting);
@@ -154,7 +165,7 @@ export class InkTransition {
     // Capture on demand, then spread. A short retry loop covers the cases where the
     // capture was deferred — e.g. a reveal animation was still running.
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      await this.captureAll(attempt > 0);
+      await this.captureAll(true);
       if (gen !== this.toggleGen) return; // a newer click took over
       const key2 = layoutKey(renderScale());
       if (renderer.hasValid(to, key2) && renderer.hasValid(getTheme(), key2)) {
@@ -303,6 +314,12 @@ export class InkTransition {
    * never waits for one: a click that finds no snapshot captures on demand first.
    */
   private scheduleCapture(delay: number): void {
+    // Background captures are off by default. html2canvas clones and re-renders
+    // the whole document twice, which blocks the main thread for hundreds of
+    // milliseconds; doing that on a resize, a navigation or an idle tick is
+    // what made the console feel busy in the background. The theme switch
+    // captures on demand instead.
+    if (!this.autoCapture) return;
     window.clearTimeout(this.captureTimer);
     this.captureTimer = window.setTimeout(() => {
       const run = (): void => void this.captureAll();
@@ -337,6 +354,11 @@ export class InkTransition {
   private async runCapture(force: boolean): Promise<void> {
     const renderer = this.renderer;
     if (!renderer || renderer.isLost || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    // Long pages are never snapshotted. The capture clones and re-renders the
+    // whole document twice, which is what made the console feel like it was
+    // struggling in the background.
+    if (isHeavyDocument()) return;
 
     // Capturing blocks the main thread; never do it mid-animation (or mid CSS fade, which
     // would bake half-transitioned colours into the snapshot).

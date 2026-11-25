@@ -4,12 +4,15 @@
 .auth-page {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
+  height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
-  padding: 48px 24px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  padding: clamp(10px, 2.1vh, 24px) 24px clamp(8px, 1.5vh, 16px);
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--ht-canvas);
   color: var(--ht-text);
 }
@@ -25,6 +28,11 @@
 .auth-center-card,
 .auth-loading {
   margin-block: auto;
+}
+
+/* The shell sits above the full-width footer, so it keeps its own spacing. */
+.auth-page > .auth-shell {
+  margin-block: 0;
 }
 
 .auth-glow {
@@ -56,9 +64,11 @@
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   align-items: center;
-  gap: 72px;
+  gap: clamp(28px, 4vw, 56px);
   width: 100%;
   max-width: 1240px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* ------------------------------------------------------------- Brand panel */
@@ -66,7 +76,7 @@
 .auth-brand {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: clamp(7px, 1.5vh, 16px);
   min-width: 0;
 }
 
@@ -112,29 +122,29 @@
 
 .auth-headline {
   margin: 0;
-  max-width: 17ch;
-  font: 700 clamp(30px, 3.2vw, 44px) / 1.12 var(--ht-font-heading);
-  letter-spacing: -0.03em;
+  max-width: 24ch;
+  font: 700 clamp(22px, 4.4vh, 34px) / 1.12 var(--ht-font-heading);
+  letter-spacing: -0.025em;
   color: var(--ht-text);
 }
 
 .auth-lede {
   margin: 0;
-  max-width: 54ch;
-  font: 400 15px/24px var(--ht-font-body);
+  max-width: 52ch;
+  font: 400 clamp(12px, 1.85vh, 14px) / clamp(18px, 2.5vh, 22px) var(--ht-font-body);
   color: var(--ht-text-secondary);
 }
 
 .auth-features {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(6px, 1.1vh, 10px);
+  margin-top: 2px;
 }
 
 .auth-feature {
   min-width: 0;
-  padding: 16px;
+  padding: clamp(8px, 1.4vh, 12px) 13px;
   border: 1px solid var(--ht-line);
   border-radius: var(--ht-radius-md);
   background: var(--ht-card);
@@ -143,9 +153,9 @@
 .auth-feature__icon {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-bottom: 12px;
+  width: clamp(20px, 2.7vh, 24px);
+  height: clamp(20px, 2.7vh, 24px);
+  margin-bottom: clamp(5px, 0.9vh, 8px);
   border-radius: var(--ht-radius);
   background: var(--ht-blue-fill);
   color: var(--ht-link);
@@ -162,21 +172,208 @@
 }
 
 .auth-feature h3 {
-  margin: 0 0 4px;
-  font: 600 13px/18px var(--ht-font-heading);
+  margin: 0 0 3px;
+  font: 600 12px/17px var(--ht-font-heading);
   color: var(--ht-text);
 }
 
 .auth-feature p {
   margin: 0;
-  font: 400 11px/16px var(--ht-font-body);
+  font: 400 11px/15px var(--ht-font-body);
   color: var(--ht-text-muted);
 }
 
 .auth-brand__foot {
-  margin: 4px 0 0;
+  margin: 0;
+  font: 400 11px/16px var(--ht-font-body);
+  color: var(--ht-text-muted);
+}
+
+/* Benefits strip — Secure Access | Multi-tenant | Real-time Control */
+.auth-benefits {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-benefits li {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font: 600 11px/16px var(--ht-font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ht-text-secondary);
+}
+
+.auth-benefits li + li::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ht-violet);
+  opacity: 0.7;
+}
+
+/* ------------------------------------------------------------------ Footer */
+
+.auth-footer {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 28px;
+  gap: 12px 28px;
+  width: 100%;
+  max-width: 1240px;
+  margin-top: clamp(8px, 1.8vh, 20px);
+  padding: clamp(8px, 1.4vh, 16px) 2px 2px;
+  border-top: 1px solid var(--ht-line);
+}
+
+.auth-footer__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.auth-footer__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-footer__product {
+  color: var(--ht-text-secondary);
+  font: 600 10px/16px var(--ht-font-body);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.auth-footer__description {
+  margin: 0;
+  max-width: 40ch;
   font: 400 12px/18px var(--ht-font-body);
   color: var(--ht-text-muted);
+}
+
+.auth-footer__links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.auth-footer__copyright {
+  justify-self: center;
+  text-align: center;
+}
+
+.auth-footer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ht-violet-text);
+  font: 600 13px/18px var(--ht-font-body);
+  text-decoration: none;
+  transition: color var(--ht-transition);
+}
+
+.auth-footer__link:hover {
+  color: var(--ht-violet);
+  text-decoration: underline;
+}
+
+.auth-footer__link:focus-visible {
+  outline: 2px solid var(--ht-line-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.auth-footer__external {
+  flex: 0 0 auto;
+}
+
+.auth-footer__domain {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--ht-violet-line);
+  border-radius: var(--ht-radius-pill);
+  background: var(--ht-violet-fill);
+  color: var(--ht-violet-text);
+  font: 500 11px/16px var(--ht-font-mono);
+}
+
+.auth-footer__copyright {
+  margin: 0;
+  color: var(--ht-text-muted);
+  font: 400 12px/18px var(--ht-font-body);
+}
+
+/* ---------------------------------------------------------- Reveal motion */
+/* The element is visible until it is armed, so a failed script can never hide
+   the login form. Transform + opacity only, so the reveal stays smooth while
+   Lenis drives the scroll. */
+.reveal {
+  opacity: 1;
+  transform: none;
+}
+
+.reveal.is-armed {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+
+.reveal.is-revealed {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 820ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 820ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.is-armed,
+  .reveal.is-revealed {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* The login screen is a single fixed page: no document scrollbar and no
+   reserved gutter strip. Lenis (mounted at the app root) sets `height: auto`
+   on the html element, so this has to be declared here. */
+html:has(.auth-page) {
+  scrollbar-gutter: auto;
+}
+
+@media (min-width: 561px) and (min-height: 681px) {
+  html:has(.auth-page),
+  html:has(.auth-page) body {
+    overflow: hidden;
+  }
+}
+
+/* Very short viewports cannot show the whole screen at once, so they scroll. */
+@media (min-width: 561px) and (max-height: 680px) {
+  .auth-page {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
 }
 
 /* ------------------------------------------------------------------ Card */
@@ -186,7 +383,7 @@
   width: 100%;
   max-width: 460px;
   justify-self: end;
-  padding: 34px;
+  padding: clamp(16px, 3vh, 28px);
   border: 1px solid var(--ht-line);
   border-radius: var(--ht-radius-lg);
   background: var(--ht-card);
@@ -217,14 +414,14 @@
 
 .auth-title {
   margin: 0;
-  font: 700 24px/32px var(--ht-font-heading);
+  font: 700 clamp(18px, 3.4vh, 24px) / clamp(24px, 4.2vh, 32px) var(--ht-font-heading);
   letter-spacing: -0.02em;
   color: var(--ht-text);
 }
 
 .auth-sub {
-  margin: 8px 0 0;
-  font: 400 13px/20px var(--ht-font-body);
+  margin: clamp(5px, 0.9vh, 8px) 0 0;
+  font: 400 clamp(12px, 1.75vh, 13px) / clamp(18px, 2.4vh, 20px) var(--ht-font-body);
   color: var(--ht-text-secondary);
 }
 
@@ -362,9 +559,59 @@
   transition: filter var(--ht-transition), box-shadow var(--ht-transition);
 }
 
+.auth-submit {
+  position: relative;
+  overflow: hidden;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), filter 220ms ease, box-shadow 220ms ease;
+}
+
 .auth-submit:hover:not(:disabled) {
   filter: brightness(1.1);
   box-shadow: var(--ht-glow-blue);
+  transform: translateY(-1px);
+}
+
+.auth-submit:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  filter: brightness(0.97);
+  transition-duration: 90ms;
+}
+
+/* A soft sheen sweeps across the button on hover. */
+.auth-submit::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: translateX(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.auth-submit:hover:not(:disabled)::after {
+  opacity: 1;
+  animation: auth-sheen 900ms ease-out;
+}
+
+@keyframes auth-sheen {
+  from { transform: translateX(0); }
+  to { transform: translateX(320%); }
+}
+
+.auth-card {
+  transition: box-shadow 420ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ht-shadow-3), var(--ht-glow-blue);
+}
+
+.auth-input-wrap {
+  transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
 }
 
 .auth-submit:disabled {
@@ -620,13 +867,18 @@
 
 @media (max-width: 1024px) {
   .auth-page {
-    padding: 40px 20px;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 40px 20px 28px;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .auth-shell {
     grid-template-columns: 1fr;
     gap: 32px;
-    max-width: 560px;
+    max-width: 620px;
   }
 
   .auth-card,
@@ -636,29 +888,192 @@
   }
 
   .auth-features {
-    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .auth-headline {
     max-width: none;
     font-size: 30px;
   }
+
+  .auth-footer {
+    max-width: 620px;
+    margin-top: 32px;
+  }
+}
+
+/* Short laptop screens: let the page scroll instead of clipping the content. */
+@media (min-width: 1025px) and (max-height: 720px) {
+  .auth-page {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
 }
 
 @media (max-width: 560px) {
   .auth-page {
-    padding: 24px 14px;
+    padding: 16px 14px 14px;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .auth-shell {
+    flex: 0 0 auto;
+  }
+
+  .auth-tagline {
+    display: none;
+  }
+
+  .auth-feature p {
+    display: none;
+  }
+
+  .auth-feature__icon {
+    margin-bottom: 6px;
+  }
+
+  /* Compact so the whole login still fits one screen on a phone. */
+  .auth-page {
+    padding: 14px 14px 12px;
+  }
+
+  .auth-shell {
+    gap: 12px;
+  }
+
+  .auth-brand {
+    gap: 10px;
+  }
+
+  .auth-features {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .auth-feature {
+    padding: 8px 6px;
+  }
+
+  .auth-feature__icon {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 4px;
+  }
+
+  .auth-feature h3 {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  .auth-lede {
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .auth-benefits {
+    display: none;
   }
 
   .auth-card {
-    padding: 26px 20px;
+    padding: 13px 14px;
+  }
+
+  .auth-sub {
+    display: none;
+  }
+
+  .auth-form {
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .auth-input {
+    height: 38px;
+  }
+
+  .auth-submit {
+    height: 38px;
+  }
+
+  .auth-divider {
+    margin: 10px 0 8px;
+  }
+
+  .auth-google {
+    min-height: 38px;
+  }
+
+  .auth-foot {
+    display: none;
+  }
+
+  .auth-footer {
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .auth-footer__brand {
+    display: none;
+  }
+
+  .auth-footer__description {
+    display: none;
+  }
+
+  .auth-footer {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .auth-footer__brand,
+  .auth-footer__links {
+    justify-self: center;
+  }
+
+  .auth-card {
+    padding: 22px 18px;
   }
 
   .auth-brand {
     gap: 18px;
   }
 
+  .auth-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .auth-feature {
+    padding: 12px;
+  }
+
+  .auth-benefits {
+    gap: 8px 12px;
+  }
+
+  .auth-benefits li {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
   .auth-brand__foot {
     display: none;
+  }
+
+  .auth-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-top: 26px;
+    padding-top: 18px;
   }
 }

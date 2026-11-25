@@ -64,6 +64,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [pm2Status, setPm2Status] = useState<Record<string, Pm2Status>>(() => readConsoleCache(token)?.pm2Status ?? {});
   const [pm2FetchedAt, setPm2FetchedAt] = useState<Record<string, string>>(() => readConsoleCache(token)?.pm2FetchedAt ?? {});
   const [selectedDeployment, setSelectedDeployment] = useState<string | null>(null);
+  const [deepLinkDeployment, setDeepLinkDeployment] = useState<Deployment | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [pm2Confirm, setPm2Confirm] = useState<{ serviceId: string; action: string } | null>(null);
   const [forceDeployService, setForceDeployService] = useState<Service | null>(null);
@@ -411,18 +412,38 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     if (match) setSelectedService(match);
   }, [section, services]);
 
-  // Deep link from a browser notification: /deployments?deployment=<id> opens
-  // the full deployment record once the history has loaded.
+  // Deep link from a notification: /deployments?deployment=<id> opens the full
+  // deployment record (with its log) once the history has loaded. A record that
+  // is older than the loaded page is fetched directly so the panel still opens.
   useEffect(() => {
     if (section !== 'deployments' || deployments.length === 0) return;
     const requested = new URLSearchParams(window.location.search).get('deployment');
     if (!requested) return;
-    if (!deployments.some((deployment) => deployment.id === requested)) return;
-    setSelectedDeployment(requested);
+    const known = deployments.some((deployment) => deployment.id === requested);
+    if (known) {
+      setSelectedDeployment(requested);
+    } else {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const response = await fetch(`${apiUrl}/deployments/${encodeURIComponent(requested)}/logs`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!response.ok) return;
+          const data = await responseJson<{ deployment?: Deployment }>(response);
+          if (cancelled || !data.deployment) return;
+          setDeepLinkDeployment(data.deployment);
+          setSelectedDeployment(requested);
+        } catch {
+          // A missing deployment simply does not open the panel.
+        }
+      })();
+      return () => { cancelled = true; };
+    }
     const url = new URL(window.location.href);
     url.searchParams.delete('deployment');
     window.history.replaceState({}, '', url.toString());
-  }, [deployments, section]);
+  }, [deployments, section, token]);
 
   useEffect(() => {
     try {
@@ -869,7 +890,8 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     setSelectedService(null);
   }
 
-  const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment);
+  const selectedDeploymentRecord = deployments.find((deployment) => deployment.id === selectedDeployment)
+    || (deepLinkDeployment && deepLinkDeployment.id === selectedDeployment ? deepLinkDeployment : null);
   const visibleDeploymentLogs = deploymentLogFilter
     ? deploymentLogs.filter((log) => log.message.toLowerCase().includes(deploymentLogFilter.toLowerCase()))
     : deploymentLogs;

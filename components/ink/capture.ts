@@ -39,6 +39,20 @@ export function documentSize(): { width: number; height: number } {
 }
 
 /**
+ * A long page is expensive to snapshot: html2canvas clones and re-renders the
+ * whole document twice (once per theme), which blocks the main thread for
+ * hundreds of milliseconds and competes with everything else on screen.
+ *
+ * Pages above this height skip the snapshot and use the short CSS cross-fade
+ * for the theme switch instead.
+ */
+export const HEAVY_DOCUMENT_HEIGHT = 2200;
+
+export function isHeavyDocument(): boolean {
+  return document.documentElement.scrollHeight > HEAVY_DOCUMENT_HEIGHT;
+}
+
+/**
  * Identifies the layout a snapshot depends on. Viewport height is deliberately
  * excluded (mobile URL-bar show/hide changes it without reflowing the document).
  */
