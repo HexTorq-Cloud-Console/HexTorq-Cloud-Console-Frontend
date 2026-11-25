@@ -5,9 +5,11 @@ import type { Client } from '../../types/api';
 export default function AdminClientsSection({
   clients,
   onCreate,
+  onToggleDatabaseBackups,
 }: {
   clients: Client[];
   onCreate: () => void;
+  onToggleDatabaseBackups: (client: Client, enabled: boolean) => void;
 }) {
   return (
     <div className="active-list" id="admin-clients">
@@ -34,6 +36,9 @@ export default function AdminClientsSection({
             <span className="row-meta">
               {client._count.services} services / {client._count.accessEntries ?? 0} access
             </span>
+            <button type="button" onClick={() => onToggleDatabaseBackups(client, !client.databaseBackupEnabled)}>
+              DB dumps: {client.databaseBackupEnabled ? 'On' : 'Off'}
+            </button>
           </div>
         ))
       )}

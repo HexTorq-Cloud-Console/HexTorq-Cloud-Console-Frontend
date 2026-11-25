@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Deployment, Pm2Status, Service } from '../types/api';
+import PremiumIcon from './PremiumIcon';
 
 type ServicesViewProps = {
   services: Service[];
@@ -71,7 +72,7 @@ export default function ServicesView({ services, deployments, pm2Status, role, d
           <h2 id="services-title">Services <span>{services.length} total</span></h2>
           <p>Manage application processes, Git deployments, and runtime environments.</p>
         </div>
-        <button className="ht-btn ht-btn--secondary" type="button" onClick={() => window.location.reload()}>↻ Refresh status</button>
+         <button className="ht-btn ht-btn--secondary" type="button" onClick={() => window.location.reload()}><PremiumIcon name="refresh" size={15} /> Refresh status</button>
       </header>
 
       <div className="services-toolbar">
@@ -83,7 +84,7 @@ export default function ServicesView({ services, deployments, pm2Status, role, d
           ))}
         </div>
         <label className="services-search">
-          <span aria-hidden="true">⌕</span>
+           <PremiumIcon name="search" size={15} />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter services by name, branch, repository, or project key..." aria-label="Filter services" />
         </label>
       </div>
@@ -100,7 +101,7 @@ export default function ServicesView({ services, deployments, pm2Status, role, d
             return (
               <article className={`service-tile${service.enabled ? '' : ' is-disabled'}${agentOffline ? ' is-agent-offline' : ''}`} key={service.id}>
                 <button type="button" className="service-tile__head" onClick={() => onDetails(service)} aria-label={`Open details for ${service.name}`}>
-                  <span className={`service-tile__icon service-tile__icon--${service.type === 'PM2' ? 'pm2' : 'static'}`} aria-hidden="true">{service.type === 'PM2' ? '▣' : '▤'}</span>
+                   <span className={`service-tile__icon service-tile__icon--${service.type === 'PM2' ? 'pm2' : 'static'}`} aria-hidden="true"><PremiumIcon name={service.type === 'PM2' ? 'process' : 'static'} size={19} /></span>
                   <span className="service-tile__name"><strong>{service.name}</strong><small>{service.type === 'PM2' ? 'PM2 process' : 'Static frontend'}</small></span>
                   <span className={`ht-pill ${service.enabled ? 'ht-pill--success' : 'ht-pill--danger'}`}><span className="ht-dot" /> {service.enabled ? 'ENABLED' : 'DISABLED'}</span>
                 </button>
@@ -126,7 +127,7 @@ export default function ServicesView({ services, deployments, pm2Status, role, d
                     ) : (
                       <>Runtime telemetry unavailable</>
                     )
-                  ) : <>◈ static frontend <span>·</span> {service.deployDirectory || service.workingDirectory}</>}
+                   ) : <><PremiumIcon name="static" size={13} /> static frontend <span>·</span> {service.deployDirectory || service.workingDirectory}</>}
                 </div>
                 <div className="service-tile__footer">
                   {service.type === 'PM2' && service.enabled && !agentOffline && (
@@ -147,7 +148,7 @@ export default function ServicesView({ services, deployments, pm2Status, role, d
                   <div className="service-tile__actions">
                     <button className="ht-btn ht-btn--primary" type="button" onClick={() => onDeploy(service.id)} disabled={!service.enabled || busy}>{busy ? 'Deploying...' : service.type === 'PM2' && status?.status === 'stopped' ? 'Start & deploy' : 'Normal deploy'}</button>
                     <button className="ht-btn ht-btn--secondary" type="button" onClick={() => onForceDeploy(service.id)} disabled={!service.enabled || busy}>Force</button>
-                    {service.type === 'PM2' && <button className="ht-btn ht-btn--icon" type="button" onClick={() => onLogs(service)} aria-label={`View live logs for ${service.name}`}>▤</button>}
+                     {service.type === 'PM2' && <button className="ht-btn ht-btn--icon" type="button" onClick={() => onLogs(service)} aria-label={`View live logs for ${service.name}`}><PremiumIcon name="logs" size={15} /></button>}
                   </div>
                 </div>
               </article>
@@ -156,7 +157,7 @@ export default function ServicesView({ services, deployments, pm2Status, role, d
         </div>
       )}
 
-      <footer className="services-footer"><span>◫ Runtime service registry</span><span>{services.filter((service) => service.enabled).length} enabled · {services.filter((service) => service.type === 'PM2').length} PM2 · {services.filter((service) => service.type === 'STATIC_FRONTEND').length} static</span></footer>
+       <footer className="services-footer"><span><PremiumIcon name="registry" size={14} /> Runtime service registry</span><span>{services.filter((service) => service.enabled).length} enabled · {services.filter((service) => service.type === 'PM2').length} PM2 · {services.filter((service) => service.type === 'STATIC_FRONTEND').length} static</span></footer>
     </section>
   );
 }

@@ -6,12 +6,13 @@ import { AsciiReveal } from 'ascii-reveal';
 import type { Service } from '../types/api';
 import { FOCUS_SERVICE_KEY, SECTION_PATHS, type ConsoleSection } from '../lib/sections';
 import { useScrollLock } from '../lib/useScrollLock';
+import PremiumIcon, { type PremiumIconName } from './PremiumIcon';
 
 type PaletteItem = {
   id: string;
   label: string;
   hint?: string;
-  icon?: string;
+  icon?: PremiumIconName;
 };
 
 type Props = {
@@ -48,27 +49,27 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
 
   const commands = useMemo<PaletteItem[]>(() => {
     const navItems: PaletteItem[] = [
-      { id: 'overview', label: 'Go to Overview', hint: 'Overview dashboard', icon: '◫' },
-      { id: 'services-list', label: 'Go to Services', hint: 'Service registry', icon: '▣' },
-      { id: 'deployments-list', label: 'Go to Deployments', hint: 'Deployment history', icon: '⌁' },
+       { id: 'overview', label: 'Go to Overview', hint: 'Overview dashboard', icon: 'overview' },
+       { id: 'services-list', label: 'Go to Services', hint: 'Service registry', icon: 'registry' },
+       { id: 'deployments-list', label: 'Go to Deployments', hint: 'Deployment history', icon: 'deployments' },
     ];
     if (!isAdmin) {
-      navItems.push({ id: 'health-list', label: 'Go to Webhook Health', hint: 'Health checks', icon: '⌁' });
-      navItems.push({ id: 'access-list', label: 'Go to Access Credentials', hint: 'Credential vault', icon: '♢' });
-      navItems.push({ id: 'alerts-list', label: 'Go to Alerts', hint: 'Session alerts', icon: '!' });
+       navItems.push({ id: 'health-list', label: 'Go to Webhook Health', hint: 'Health checks', icon: 'health' });
+       navItems.push({ id: 'access-list', label: 'Go to Access Credentials', hint: 'Credential vault', icon: 'access' });
+       navItems.push({ id: 'alerts-list', label: 'Go to Alerts', hint: 'Session alerts', icon: 'alerts' });
     } else {
-      navItems.push({ id: 'admin', label: 'Go to Admin Overview', hint: 'Control plane summary', icon: '◉' });
-      navItems.push({ id: 'admin-clients', label: 'Go to Clients', hint: 'Client accounts', icon: '◉' });
-      navItems.push({ id: 'admin-agents', label: 'Go to VPS Agents', hint: 'Connected servers', icon: '▣' });
-      navItems.push({ id: 'admin-services', label: 'Go to All Services', hint: 'Every managed pipeline', icon: '⬡' });
-      navItems.push({ id: 'admin-access', label: 'Go to Access Management', hint: 'SFTP & database credentials', icon: '♢' });
-      navItems.push({ id: 'admin-notifications', label: 'Go to Notifications', hint: 'Push & email alerts', icon: '◉' });
+       navItems.push({ id: 'admin', label: 'Go to Admin Overview', hint: 'Control plane summary', icon: 'overview' });
+       navItems.push({ id: 'admin-clients', label: 'Go to Clients', hint: 'Client accounts', icon: 'clients' });
+       navItems.push({ id: 'admin-agents', label: 'Go to VPS Agents', hint: 'Connected servers', icon: 'agents' });
+       navItems.push({ id: 'admin-services', label: 'Go to All Services', hint: 'Every managed pipeline', icon: 'registry' });
+       navItems.push({ id: 'admin-access', label: 'Go to Access Management', hint: 'SFTP & database credentials', icon: 'access' });
+       navItems.push({ id: 'admin-notifications', label: 'Go to Notifications', hint: 'Push & email alerts', icon: 'alerts' });
     }
     const serviceItems: PaletteItem[] = services.map((service) => ({
       id: `service-${service.id}`,
       label: `Open ${service.name}`,
       hint: `${service.type === 'PM2' ? 'PM2' : 'Static'} · ${service.enabled ? 'enabled' : 'disabled'}`,
-      icon: service.type === 'PM2' ? '▣' : '▤',
+       icon: service.type === 'PM2' ? 'process' : 'static',
     }));
     return [...navItems, ...serviceItems];
   }, [isAdmin, services]);
@@ -150,7 +151,7 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => run(item)}
                 >
-                  <span className="command-palette__icon" aria-hidden="true">{item.icon}</span>
+                   <span className="command-palette__icon" aria-hidden="true">{item.icon && <PremiumIcon name={item.icon} size={16} />}</span>
                   <span className="command-palette__label">{item.label}</span>
                   <span className="command-palette__hint">{item.hint}</span>
                 </button>

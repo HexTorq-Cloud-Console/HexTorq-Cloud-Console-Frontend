@@ -8,7 +8,8 @@ export default function AdminAccessSection({
   onCreate,
   onView,
   onEdit,
-  onDelete,
+   onDelete,
+   onToggleBackup,
 }: {
   accessEntries: ClientAccess[];
   error: string;
@@ -16,6 +17,7 @@ export default function AdminAccessSection({
   onView: (access: ClientAccess) => void;
   onEdit: (access: ClientAccess) => void;
   onDelete: (access: ClientAccess) => void;
+  onToggleBackup: (access: ClientAccess, enabled: boolean) => void;
 }) {
   return (
     <div className="active-list admin-access" id="admin-access">
@@ -46,6 +48,7 @@ export default function AdminAccessSection({
             </div>
             <span className="row-meta">{access.enabled ? 'Enabled' : 'Disabled'}</span>
             <div className="row-actions">
+              {access.type === 'DATABASE' && <button onClick={() => onToggleBackup(access, !access.databaseBackupEnabled)}>Dump: {access.databaseBackupEnabled ? 'On' : 'Off'}</button>}
               <button onClick={() => onView(access)}>View</button>
               <button onClick={() => onEdit(access)}>Edit</button>
               <button onClick={() => onDelete(access)}>Delete</button>

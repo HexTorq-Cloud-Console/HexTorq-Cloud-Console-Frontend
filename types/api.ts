@@ -258,6 +258,7 @@ export type ClientAccess = {
   sslMode?: string | null;
   notes?: string | null;
   enabled: boolean;
+  databaseBackupEnabled?: boolean;
   client?: { id: string; name: string; email: string };
   createdAt: string;
   updatedAt: string;
@@ -276,7 +277,7 @@ export type AccessForm = {
   notes: string;
   enabled: boolean;
 };
-export type Client = { id: string; name: string; email: string; enabled?: boolean; _count: { services: number; accessEntries: number } };
+export type Client = { id: string; name: string; email: string; enabled?: boolean; databaseBackupEnabled?: boolean; _count: { services: number; accessEntries: number } };
 export type ClientNotificationStatus = {
   clientId: string;
   name: string;

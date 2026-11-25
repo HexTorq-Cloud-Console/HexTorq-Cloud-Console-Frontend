@@ -442,6 +442,26 @@ function AdminPanel({ token, section, onChanged }: { token: string; section: Con
     setDeleteTarget({ kind: 'access', id: access.id, label: access.label });
   }
 
+  async function setClientDatabaseBackups(client: Client, enabled: boolean) {
+    try {
+      const response = await fetch(`${apiUrl}/admin/clients/${encodeURIComponent(client.id)}/database-backups`, { method: 'PATCH', headers, body: JSON.stringify({ enabled }) });
+      const data = await responseJson<{ message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to update database backup setting');
+      setClients((current) => current.map((item) => item.id === client.id ? { ...item, databaseBackupEnabled: enabled } : item));
+      setNotice(`${client.name} database backups ${enabled ? 'enabled' : 'disabled'}.`);
+    } catch (reason) { setNotice(errorMessage(reason, 'Unable to update database backup setting')); }
+  }
+
+  async function setAccessDatabaseBackup(access: ClientAccess, enabled: boolean) {
+    try {
+      const response = await fetch(`${apiUrl}/admin/access/${encodeURIComponent(access.id)}/database-backup`, { method: 'PATCH', headers, body: JSON.stringify({ enabled }) });
+      const data = await responseJson<{ message?: string }>(response);
+      if (!response.ok) throw new Error(data.message || 'Unable to update database backup access');
+      setAccessEntries((current) => current.map((item) => item.id === access.id ? { ...item, databaseBackupEnabled: enabled } : item));
+      setNotice(`${access.label} ${enabled ? 'enabled' : 'disabled'} for database backups.`);
+    } catch (reason) { setNotice(errorMessage(reason, 'Unable to update database backup access')); }
+  }
+
   async function revealAdminAccess(accessId: string) {
     const response = await fetch(`${apiUrl}/admin/access/${encodeURIComponent(accessId)}/reveal`, { headers });
     const data = await responseJson<{ password?: string | null; message?: string }>(response);
@@ -647,7 +667,7 @@ function AdminPanel({ token, section, onChanged }: { token: string; section: Con
       )}
 
       {section === 'admin-clients' && (
-        <AdminClientsSection clients={clients} onCreate={() => setModal('client')} />
+        <AdminClientsSection clients={clients} onCreate={() => setModal('client')} onToggleDatabaseBackups={setClientDatabaseBackups} />
       )}
 
       {section === 'admin-agents' && (
@@ -676,6 +696,7 @@ function AdminPanel({ token, section, onChanged }: { token: string; section: Con
           onView={viewAccess}
           onEdit={openEditAccess}
           onDelete={deleteAccess}
+          onToggleBackup={setAccessDatabaseBackup}
         />
       )}
 
