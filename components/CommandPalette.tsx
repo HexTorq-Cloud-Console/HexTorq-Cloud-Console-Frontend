@@ -29,6 +29,7 @@ const SECTION_IDS: Record<string, ConsoleSection> = {
   'deployments-list': 'deployments',
   'health-list': 'health',
   'access-list': 'access',
+  'database-backups-list': 'database-backups',
   'alerts-list': 'alerts',
   admin: 'admin',
   'admin-clients': 'admin-clients',
@@ -57,6 +58,7 @@ export default function CommandPalette({ open, onClose, role, services }: Props)
     if (!isAdmin) {
        navItems.push({ id: 'health-list', label: 'Go to Webhook Health', hint: 'Health checks', icon: 'health' });
        navItems.push({ id: 'access-list', label: 'Go to Access Credentials', hint: 'Credential vault', icon: 'access' });
+       navItems.push({ id: 'database-backups-list', label: 'Go to Database Backups', hint: 'PostgreSQL dump archives', icon: 'database' });
        navItems.push({ id: 'alerts-list', label: 'Go to Alerts', hint: 'Session alerts', icon: 'alerts' });
     } else {
        navItems.push({ id: 'admin', label: 'Go to Admin Overview', hint: 'Control plane summary', icon: 'overview' });

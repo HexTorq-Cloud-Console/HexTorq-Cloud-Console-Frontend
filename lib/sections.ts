@@ -4,6 +4,7 @@ export type ConsoleSection =
   | 'deployments'
   | 'health'
   | 'access'
+  | 'database-backups'
   | 'alerts'
   | 'admin'
   | 'admin-clients'
@@ -21,6 +22,7 @@ export const SECTION_PATHS: Record<ConsoleSection, string> = {
   deployments: '/deployments',
   health: '/health',
   access: '/access',
+  'database-backups': '/database-backups',
   alerts: '/alerts',
   admin: '/admin',
   'admin-clients': '/admin/clients',
@@ -66,7 +68,7 @@ export const FOCUS_SERVICE_KEY = 'hextorq_focus_service';
 export const FAILURE_ALERTS_KEY = 'hextorq_failure_alerts';
 
 export function isClientOnlySection(section: ConsoleSection) {
-  return section === 'health' || section === 'access' || section === 'alerts';
+  return section === 'health' || section === 'access' || section === 'database-backups' || section === 'alerts';
 }
 
 /** Every administration page is restricted to the super-admin role. */

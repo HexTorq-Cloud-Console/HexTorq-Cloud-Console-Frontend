@@ -11,6 +11,7 @@ import ServicesView from './ServicesView';
 import DeploymentsView from './DeploymentsView';
 import WebhookHealthView from './WebhookHealthView';
 import AccessView from './AccessView';
+import DatabaseBackupsView from './DatabaseBackupsView';
 import AlertsView from './AlertsView';
 import WebhookHealthPanel from './WebhookHealthPanel';
 import { ConsoleErrorState, ConsoleLoadingState } from './ConsoleStates';
@@ -943,6 +944,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
       {section === 'health' && role === 'CLIENT' && <WebhookHealthView health={health} loading={healthLoading} error={healthError} runLoading={healthRunLoading} onSettings={openHealthSettings} onRun={() => setHealthRunConfirm(true)} />}
 
       {section === 'access' && role === 'CLIENT' && <AccessView entries={accessEntries} token={token} />}
+      {section === 'database-backups' && role === 'CLIENT' && <DatabaseBackupsView token={token} />}
       {section === 'alerts' && role === 'CLIENT' && <AlertsView alerts={failureAlerts} onDismiss={(id) => setFailureAlerts((current) => current.filter((alert) => alert.id !== id))} onDismissAll={() => setFailureAlerts([])} />}
       </>)}
 

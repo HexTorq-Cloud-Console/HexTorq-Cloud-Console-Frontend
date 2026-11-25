@@ -2,7 +2,7 @@ import type { ReactNode, SVGProps } from 'react';
 
 export type PremiumIconName =
   | 'process' | 'static' | 'terminal' | 'refresh' | 'logs' | 'registry'
-  | 'search' | 'rocket' | 'bolt' | 'overview' | 'deployments' | 'health'
+  | 'search' | 'rocket' | 'bolt' | 'database' | 'overview' | 'deployments' | 'health'
   | 'access' | 'alerts' | 'clients' | 'agents' | 'settings' | 'check' | 'warning';
 
 const paths: Record<PremiumIconName, ReactNode> = {
@@ -15,6 +15,7 @@ const paths: Record<PremiumIconName, ReactNode> = {
   search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 5 5" /></>,
   rocket: <><path d="M14 4c2.5-1.3 5.1-1.2 6-.2.9.9 1 3.5-.2 6-1.1 2.4-3.5 4.8-6 6.2l-4.1-4.1C11.1 9.4 11.6 6.4 14 4Z" /><path d="m9.7 11.9-4.8.7-2 2 4.8.7.7 4.8 2-2 .7-4.8M15.5 8.5h.01" /></>,
   bolt: <path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z" />,
+  database: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" /></>,
   overview: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   deployments: <><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1Z" /><path d="m12 15-3-3a22 22 0 0 1 2-4A13 13 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2Z" /></>,
   health: <path d="M3 12h4l2.5 7 4-14 2.5 7h5" />,

@@ -10,6 +10,7 @@ import './deployments.css';
 import './pm2.css';
 import './health.css';
 import './access-alerts.css';
+import './database-backups.css';
 import './admin.css';
 import './admin-pages.css';
 import './states.css';

@@ -16,7 +16,8 @@ type IconName =
   | 'services'
   | 'deployments'
   | 'health'
-  | 'access'
+   | 'access'
+   | 'database'
   | 'alerts'
   | 'admin'
   | 'clients'
@@ -90,6 +91,13 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
           <path d="m15.5 7.5 3 3L21 8l-3-3" />
           <circle cx="7.5" cy="15.5" r="4.5" />
           <path d="m11 12 4-4" />
+        </svg>
+      );
+    case 'database':
+      return (
+        <svg {...common}>
+          <ellipse cx="12" cy="5" rx="8" ry="3" />
+          <path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" />
         </svg>
       );
     case 'alerts':
@@ -174,6 +182,7 @@ const CLIENT_GROUPS: NavGroup[] = [
       { id: 'deployments', label: 'Deployments', icon: 'deployments', href: '/deployments' },
       { id: 'health', label: 'Webhook Health', icon: 'health', href: '/health' },
       { id: 'access', label: 'Access Credentials', icon: 'access', href: '/access' },
+      { id: 'database-backups', label: 'Database Backups', icon: 'database', href: '/database-backups' },
     ],
   },
 ];
