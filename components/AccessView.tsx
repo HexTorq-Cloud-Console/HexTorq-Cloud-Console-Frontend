@@ -8,7 +8,7 @@ import { apiUrl, responseJson } from '../lib/api';
 export default function AccessView({ entries, token }: { entries: ClientAccess[]; token: string }) {
   const [filter, setFilter] = useState<'ALL' | 'SFTP' | 'DATABASE'>('ALL');
   const [backupEnabled, setBackupEnabled] = useState(false);
-  const [backupDatabases, setBackupDatabases] = useState<Array<{ id: string; label: string; databaseName?: string | null; host: string; port: number; backupEnabled: boolean }>>([]);
+  const [backupDatabases, setBackupDatabases] = useState<Array<{ id: string; accessId: string; label: string; databaseName?: string | null; host: string; port: number; backupEnabled: boolean }>>([]);
   const [selectedDatabases, setSelectedDatabases] = useState<string[]>([]);
   const [backups, setBackups] = useState<any[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -36,7 +36,8 @@ export default function AccessView({ entries, token }: { entries: ClientAccess[]
   async function createBackup() {
     setBackupBusy(true); setBackupError('');
     try {
-      const response = await fetch(`${apiUrl}/database-backups`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ accessIds: selectedDatabases }) });
+      const targets = backupDatabases.filter((database) => selectedDatabases.includes(database.id)).map(({ accessId, databaseName }) => ({ accessId, databaseName }));
+      const response = await fetch(`${apiUrl}/database-backups`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ databases: targets }) });
       const data = await responseJson<{ backup?: any; message?: string }>(response);
       if (!response.ok || !data.backup) throw new Error(data.message || 'Unable to start database backup');
       setBackups((current) => [data.backup, ...current]);
