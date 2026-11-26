@@ -49,8 +49,9 @@ export function documentSize(): { width: number; height: number } {
  * always align with the scrolled viewport and html2canvas stays fast on tall pages.
  */
 export function layoutKey(scale: number): string {
-  const { width } = documentSize();
-  return `view:${width}x${document.documentElement.clientHeight}@${scale}`;
+  const { width, height } = documentSize();
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  return `view:${path}:${width}x${height}:${document.documentElement.clientHeight}@${scale}`;
 }
 
 export async function capturePage(theme: Theme, scale: number, maxTextureSize: number): Promise<Snapshot> {
