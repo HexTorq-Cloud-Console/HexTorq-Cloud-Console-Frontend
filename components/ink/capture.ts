@@ -106,6 +106,17 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
       doc.querySelectorAll<HTMLElement>('.ar-overlay').forEach((el) => {
         el.style.visibility = 'hidden';
       });
+      // html2canvas chokes on large inset :autofill box-shadows (rendering the input
+      // solid blue). Normalize input surface colors cleanly for the target theme.
+      const inputBg = theme === 'dark' ? '#0b0d14' : '#fbfbf9';
+      const inputFg = theme === 'dark' ? '#f4f5fa' : '#17181b';
+      doc.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
+        input.style.setProperty('box-shadow', 'none', 'important');
+        input.style.setProperty('background-color', inputBg, 'important');
+        input.style.setProperty('color', inputFg, 'important');
+        input.style.setProperty('-webkit-text-fill-color', inputFg, 'important');
+      });
+
       resolveSvgCssVars(doc, theme);
       flattenGradientText(doc);
     },

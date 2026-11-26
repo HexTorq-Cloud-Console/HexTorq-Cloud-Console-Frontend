@@ -647,12 +647,24 @@ html:has(.auth-page) {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 44px;
+  min-height: 40px;
   padding: 0;
   border: 0;
-  border-radius: var(--ht-radius);
+  border-radius: 4px;
   background: transparent;
   overflow: hidden;
+}
+
+#google-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 400px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 4px;
+  color-scheme: light;
 }
 
 .auth-google-fallback {
@@ -1105,21 +1117,16 @@ html:has(.auth-page) {
 }
 
 .auth-input:is(:autofill, :-webkit-autofill) {
-  box-shadow:
-    inset 0 0 0 1.5px var(--ht-blue),
-    inset 0 0 0 100vmax var(--ht-nav);
+  border-color: var(--ht-blue);
+  box-shadow: inset 0 0 0 100px var(--ht-nav);
   -webkit-text-fill-color: var(--ht-text);
   caret-color: var(--ht-text);
-  border-color: var(--ht-blue);
 }
 
 .auth-input:is(:autofill, :-webkit-autofill):focus-visible {
   outline: 2px solid var(--ht-blue);
   outline-offset: 1px;
-  box-shadow:
-    inset 0 0 0 1.5px var(--ht-blue),
-    inset 0 0 0 100vmax var(--ht-nav),
-    0 0 0 4px var(--ht-blue-fill);
+  box-shadow: inset 0 0 0 100px var(--ht-nav), 0 0 0 4px var(--ht-blue-fill);
 }
 
 .auth-input:is(:user-invalid) {
