@@ -38,24 +38,23 @@
 .auth-glow {
   position: absolute;
   border-radius: 50%;
-  filter: blur(120px);
   pointer-events: none;
 }
 
 .auth-glow--blue {
-  top: -160px;
-  left: -120px;
-  width: 520px;
-  height: 520px;
-  background: var(--ht-blue-fill);
+  top: -220px;
+  left: -180px;
+  width: 720px;
+  height: 720px;
+  background: radial-gradient(circle, var(--ht-blue-fill) 0%, transparent 68%);
 }
 
 .auth-glow--violet {
-  right: -140px;
-  bottom: -180px;
-  width: 460px;
-  height: 460px;
-  background: var(--ht-violet-fill);
+  right: -200px;
+  bottom: -240px;
+  width: 660px;
+  height: 660px;
+  background: radial-gradient(circle, var(--ht-violet-fill) 0%, transparent 68%);
 }
 
 .auth-shell {
