@@ -901,7 +901,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
       <AppShell role={role} email={email} alertCount={failureAlerts.length} onSignOut={signOut} onOpenPalette={() => setPaletteOpen(true)} loading={showSkeleton}>
       {isAdminSection(section) && role === 'SUPER_ADMIN' && <AdminPanel token={token} section={section} onChanged={loadDashboard} />}
 
-      {!isAdminSection(section) && (showSkeleton ? <ConsoleLoadingState /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
+      {!isAdminSection(section) && (showSkeleton ? <ConsoleLoadingState section={section} /> : error ? <ConsoleErrorState message={error} onRetry={() => void loadDashboard()} /> : <>
       {section === 'overview' && <OverviewView
         services={services}
         deployments={deployments}
