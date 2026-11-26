@@ -1595,17 +1595,20 @@
 /* PeakChart showcase framing for the 5 dashboard KPI cards */
 .kpi-peak-stage {
   position: relative;
-  padding: 20px;
-  border-radius: 22px;
-  border: 1px solid rgba(140, 170, 230, 0.14);
-  background: #08101a;
-  overflow: hidden;
-  box-shadow: var(--ht-shadow-2);
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 :root[data-theme='dark'] .kpi-peak-stage {
-  border-color: rgba(140, 170, 230, 0.12);
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(140, 170, 230, 0.12);
   background: #070c16;
+  box-shadow: var(--ht-shadow-2);
+  overflow: hidden;
 }
 
 .kpi-grid--peak {

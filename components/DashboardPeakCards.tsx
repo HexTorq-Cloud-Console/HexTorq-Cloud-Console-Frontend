@@ -39,16 +39,36 @@ type DashboardPeakCardsProps = {
   onlineAgents: number;
 };
 
+function useConsoleTheme(): 'light' | 'dark' {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => mo.disconnect();
+  }, []);
+
+  return theme;
+}
+
 function PeakSlot({ children }: { children: (width: number) => React.ReactNode }) {
   const slotRef = useRef<HTMLDivElement>(null);
-  const [cardWidth, setCardWidth] = useState(210);
+  const [cardWidth, setCardWidth] = useState(190);
 
   useEffect(() => {
     const el = slotRef.current;
     if (!el) return;
     const update = () => {
       const w = el.clientWidth;
-      if (w > 0) setCardWidth(Math.max(185, Math.min(340, Math.floor(w))));
+      if (w > 0) {
+        const cap = window.innerWidth <= 560 ? 236 : 196;
+        setCardWidth(Math.max(158, Math.min(cap, Math.floor(w))));
+      }
     };
     update();
     if (typeof ResizeObserver === 'undefined') return;
@@ -94,6 +114,7 @@ export default function DashboardPeakCards({
   agents,
   onlineAgents,
 }: DashboardPeakCardsProps) {
+  const surfaceTheme = useConsoleTheme();
   const [serviceView, setServiceView] = useState<'All' | 'PM2' | 'Static'>('All');
   const [healthView, setHealthView] = useState<'Online' | 'All'>('Online');
   const [agentView, setAgentView] = useState<'Online' | 'Total'>('Online');
@@ -156,6 +177,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              theme={surfaceTheme}
               accent="#4f8ef7"
               title={`Deployments (${range})`}
               value={currentTotal}
@@ -177,6 +199,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              theme={surfaceTheme}
               accent="#2ec99a"
               title="Success rate"
               value={successRate ?? 0}
@@ -198,6 +221,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              theme={surfaceTheme}
               accent="#7c5cff"
               title="Services"
               value={serviceValue}
@@ -219,6 +243,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              theme={surfaceTheme}
               accent="#14b8a6"
               title="Service health"
               value={healthValue}
@@ -240,6 +265,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              theme={surfaceTheme}
               accent="#f59e0b"
               title="Agents online"
               value={agentValue}
