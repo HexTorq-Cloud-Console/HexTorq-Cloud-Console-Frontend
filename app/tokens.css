@@ -122,6 +122,20 @@
 
   /* Motion */
   --ht-transition: 140ms ease;
+
+  /* Sakuga Toast theme variables */
+  --sk-card: #ffffff;
+  --sk-ink: #17181b;
+  --sk-dim: #5f646d;
+  --sk-soft: #d3d3cb;
+  --sk-pri: #17181b;
+  --sk-pri-ink: #ffffff;
+  --sk-acc: #ef5b2a;
+  --sk-track: #e5e5df;
+  --sk-r: 12px;
+  --sk-bw: 2px;
+  --sk-sh: 0 12px 28px -8px rgba(23, 24, 27, 0.22);
+  --sk-on-pri: #ffffff;
 }
 
 :root[data-theme='dark'] {
@@ -201,6 +215,20 @@
   --ht-backdrop: rgba(4, 5, 9, 0.66);
   --ht-log-bg: #030509;
   --ht-log-text: #dbe4f0;
+
+  /* Sakuga Toast dark variables */
+  --sk-card: #10131c;
+  --sk-ink: #f4f5fa;
+  --sk-dim: #b8c0d4;
+  --sk-soft: #2d3448;
+  --sk-pri: #4f7cff;
+  --sk-pri-ink: #ffffff;
+  --sk-acc: #8a3ffc;
+  --sk-track: #2d3448;
+  --sk-r: 12px;
+  --sk-bw: 2px;
+  --sk-sh: 0 14px 32px -8px rgba(0, 0, 0, 0.55);
+  --sk-on-pri: #ffffff;
 }
 
 /* ---------------------------------------------------------------- Typography */

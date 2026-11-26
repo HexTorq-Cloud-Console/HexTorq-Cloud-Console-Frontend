@@ -15,6 +15,7 @@ import {
   type Bucket,
 } from '../lib/metrics';
 import WebhookHealthPanel from './WebhookHealthPanel';
+import DashboardPeakCards from './DashboardPeakCards';
 
 type OverviewViewProps = {
   services: Service[];
@@ -491,104 +492,29 @@ export default function OverviewView({
         </div>
       </header>
 
-      <section className="kpi-grid" aria-label="Workspace metrics">
-        <article data-ascii="surface" className="kpi-card">
-          <div className="kpi-card__top">
-            <span className="kpi-label">Deployments ({rangeConfig.short})</span>
-            <span className="kpi-icon kpi-icon--orange"><MetricIcon name="deployments" /></span>
-          </div>
-          <div className="kpi-value-row">
-            <strong>{currentTotal}</strong>
-            <ChangeBadge value={totalChange} compare={rangeConfig.compare} />
-          </div>
-          <p className="kpi-meta">{currentSuccessful} successful · {currentFailed} failed{currentRunning ? ` · ${currentRunning} running` : ''}</p>
-          <Sparkline values={currentBuckets.map((bucket) => bucket.total)} color="var(--ht-chart-1)" />
-        </article>
-
-        <article data-ascii="surface" className="kpi-card">
-          <div className="kpi-card__top">
-            <span className="kpi-label">Success rate</span>
-            <span className="kpi-icon kpi-icon--teal"><MetricIcon name="success" /></span>
-          </div>
-          <div className="kpi-value-row">
-            <strong>{successRate === null ? '—' : `${successRate}%`}</strong>
-            <ChangeBadge value={rateChange} suffix=" pts" compare={rangeConfig.compare} />
-          </div>
-          <p className="kpi-meta">{currentSuccessful} of {completed} completed deployments</p>
-          <Sparkline values={currentBuckets.map((bucket) => bucket.successful)} color="var(--ht-chart-2)" />
-        </article>
-
-        <article data-ascii="surface" className="kpi-card">
-          <div className="kpi-card__top">
-            <span className="kpi-label">Services</span>
-            <span className="kpi-icon kpi-icon--navy"><MetricIcon name="services" /></span>
-          </div>
-          <div className="kpi-value-row">
-            <strong>{totalServices}</strong>
-            <span className="kpi-change kpi-change--muted">{enabledServices} enabled</span>
-          </div>
-          <p className="kpi-meta">{pm2Count} PM2 · {staticCount} static frontend</p>
-          <div className="kpi-split">
-            <span style={{ width: `${totalServices ? (pm2Count / totalServices) * 100 : 0}%`, background: 'var(--ht-chart-1)' }} />
-            <span style={{ width: `${totalServices ? (staticCount / totalServices) * 100 : 0}%`, background: 'var(--ht-chart-3)' }} />
-          </div>
-          <div className="kpi-split-legend"><span><i style={{ background: 'var(--ht-chart-1)' }} />PM2</span><span><i style={{ background: 'var(--ht-chart-3)' }} />Static</span></div>
-        </article>
-
-        <article data-ascii="surface" className="kpi-card">
-          <div className="kpi-card__top">
-            <span className="kpi-label">Service health</span>
-            <span className="kpi-icon kpi-icon--teal"><MetricIcon name="health" /></span>
-          </div>
-          <div className="kpi-value-row">
-            <strong>{runtime.online}</strong>
-            <span className={`kpi-change ${runtime.stopped || runtime.errored ? 'is-down' : 'kpi-change--muted'}`}>
-              {runtime.total ? `of ${runtime.total} running` : 'no services yet'}
-            </span>
-          </div>
-          <p className="kpi-meta">
-            {runtime.errored ? `${runtime.errored} erroring · ` : ''}{runtime.stopped ? `${runtime.stopped} stopped · ` : ''}
-            {runtime.unknown ? `${runtime.unknown} awaiting status` : 'all processes reporting'}
-            {runtime.staticTotal ? ` · ${runtime.staticTotal} static` : ''}
-          </p>
-          {runtime.entries.length ? (
-            <div className="health-dots">
-              {runtime.entries.slice(0, 10).map((entry) => (
-                <span
-                  key={entry.service.id}
-                  className={`health-dot health-dot--${entry.status}`}
-                  title={`${entry.service.name}: ${entry.status}${entry.uptime ? ` · up ${formatUptime(entry.uptime)}` : ''}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="health-dots health-dots--empty" />
-          )}
-        </article>
-
-        <article data-ascii="surface" className="kpi-card">
-          <div className="kpi-card__top">
-            <span className="kpi-label">Agents online</span>
-            <span className="kpi-icon kpi-icon--amber"><MetricIcon name="agents" /></span>
-          </div>
-          <div className="kpi-value-row">
-            <strong>{agents.length ? onlineAgents : '—'}</strong>
-            <span className={`kpi-change ${onlineAgents === agents.length && agents.length ? 'is-up' : 'kpi-change--muted'}`}>
-              {agents.length ? `of ${agents.length} reporting` : 'no agents assigned'}
-            </span>
-          </div>
-          <p className="kpi-meta">{agents.length ? 'Live heartbeat status across managed VPS nodes' : 'Add an agent to manage runtime services'}</p>
-          {agents.length ? (
-            <div className="agent-dots">
-              {agents.slice(0, 8).map((agent) => (
-                <span key={agent.id} className={`agent-dot agent-dot--${agent.status || 'unknown'}`} title={`${agent.name}: ${agent.status || 'unknown'}`} />
-              ))}
-            </div>
-          ) : (
-            <div className="agent-dots agent-dots--empty" />
-          )}
-        </article>
-      </section>
+      <DashboardPeakCards
+        range={range}
+        onRangeChange={onRangeChange}
+        rangeLabel={rangeLabel}
+        compareLabel={rangeConfig.compare}
+        currentTotal={currentTotal}
+        currentSuccessful={currentSuccessful}
+        currentFailed={currentFailed}
+        currentRunning={currentRunning}
+        completed={completed}
+        totalChange={totalChange}
+        successRate={successRate}
+        rateChange={rateChange}
+        currentBuckets={currentBuckets}
+        formatBucketLabel={(d) => bucketLabel(d, rangeConfig.granularity)}
+        totalServices={totalServices}
+        enabledServices={enabledServices}
+        pm2Count={pm2Count}
+        staticCount={staticCount}
+        runtime={runtime}
+        agents={agents}
+        onlineAgents={onlineAgents}
+      />
 
       <section className="panel incident-panel" aria-labelledby="incident-title">
         <div className="panel__head">

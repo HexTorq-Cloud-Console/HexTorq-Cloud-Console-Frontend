@@ -20,6 +20,7 @@ import {
   unsubscribePushDevice,
   type NotificationConfig,
 } from '../lib/notificationStore';
+import { showSakugaToast } from '../lib/sakugaToast';
 
 export default function NotificationSettings() {
   const [config, setConfig] = useState<NotificationConfig | null>(null);
@@ -55,6 +56,7 @@ export default function NotificationSettings() {
       await saveNotificationPreferences(next);
       setPreferences((current) => ({ ...current, ...next }));
       setMessage('Notification preferences saved.');
+      showSakugaToast('Preferences saved');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to save preferences');
     } finally {
@@ -75,6 +77,7 @@ export default function NotificationSettings() {
       setPermission(pushPermission());
       setDeviceActive(true);
       setMessage('This device now receives browser notifications.');
+      showSakugaToast('Notifications enabled');
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to enable notifications');
@@ -109,6 +112,7 @@ export default function NotificationSettings() {
       const result = await sendTestNotification();
       const push = result.push?.sent ?? 0;
       setMessage(result.message || (push ? `Test notification sent (${push} browser).` : 'Test notification created.'));
+      showSakugaToast('Test notification sent');
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to send a test notification');

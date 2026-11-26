@@ -22,6 +22,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Manrope } from 'next/font/google';
 import InkThemeLayer from '../components/ink/InkThemeLayer';
 import PushRegistration from '../components/PushRegistration';
+import SakugaToastHost from '../components/SakugaToastHost';
 import SmoothScroll from '../components/SmoothScroll';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -57,7 +58,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
+        <script src="/toast.js" defer />
         <SmoothScroll>{children}</SmoothScroll>
+        <SakugaToastHost />
         <InkThemeLayer />
         <PushRegistration />
       </body>

@@ -665,3 +665,22 @@ html[data-theme='dark'] .ht-logo__img--light {
 html[data-theme='dark'] .ht-logo__img--dark {
   display: block;
 }
+
+sakuga-toast.ht-sakuga-toast {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 170;
+  pointer-events: none;
+}
+
+sakuga-toast.ht-sakuga-toast[data-open='true'] {
+  pointer-events: auto;
+}
+
+@media (max-width: 700px) {
+  sakuga-toast.ht-sakuga-toast {
+    left: 16px;
+    bottom: 18px;
+  }
+}
