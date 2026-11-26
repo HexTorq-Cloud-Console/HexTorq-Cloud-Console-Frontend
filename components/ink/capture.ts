@@ -102,19 +102,13 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
           el.style.transform = `translateY(${originY}px)`;
         });
       }
-      // The live toggles are drawn above the overlay, so leave holes for them.
-      // `visibility` (not data-html2canvas-ignore) keeps their box in the layout
-      // so the topbar doesn't shift.
-      doc.querySelectorAll<HTMLElement>('[data-ink-live]').forEach((el) => {
-        el.style.visibility = 'hidden';
-      });
       // The ASCII reveal keeps its overlay canvas in the DOM after it finishes, with the
       // last glyph frame still painted on it. Snapshotting that would freeze the glyphs
       // on top of the real text, so the overlay is left out of the capture.
       doc.querySelectorAll<HTMLElement>('.ar-overlay').forEach((el) => {
         el.style.visibility = 'hidden';
       });
-      resolveSvgCssVars(doc);
+      resolveSvgCssVars(doc, theme);
       flattenGradientText(doc);
     },
   });
@@ -122,23 +116,39 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
   return { theme, canvas, scale: safeScale, key, originX, originY, fullDoc, ms: performance.now() - t0 };
 }
 
+const SVG_THEME_TOKENS: Record<Theme, Record<string, string>> = {
+  light: {
+    '--ht-chart-1': '#ef5b2a',
+    '--ht-chart-2': '#0e9f9f',
+    '--ht-chart-3': '#123b55',
+    '--ht-chart-4': '#d99a06',
+    '--ht-danger': '#d92d20',
+  },
+  dark: {
+    '--ht-chart-1': '#4f7cff',
+    '--ht-chart-2': '#2fd08a',
+    '--ht-chart-3': '#8a3ffc',
+    '--ht-chart-4': '#f5b83d',
+    '--ht-danger': '#ff5c6c',
+  },
+};
+
 /**
  * html2canvas doesn't resolve CSS custom properties inside SVG presentation attributes
  * (`stroke="var(--ht-chart-1)"`, `stop-color="var(--ht-chart-2)"`). Resolve them in the
- * clone using the target theme's computed root styles so charts match the live DOM.
+ * clone using the target theme's tokens so charts match the live DOM pixel-for-pixel.
  */
-function resolveSvgCssVars(doc: Document): void {
+function resolveSvgCssVars(doc: Document, theme: Theme): void {
   const view = doc.defaultView;
-  if (!view) return;
-  const rootStyle = view.getComputedStyle(doc.documentElement);
+  const rootStyle = view ? view.getComputedStyle(doc.documentElement) : null;
+  const tokens = SVG_THEME_TOKENS[theme];
   const attrs = ['stroke', 'fill', 'stop-color'] as const;
   doc.querySelectorAll('svg *').forEach((el) => {
     for (const attr of attrs) {
       const val = el.getAttribute(attr);
       if (!val || !val.includes('var(')) continue;
       const resolved = val.replace(/var\(\s*(--[^,\s)]+)\s*(?:,[^)]*)?\)/g, (match, name: string) => {
-        const value = rootStyle.getPropertyValue(name).trim();
-        return value || match;
+        return tokens[name] || rootStyle?.getPropertyValue(name).trim() || match;
       });
       if (resolved !== val) el.setAttribute(attr, resolved);
     }

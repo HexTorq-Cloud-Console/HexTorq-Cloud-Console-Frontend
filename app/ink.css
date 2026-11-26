@@ -31,26 +31,6 @@
   stroke-linejoin: round;
 }
 
-/* Only while the ink is spreading (never interferes with normal stacking):
-   - shell-topbar drops its stacking context so the toggle's z-index can climb out
-     (it keeps its sticky positioning);
-   - both toggle variants rise above the overlay so they stay visible and re-clickable,
-     matching the reference demo where the nav toggle floats above the ink. */
-html[data-ink-active='1'] .shell-topbar {
-  z-index: auto;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-html[data-ink-active='1'] .shell-top-actions .theme-toggle,
-html[data-ink-active='1'] .shell-top-actions .notif-center__button {
-  z-index: 1100;
-}
-
-html[data-ink-active='1'] .auth-theme-toggle {
-  z-index: 1100;
-}
-
 /* ---------- CSS fallback transition ----------
    Used without WebGL2 or before snapshots exist. Only applied for the duration of a
    flip so it never leaks into snapshots. */
