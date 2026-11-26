@@ -94,7 +94,15 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
     logging: false,
     useCORS: true,
     onclone: (doc) => {
+      // Disable all CSS transitions/animations in the clone BEFORE flipping data-theme
+      // so html2canvas never captures elements mid-140ms transition.
+      const noTrans = doc.createElement('style');
+      noTrans.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+      doc.head.appendChild(noTrans);
+
       doc.documentElement.dataset.theme = theme;
+      void doc.documentElement.offsetHeight;
+
       // If capturing a scrolled viewport slice on a tall page, keep sticky chrome
       // aligned with the captured window.
       if (!fullDoc && originY > 0) {
@@ -123,6 +131,11 @@ const SVG_THEME_TOKENS: Record<Theme, Record<string, string>> = {
     '--ht-chart-3': '#123b55',
     '--ht-chart-4': '#d99a06',
     '--ht-danger': '#d92d20',
+    '--ht-line': '#e5e5df',
+    '--ht-card': '#ffffff',
+    '--ht-text': '#17181b',
+    '--ht-text-secondary': '#5f646d',
+    '--ht-text-muted': '#8a8f98',
   },
   dark: {
     '--ht-chart-1': '#4f7cff',
@@ -130,13 +143,18 @@ const SVG_THEME_TOKENS: Record<Theme, Record<string, string>> = {
     '--ht-chart-3': '#8a3ffc',
     '--ht-chart-4': '#f5b83d',
     '--ht-danger': '#ff5c6c',
+    '--ht-line': '#232838',
+    '--ht-card': '#10131c',
+    '--ht-text': '#f4f5fa',
+    '--ht-text-secondary': '#9aa1b5',
+    '--ht-text-muted': '#646b80',
   },
 };
 
 /**
- * html2canvas doesn't resolve CSS custom properties inside SVG presentation attributes
- * (`stroke="var(--ht-chart-1)"`, `stop-color="var(--ht-chart-2)"`). Resolve them in the
- * clone using the target theme's tokens so charts match the live DOM pixel-for-pixel.
+ * html2canvas serializes inline <svg> elements into data-URI images where external
+ * CSS classes and :root custom properties do not apply. Resolve var(--*) attributes
+ * and inline class-based SVG text fills in the clone so charts match the live DOM.
  */
 function resolveSvgCssVars(doc: Document, theme: Theme): void {
   const view = doc.defaultView;
@@ -151,6 +169,15 @@ function resolveSvgCssVars(doc: Document, theme: Theme): void {
         return tokens[name] || rootStyle?.getPropertyValue(name).trim() || match;
       });
       if (resolved !== val) el.setAttribute(attr, resolved);
+    }
+    if (el.classList.contains('donut-total')) {
+      el.setAttribute('fill', tokens['--ht-text']);
+    } else if (
+      el.classList.contains('donut-label') ||
+      el.classList.contains('chart-axis-text') ||
+      el.classList.contains('chart-empty-text')
+    ) {
+      el.setAttribute('fill', tokens['--ht-text-muted']);
     }
   });
 }
