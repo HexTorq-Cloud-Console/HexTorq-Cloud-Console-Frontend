@@ -66,16 +66,16 @@ const GRID_Y0 = 468.7
 const GRID_COLOR = "#5a87e1"
 const GRID_ALPHA = 0.23
 
-/* Timeline (seconds). */
-const T_GRID = 0.9
-const T_DRAW0 = 0.25
-const T_DRAW = 2.1
-const T_NUM0 = 1.0
-const T_NUM = 1.7
-const T_ARROW = 2.65
-const T_REST = 3.3
+/* Timeline (seconds) — crisp initial reveal so headline metrics appear quickly. */
+const T_GRID = 0.35
+const T_DRAW0 = 0.04
+const T_DRAW = 0.72
+const T_NUM0 = 0.06
+const T_NUM = 0.58
+const T_ARROW = 0.65
+const T_REST = 0.9
 const T_BREATH = 4.6
-const T_MORPH = 0.75
+const T_MORPH = 0.55
 
 /* The accent the artwork is drawn in; any other accent hue-shifts the canvas. */
 const BASE_ACCENT = "#4f8ef7"
@@ -126,8 +126,10 @@ export interface PeakChartProps {
   accent?: string
   /** Surface theme: dark (default) or white card surface for light dashboards. */
   theme?: "dark" | "light"
-  /** Card width in pixels. Height follows the 540:696 card ratio and everything scales with it. */
+  /** Card width in pixels. */
   width?: number
+  /** Optional card height in pixels. Defaults to the classic 540:696 ratio when omitted. */
+  height?: number
   /** Seconds per reveal cycle. 0 plays the reveal once when the card scrolls into view, then rests with a slow glow breath. */
   loop?: number
   /** Paint the grainy near-black navy backdrop and centre the card in the parent (fills the parent box). */
@@ -168,9 +170,9 @@ function erf(x: number) {
 }
 const phi = (x: number) => 0.5 * (1 + erf(x / Math.SQRT2))
 /** Signed distance to the card outline in card widths, negative inside. */
-function sdf(u: number, v: number) {
+function sdf(u: number, v: number, hn = HN) {
   const qx = Math.abs(u - 0.5) - (0.5 - RN)
-  const qy = Math.abs(v - HN / 2) - (HN / 2 - RN)
+  const qy = Math.abs(v - hn / 2) - (hn / 2 - RN)
   const ox = Math.max(qx, 0)
   const oy = Math.max(qy, 0)
   return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - RN
@@ -211,6 +213,10 @@ function hslOf(color: string): [number, number] | null {
 
 /* ---------- static layers ---------- */
 
+const FIELD_CACHE = new Map<string, { rest: HTMLCanvasElement; lift: HTMLCanvasElement }>()
+const GRID_CACHE = new Map<string, HTMLCanvasElement>()
+const HALO_CACHE = new Map<string, HTMLCanvasElement>()
+
 function makeCanvas(w: number, h: number) {
   const c = document.createElement("canvas")
   c.width = Math.max(1, Math.round(w))
@@ -218,10 +224,13 @@ function makeCanvas(w: number, h: number) {
   return c
 }
 
-/** Paints the card glow at `px` pixels per card width: the resting field and a brighter copy for the breath. */
-function buildField(px: number, seed: number, isLight = false) {
-  const w = Math.round(px)
-  const h = Math.round(px * HN)
+/** Paints the card glow at `px` pixels per card width (cached across shared card dimensions). */
+function buildField(px: number, seed: number, isLight = false, hn = HN) {
+  const w = Math.max(96, Math.min(200, Math.round(px)))
+  const h = Math.max(96, Math.round(w * hn))
+  const cacheKey = `${isLight ? "L" : "D"}:${w}x${h}`
+  const hit = FIELD_CACHE.get(cacheKey)
+  if (hit) return hit
   const rest = makeCanvas(w, h)
   const lift = makeCanvas(w, h)
   const c1 = rest.getContext("2d")!
@@ -235,9 +244,9 @@ function buildField(px: number, seed: number, isLight = false) {
   const shadeDefs = isLight ? LIGHT_FIELD_SHADES : FIELD_SHADES
   const rimDefs = isLight ? LIGHT_FIELD_RIMS : FIELD_RIMS
   const shades = shadeDefs.map(({ shape: [cx, cy, sx, sy, th], color, opacity }) => ({
-    cx, cy, isx: 1 / Math.abs(sx), isy: 1 / Math.abs(sy), c: Math.cos(th), s: Math.sin(th), rgb: rgbOf(color), a: opacity,
+    cx, cy: cy * (hn / HN), isx: 1 / Math.abs(sx), isy: 1 / Math.abs(sy * (hn / HN)), c: Math.cos(th), s: Math.sin(th), rgb: rgbOf(color), a: opacity,
   }))
-  const rims = rimDefs.map(({ shape: [off, sp, sg], color, opacity }) => ({ off, sp, sg, rgb: rgbOf(color), a: opacity }))
+  const rims = rimDefs.map(({ shape: [off, sp, sg], color, opacity }) => ({ off: off * (hn / HN), sp, sg, rgb: rgbOf(color), a: opacity }))
   const k2 = 1 + BREATH_GAIN
   const grainAmp = isLight ? 0.45 : GRAIN
   for (let j = 0; j < h; j++) {
@@ -256,8 +265,8 @@ function buildField(px: number, seed: number, isLight = false) {
       for (const o of rims) {
         // inner shadow of the card pushed up by `off`: a blurred box, with extra light in the round corners
         const vs = v + o.off
-        const dx = Math.min(u, 1 - u), dy = Math.min(vs, HN - vs)
-        const ratio = Math.min(1, phi((-sdf(u, vs) - o.sp) / o.sg) / Math.max(1e-9, phi((Math.min(dx, dy) - o.sp) / o.sg)))
+        const dx = Math.min(u, 1 - u), dy = Math.min(vs, hn - vs)
+        const ratio = Math.min(1, phi((-sdf(u, vs, hn) - o.sp) / o.sg) / Math.max(1e-9, phi((Math.min(dx, dy) - o.sp) / o.sg)))
         const k = 1 - phi((dx - o.sp) / o.sg) * phi((dy - o.sp) / o.sg) * ratio
         const m = o.a * k
         r += m * (o.rgb[0] - r); g += m * (o.rgb[1] - g); b += m * (o.rgb[2] - b)
@@ -272,37 +281,50 @@ function buildField(px: number, seed: number, isLight = false) {
   }
   c1.putImageData(i1, 0, 0)
   c2.putImageData(i2, 0, 0)
-  return { rest, lift }
+  const res = { rest, lift }
+  if (FIELD_CACHE.size > 16) FIELD_CACHE.clear()
+  FIELD_CACHE.set(cacheKey, res)
+  return res
 }
 
 /** Soft blue light that spills from behind the card onto the backdrop. */
-function buildHalo(px: number, isLight = false) {
+function buildHalo(px: number, isLight = false, hn = HN) {
   const s = 0.25
   const w = Math.max(8, Math.round((CW + 2 * BX) * px * s / CW))
-  const h = Math.max(8, Math.round((CH + 2 * BY) * px * s / CW))
+  const h = Math.max(8, Math.round((CW * hn + 2 * BY) * px * s / CW))
+  const cacheKey = `${isLight ? "L" : "D"}:${w}x${h}`
+  const hit = HALO_CACHE.get(cacheKey)
+  if (hit) return hit
   const c = makeCanvas(w, h)
   const ctx = c.getContext("2d")!
   const img = ctx.createImageData(w, h)
   const [hr, hg, hb] = rgbOf(isLight ? "#60a5fa" : HALO.color)
-  const op = isLight ? 0.22 : HALO.opacity
+  const op = isLight ? 0.18 : HALO.opacity
+  const chLocal = CW * hn
   for (let j = 0; j < h; j++) {
-    const v = ((j + 0.5) / h * (CH + 2 * BY) - BY) / CW
+    const v = ((j + 0.5) / h * (chLocal + 2 * BY) - BY) / CW
     for (let i = 0; i < w; i++) {
       const u = ((i + 0.5) / w * (CW + 2 * BX) - BX) / CW
-      const a = (u - HALO.cx) / HALO.sx, e = (v - HALO.cy) / HALO.sy
+      const a = (u - HALO.cx) / HALO.sx, e = (v - HALO.cy * (hn / HN)) / (HALO.sy * (hn / HN))
       const k = Math.exp(-0.5 * (a * a + e * e)) * op
       const p = (j * w + i) * 4
       img.data[p] = hr; img.data[p + 1] = hg; img.data[p + 2] = hb; img.data[p + 3] = Math.min(255, k * 255)
     }
   }
   ctx.putImageData(img, 0, 0)
+  if (HALO_CACHE.size > 16) HALO_CACHE.clear()
+  HALO_CACHE.set(cacheKey, c)
   return c
 }
 
 /** Faint grid that fades out upward and toward the sides. */
-function buildGrid(px: number, isLight = false) {
+function buildGrid(px: number, isLight = false, hn = HN) {
   const w = Math.round(px)
-  const h = Math.round(px * HN)
+  const h = Math.round(px * hn)
+  const cacheKey = `${isLight ? "L" : "D"}:${w}x${h}`
+  const hit = GRID_CACHE.get(cacheKey)
+  if (hit) return hit
+  const chLocal = CW * hn
   const c = makeCanvas(w, h)
   const ctx = c.getContext("2d")!
   const s = px / CW
@@ -312,23 +334,23 @@ function buildGrid(px: number, isLight = false) {
   ctx.beginPath()
   for (let k = -6; k <= 6; k++) {
     const x = CW / 2 + GRID_DX * k
-    ctx.moveTo(x, 250); ctx.lineTo(x, CH)
+    ctx.moveTo(x, chLocal * 0.35); ctx.lineTo(x, chLocal)
   }
   for (let k = -6; k <= 6; k++) {
-    const y = GRID_Y0 + GRID_DY * k
-    if (y < 250 || y > CH) continue
+    const y = chLocal * 0.67 + GRID_DY * k
+    if (y < chLocal * 0.35 || y > chLocal) continue
     ctx.moveTo(0, y); ctx.lineTo(CW, y)
   }
   ctx.stroke()
   // alpha mask: plateau in the lower middle, smooth fade up and out
-  const mw = 64, mh = Math.round(64 * HN)
+  const mw = 64, mh = Math.round(64 * hn)
   const m = makeCanvas(mw, mh)
   const mc = m.getContext("2d")!
   const img = mc.createImageData(mw, mh)
   const alpha = isLight ? 0.14 : GRID_ALPHA
   for (let j = 0; j < mh; j++) {
-    const y = (j + 0.5) / mh * CH
-    const my = smooth((y - 350) / 230)
+    const y = (j + 0.5) / mh * chLocal
+    const my = smooth((y - chLocal * 0.5) / (chLocal * 0.33))
     for (let i = 0; i < mw; i++) {
       const x = (i + 0.5) / mw * CW
       const mx = Math.exp(-0.5 * Math.pow((x - CW / 2) / 92, 2))
@@ -340,6 +362,8 @@ function buildGrid(px: number, isLight = false) {
   ctx.globalCompositeOperation = "destination-in"
   ctx.imageSmoothingEnabled = true
   ctx.drawImage(m, 0, 0, w, h)
+  if (GRID_CACHE.size > 16) GRID_CACHE.clear()
+  GRID_CACHE.set(cacheKey, c)
   return c
 }
 
@@ -475,6 +499,7 @@ export function PeakChart({
   accent = BASE_ACCENT,
   theme = "dark",
   width = 420,
+  height,
   loop = 0,
   backdrop = false,
   formatValue,
@@ -486,7 +511,11 @@ export function PeakChart({
   const current = period ?? innerPeriod
   const [open, setOpen] = React.useState(false)
   const [grain, setGrain] = React.useState<string | null>(null)
+  const cardHeight = height ?? Math.round(width * HN)
+  const hn = cardHeight / width
+  const ch = CW * hn
   const u = width / CW
+  const vUnit = cardHeight / CH
   const series = data ?? SERIES[current]?.data ?? MONTH_DATA
   const builtIn = SERIES[current]
   const pointLabels = labels ?? (builtIn && builtIn.data.length === series.length ? builtIn.labels : undefined)
@@ -577,17 +606,16 @@ export function PeakChart({
     const byc = Math.ceil(BY * u)
     const bx = bxc * dpr
     const by = byc * dpr
-    canvas.width = Math.ceil(CW * u * dpr + 2 * bx)
-    canvas.height = Math.ceil(CH * u * dpr + 2 * by)
+    canvas.width = Math.ceil(width * dpr + 2 * bx)
+    canvas.height = Math.ceil(cardHeight * dpr + 2 * by)
     canvas.style.left = `${-bxc}px`
     canvas.style.top = `${-byc}px`
     canvas.style.width = `${canvas.width / dpr}px`
     canvas.style.height = `${canvas.height / dpr}px`
     const isLight = theme === "light"
-    const fieldPx = Math.min(width * dpr, Math.max(width, 700))
-    const { rest: field, lift: bright } = buildField(fieldPx, 11, isLight)
-    const grid = buildGrid(width * dpr, isLight)
-    const halo = buildHalo(width, isLight)
+    const { rest: field, lift: bright } = buildField(width, 11, isLight, hn)
+    const grid = buildGrid(Math.min(width * dpr, 420), isLight, hn)
+    const halo = buildHalo(width, isLight, hn)
     const strokeCol = isLight ? "#2563eb" : LINE_COLOR
     const dotGlowCol = isLight ? "#3b82f6" : DOT_GLOW
     const pulseCol = isLight ? "#60a5fa" : PULSE_COLOR
@@ -607,9 +635,9 @@ export function PeakChart({
     const roundRect = () => {
       ctx.beginPath()
       ctx.moveTo(CR, 0)
-      ctx.arcTo(CW, 0, CW, CH, CR)
-      ctx.arcTo(CW, CH, 0, CH, CR)
-      ctx.arcTo(0, CH, 0, 0, CR)
+      ctx.arcTo(CW, 0, CW, ch, CR)
+      ctx.arcTo(CW, ch, 0, ch, CR)
+      ctx.arcTo(0, ch, 0, 0, CR)
       ctx.arcTo(0, 0, CW, 0, CR)
       ctx.closePath()
     }
@@ -667,23 +695,26 @@ export function PeakChart({
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       const s = dpr * u
-      ctx.setTransform(s, 0, 0, s, bx, by)
+      const vy = dpr * vUnit
+      const vyCh = (cardHeight * dpr) / ch
+      ctx.setTransform(s, 0, 0, vyCh, bx, by)
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = "high"
-      ctx.drawImage(halo, -BX, -BY, CW + 2 * BX, CH + 2 * BY)
+      ctx.drawImage(halo, -BX, -BY, CW + 2 * BX, ch + 2 * BY)
       ctx.save()
       roundRect()
       ctx.clip()
-      ctx.drawImage(field, 0, 0, CW, CH)
+      ctx.drawImage(field, 0, 0, CW, ch)
       if (F.breath > 0.001) {
         ctx.globalAlpha = F.breath
-        ctx.drawImage(bright, 0, 0, CW, CH)
+        ctx.drawImage(bright, 0, 0, CW, ch)
       }
       if (F.grid > 0.001) {
         ctx.globalAlpha = F.grid
-        ctx.drawImage(grid, 0, 0, CW, CH)
+        ctx.drawImage(grid, 0, 0, CW, ch)
       }
       ctx.globalAlpha = 1
+      ctx.setTransform(s, 0, 0, vy, bx, by)
 
       // line
       const x0 = F.erase * CW
@@ -720,7 +751,7 @@ export function PeakChart({
         const sinceLand = t - tLand(restX / CW)
         const pulse = sinceLand > 0 && sinceLand < 1.1 && !reduce ? sinceLand / 1.1 : -1
         ctx.globalAlpha = F.dotA
-        ctx.translate(dx, dy)
+        ctx.setTransform(s, 0, 0, s, bx + dx * s, by + dy * vy)
         ctx.scale(F.dotS, F.dotS)
         const boost = pulse >= 0 ? Math.sin(Math.PI * Math.min(1, pulse * 1.6)) : 0
         // halo
@@ -744,14 +775,14 @@ export function PeakChart({
         bg.addColorStop(1, dotBottom)
         ctx.fillStyle = bg
         ctx.beginPath(); ctx.arc(0, 0, DOT_R, 0, Math.PI * 2); ctx.fill()
-        ctx.setTransform(s, 0, 0, s, bx, by)
+        ctx.setTransform(s, 0, 0, vy, bx, by)
         ctx.globalAlpha = 1
 
         // readout
         const rd = readRef.current
         if (rd) {
           rd.style.opacity = L.hoverMix.toFixed(3)
-          rd.style.transform = `translate(${(dx * u).toFixed(1)}px, ${((dy - 26) * u).toFixed(1)}px) translate(-50%, -100%) scale(${(0.92 + 0.08 * L.hoverMix).toFixed(3)})`
+          rd.style.transform = `translate(${(dx * u).toFixed(1)}px, ${((dy * vUnit) - 14).toFixed(1)}px) translate(-50%, -100%) scale(${(0.92 + 0.08 * L.hoverMix).toFixed(3)})`
           if (L.hoverMix > 0.01) {
             const v = lo + ((PLOT_BOTTOM - curveY(ys, dx)) / (PLOT_BOTTOM - PLOT_TOP)) * (hi - lo)
             const txt = L.fmt ? L.fmt(v) : `${Math.round(v).toLocaleString("en-US")}${L.suffix}`
@@ -802,7 +833,7 @@ export function PeakChart({
       if (raf) cancelAnimationFrame(raf)
       L.kick = () => {}
     }
-  }, [width, u, theme])
+  }, [width, cardHeight, u, vUnit, hn, ch, theme])
 
   // close the dropdown on outside press and Escape
   React.useEffect(() => {
@@ -866,8 +897,8 @@ export function PeakChart({
       style={{
         position: "relative",
         width,
-        height: width * HN,
-        borderRadius: px(CR),
+        height: cardHeight,
+        borderRadius: 18,
         flex: "none",
         fontFamily: font,
         color: isLightTheme ? "#17181b" : "#fff",
@@ -888,43 +919,96 @@ export function PeakChart({
         onPointerDown={onMove}
         onPointerLeave={onLeave}
         onPointerCancel={onLeave}
-        style={{ position: "absolute", left: 0, top: px(96), width: "100%", height: px(330), touchAction: "pan-y", cursor: "crosshair" }}
+        style={{ position: "absolute", left: 0, top: Math.round(cardHeight * 0.17), width: "100%", height: Math.round(cardHeight * 0.43), touchAction: "pan-y", cursor: "crosshair" }}
       />
-      <p data-part="updated" style={{ ...textBase, left: px(45.6), top: px(43.6), fontSize: px(18.6), fontStretch: "107.7%", fontWeight: isLightTheme ? 400 : 200, color: isLightTheme ? "#5f646d" : "#99a3b6" }}>{updatedText}</p>
-
-      <button
-        ref={pillRef}
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+      <div
         style={{
-          position: "absolute", right: px(46), top: px(35), height: px(37), borderRadius: px(18.5),
-          border: isLightTheme ? "1px solid rgba(23,24,27,0.1)" : 0,
-          padding: `0 ${px(19.8)} 0 ${px(19.4)}`,
-          display: "flex", alignItems: "flex-start", gap: px(6.72),
-          background: isLightTheme ? "rgba(23,24,27,0.05)" : "rgba(255,255,255,0.13)",
-          cursor: "pointer", color: isLightTheme ? "#17181b" : "#b9cdf2", fontFamily: font, outlineOffset: 2,
+          position: "absolute",
+          left: 14,
+          right: 14,
+          top: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          zIndex: 2,
         }}
       >
-        <span data-part="period" style={{ ...textBase, position: "relative", display: "block", marginTop: px(10.6), fontSize: px(17.2), fontStretch: "115%", fontWeight: isLightTheme ? 500 : 200, color: isLightTheme ? "#334155" : "#acc1e7" }}>{current}</span>
-        <svg viewBox="0 0 12 7" aria-hidden style={{ flex: "none", marginTop: px(15.9), width: px(12), height: px(7), overflow: "visible", transition: "transform .2s ease", transform: open ? "rotate(180deg)" : "none" }}>
-          <path d="M0.8 0.8 L6 6 L11.2 0.8" fill="none" stroke={isLightTheme ? "#475569" : "#9fb7e0"} strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        </svg>
-      </button>
+        <p
+          data-part="updated"
+          style={{
+            margin: 0,
+            minWidth: 0,
+            flex: 1,
+            fontFamily: font,
+            fontSize: 11,
+            fontWeight: isLightTheme ? 500 : 300,
+            lineHeight: 1.35,
+            color: isLightTheme ? "#5f646d" : "#99a3b6",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            textAlign: "left",
+          }}
+        >
+          {updatedText}
+        </p>
+
+        <button
+          ref={pillRef}
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          style={{
+            flex: "0 0 auto",
+            height: 24,
+            borderRadius: 999,
+            border: isLightTheme ? "1px solid rgba(23,24,27,0.1)" : "1px solid rgba(255,255,255,0.1)",
+            padding: "0 9px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            background: isLightTheme ? "rgba(23,24,27,0.05)" : "rgba(255,255,255,0.12)",
+            cursor: "pointer",
+            color: isLightTheme ? "#334155" : "#acc1e7",
+            fontFamily: font,
+            outlineOffset: 2,
+          }}
+        >
+          <span
+            data-part="period"
+            style={{
+              display: "block",
+              fontFamily: font,
+              fontSize: 11,
+              fontWeight: 500,
+              lineHeight: 1.2,
+              color: isLightTheme ? "#334155" : "#acc1e7",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {current}
+          </span>
+          <svg viewBox="0 0 12 7" aria-hidden style={{ flex: "none", width: 8, height: 5, overflow: "visible", transition: "transform .2s ease", transform: open ? "rotate(180deg)" : "none" }}>
+            <path d="M0.8 0.8 L6 6 L11.2 0.8" fill="none" stroke={isLightTheme ? "#475569" : "#9fb7e0"} strokeWidth={1.35} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          </svg>
+        </button>
+      </div>
 
       <div
         ref={menuRef}
         role="listbox"
         aria-label="Period"
         style={{
-          position: "absolute", right: px(46), top: px(80), minWidth: px(150), padding: px(6), borderRadius: px(16), zIndex: 3,
-          background: isLightTheme ? "rgba(255,255,255,0.96)" : "rgba(20,34,64,0.55)",
-          border: isLightTheme ? "1px solid rgba(23,24,27,0.12)" : "1px solid rgba(255,255,255,0.12)",
+          position: "absolute", right: 14, top: 40, minWidth: 108, padding: 5, borderRadius: 12, zIndex: 4,
+          background: isLightTheme ? "rgba(255,255,255,0.96)" : "rgba(20,34,64,0.88)",
+          border: isLightTheme ? "1px solid rgba(23,24,27,0.12)" : "1px solid rgba(255,255,255,0.14)",
           boxShadow: isLightTheme ? "0 14px 32px -10px rgba(23,24,27,0.18)" : "0 18px 40px -12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
           backdropFilter: "blur(18px) saturate(150%)", WebkitBackdropFilter: "blur(18px) saturate(150%)",
           transformOrigin: "top right", transition: "opacity .18s ease, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility .22s",
-          opacity: open ? 1 : 0, transform: open ? "none" : `translateY(${px(-6)}) scale(0.96)`, visibility: open ? "visible" : "hidden",
+          opacity: open ? 1 : 0, transform: open ? "none" : "translateY(-4px) scale(0.96)", visibility: open ? "visible" : "hidden",
         }}
       >
         {periods.map((p) => (
@@ -935,19 +1019,19 @@ export function PeakChart({
             aria-selected={p === current}
             onClick={() => choose(p)}
             style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", height: px(36), padding: `0 ${px(12)}`,
-              border: 0, borderRadius: px(10),
+              display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", height: 28, padding: "0 9px",
+              border: 0, borderRadius: 8,
               background: p === current ? (isLightTheme ? "rgba(37,99,235,0.08)" : "rgba(255,255,255,0.09)") : "transparent",
               cursor: "pointer",
               color: isLightTheme ? (p === current ? "#1d4ed8" : "#334155") : (p === current ? "#e6eeff" : "#aebcd6"),
-              fontFamily: font, fontStretch: "116%", fontSize: px(15.5), textAlign: "left",
+              fontFamily: font, fontSize: 12, fontWeight: 500, textAlign: "left",
             }}
             onPointerEnter={(e) => { if (p !== current) e.currentTarget.style.background = isLightTheme ? "rgba(23,24,27,0.04)" : "rgba(255,255,255,0.06)" }}
             onPointerLeave={(e) => { if (p !== current) e.currentTarget.style.background = "transparent" }}
           >
             {p}
             {p === current && (
-              <svg viewBox="0 0 12 9" aria-hidden style={{ width: px(12), height: px(9) }}>
+              <svg viewBox="0 0 12 9" aria-hidden style={{ width: 10, height: 8 }}>
                 <path d="M1 4.6 L4.4 8 L11 1" fill="none" stroke={isLightTheme ? "#2563eb" : "#9fc0ff"} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
               </svg>
             )}
@@ -960,39 +1044,110 @@ export function PeakChart({
         ref={readRef}
         aria-hidden
         style={{
-          position: "absolute", left: 0, top: 0, opacity: 0, pointerEvents: "none", zIndex: 2, display: "flex", alignItems: "baseline", gap: px(7),
-          padding: `${px(7)} ${px(11)}`, borderRadius: px(11),
-          background: isLightTheme ? "rgba(255,255,255,0.95)" : "rgba(18,36,72,0.55)",
-          border: isLightTheme ? "1px solid rgba(23,24,27,0.12)" : "1px solid rgba(160,195,255,0.18)",
+          position: "absolute", left: 0, top: 0, opacity: 0, pointerEvents: "none", zIndex: 3, display: "flex", alignItems: "baseline", gap: 6,
+          padding: "5px 9px", borderRadius: 9,
+          background: isLightTheme ? "rgba(255,255,255,0.95)" : "rgba(18,36,72,0.82)",
+          border: isLightTheme ? "1px solid rgba(23,24,27,0.12)" : "1px solid rgba(160,195,255,0.22)",
           boxShadow: isLightTheme ? "0 6px 16px -6px rgba(23,24,27,0.16)" : undefined,
-          backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", whiteSpace: "nowrap", fontFamily: font, fontStretch: "116%",
+          backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", whiteSpace: "nowrap", fontFamily: font,
         }}
       >
-        <span ref={readValRef} style={{ fontSize: px(16), fontWeight: 600, color: isLightTheme ? "#17181b" : "#fff" }} />
-        <span ref={readLabRef} style={{ fontSize: px(12.5), color: isLightTheme ? "#5f646d" : "#9fb0cc" }} />
+        <span ref={readValRef} style={{ fontSize: 12, fontWeight: 600, color: isLightTheme ? "#17181b" : "#fff" }} />
+        <span ref={readLabRef} style={{ fontSize: 10.5, color: isLightTheme ? "#5f646d" : "#9fb0cc" }} />
       </div>
 
-      <p data-part="title" style={{ ...textBase, left: 0, right: 0, textAlign: "center", top: px(441.4), fontSize: px(20.2), fontStretch: "115%", fontWeight: isLightTheme ? 500 : 200, color: isLightTheme ? "#5f646d" : "#9298a5" }}>{title}</p>
-      <div ref={numRef} style={{ position: "absolute", left: 0, right: 0, top: px(469), display: "flex", justifyContent: "center", opacity: 0 }}>
-        <div data-part="value" style={{ position: "relative", fontFamily: font, fontWeight: isLightTheme ? 600 : 500, fontSize: px(89.2), lineHeight: 1, letterSpacing: px(-0.5), whiteSpace: "nowrap", marginLeft: px(-8.5) }}>
-          <span style={{ position: "relative", display: "inline-block", fontVariantNumeric: "tabular-nums", fontStretch: "106%" }}>
-            <span style={{ visibility: "hidden" }}>{finalDigits}</span>
-            <span ref={digitsRef} style={{ position: "absolute", right: 0, top: 0 }}>{finalDigits}</span>
-          </span>
-          <span data-part="suffix" style={{ display: "inline-block", fontStretch: "76%", marginLeft: px(1.5), marginRight: px(-4), transform: "scaleX(0.93)", transformOrigin: "0 50%" }}>{valueSuffix}</span>
-          {trend !== "none" && (
-            <svg
-              ref={arrowRef}
-              viewBox="0 0 8 8"
-              aria-hidden
-              style={{ position: "absolute", left: "100%", marginLeft: px(5.5), top: px(16.4), width: px(7), height: px(7), overflow: "visible", transformOrigin: "0% 100%", opacity: 0, rotate: trend === "down" ? "90deg" : undefined }}
-            >
-              <path d="M0.6 7.4 L7.2 0.8 M2 0.6 L7.4 0.6 L7.4 6" fill="none" stroke={trendColor} strokeWidth={1.1} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            </svg>
-          )}
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          right: 12,
+          bottom: 13,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 3,
+          textAlign: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <p
+          data-part="title"
+          style={{
+            margin: 0,
+            fontFamily: font,
+            fontSize: 12,
+            fontWeight: 500,
+            lineHeight: 1.25,
+            color: isLightTheme ? "#5f646d" : "#99a3b8",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "100%",
+          }}
+        >
+          {title}
+        </p>
+        <div ref={numRef} style={{ display: "flex", justifyContent: "center", opacity: 0 }}>
+          <div
+            data-part="value"
+            style={{
+              position: "relative",
+              display: "inline-flex",
+              alignItems: "flex-start",
+              fontFamily: font,
+              fontWeight: 600,
+              fontSize: 32,
+              lineHeight: 1.05,
+              letterSpacing: "-0.02em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <span style={{ position: "relative", display: "inline-block", fontVariantNumeric: "tabular-nums" }}>
+              <span style={{ visibility: "hidden" }}>{finalDigits}</span>
+              <span ref={digitsRef} style={{ position: "absolute", right: 0, top: 0 }}>{finalDigits}</span>
+            </span>
+            {valueSuffix && (
+              <span data-part="suffix" style={{ display: "inline-block", marginLeft: 1 }}>{valueSuffix}</span>
+            )}
+            {trend !== "none" && (
+              <svg
+                ref={arrowRef}
+                viewBox="0 0 8 8"
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: "100%",
+                  marginLeft: 4,
+                  top: 5,
+                  width: 7,
+                  height: 7,
+                  overflow: "visible",
+                  transformOrigin: "0% 100%",
+                  opacity: 0,
+                  rotate: trend === "down" ? "90deg" : undefined,
+                }}
+              >
+                <path d="M0.6 7.4 L7.2 0.8 M2 0.6 L7.4 0.6 L7.4 6" fill="none" stroke={trendColor} strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              </svg>
+            )}
+          </div>
         </div>
+        <p
+          data-part="caption"
+          style={{
+            margin: 0,
+            fontFamily: font,
+            fontSize: 10.5,
+            fontWeight: 400,
+            lineHeight: 1.32,
+            color: isLightTheme ? "#5f646d" : "#99a3b8",
+            whiteSpace: "normal",
+            maxWidth: "100%",
+          }}
+        >
+          {caption}
+        </p>
       </div>
-      <p data-part="caption" style={{ ...textBase, left: 0, right: 0, textAlign: "center", top: px(560.9), fontSize: px(11.6), fontStretch: "108%", fontWeight: isLightTheme ? 400 : 250, color: isLightTheme ? "#6b7280" : "#9299a8" }}>{caption}</p>
     </div>
   )
 

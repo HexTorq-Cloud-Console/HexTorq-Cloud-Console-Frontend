@@ -1595,12 +1595,12 @@
 /* PeakChart showcase framing for the 5 dashboard KPI cards */
 .kpi-peak-stage {
   position: relative;
-  margin: -10px;
-  padding: 14px 10px;
+  margin: 0;
+  padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
-  overflow: clip;
+  overflow-x: clip;
 }
 
 :root[data-theme='dark'] .kpi-peak-stage {
@@ -1615,8 +1615,8 @@
 
 .kpi-grid--peak {
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 14px;
-  align-items: center;
+  gap: 16px;
+  align-items: stretch;
 }
 
 @media (max-width: 1199px) {
@@ -1632,42 +1632,24 @@
 }
 
 .kpi-peak-slot {
-  display: flex;
-  justify-content: center;
+  display: block;
+  width: 100%;
   min-width: 0;
 }
 
-.kpi-grid--peak [data-peak-chart] [data-part='updated'],
-.kpi-grid--peak [data-peak-chart] [data-part='title'],
-.kpi-grid--peak [data-peak-chart] [data-part='caption'] {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.kpi-grid--peak [data-peak-chart] [data-part='updated'] {
-  max-width: 52%;
-  font-size: clamp(9px, 0.7vw, 12.5px) !important;
-}
-
-.kpi-grid--peak [data-peak-chart] [data-part='title'] {
-  padding: 0 10px;
-  font-size: clamp(10px, 0.78vw, 14px) !important;
-}
-
-.kpi-grid--peak [data-peak-chart] [data-part='caption'] {
-  padding: 0 10px;
-  margin-top: 2px !important;
-  font-size: clamp(8.5px, 0.65vw, 11px) !important;
+.kpi-peak-slot > div {
+  display: block !important;
+  width: 100%;
 }
 
 @media (max-width: 560px) {
-  .kpi-peak-stage {
-    padding: 14px;
-    border-radius: 18px;
+  :root[data-theme='dark'] .kpi-peak-stage {
+    padding: 12px;
+    border-radius: 16px;
   }
 
   .kpi-grid--peak {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 14px;
   }
 }

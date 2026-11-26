@@ -58,17 +58,14 @@ function useConsoleTheme(): 'light' | 'dark' {
 
 function PeakSlot({ children }: { children: (width: number) => React.ReactNode }) {
   const slotRef = useRef<HTMLDivElement>(null);
-  const [cardWidth, setCardWidth] = useState(190);
+  const [cardWidth, setCardWidth] = useState(215);
 
   useEffect(() => {
     const el = slotRef.current;
     if (!el) return;
     const update = () => {
       const w = el.clientWidth;
-      if (w > 0) {
-        const cap = window.innerWidth <= 560 ? 236 : 196;
-        setCardWidth(Math.max(158, Math.min(cap, Math.floor(w))));
-      }
+      if (w > 0) setCardWidth(Math.max(160, Math.floor(w)));
     };
     update();
     if (typeof ResizeObserver === 'undefined') return;
@@ -125,7 +122,8 @@ export default function DashboardPeakCards({
     currentBuckets.map((b) => formatBucketLabel(b.date)),
     currentTotal,
   );
-  const deployDelta = totalChange === null ? rangeLabel : `${totalChange >= 0 ? '+' : ''}${totalChange.toFixed(1)}% ${compareLabel}`;
+  const deployDelta =
+    totalChange === null ? rangeLabel : `${totalChange >= 0 ? '+' : ''}${totalChange.toFixed(1)}% ${compareLabel}`;
 
   // 2. Success rate card
   const rateSeries = ensureSeries(
@@ -134,7 +132,7 @@ export default function DashboardPeakCards({
     successRate ?? 100,
   );
   const rateDelta =
-    rateChange === null ? 'No prior window' : `${rateChange >= 0 ? '+' : ''}${rateChange.toFixed(1)} pts ${compareLabel}`;
+    rateChange === null ? 'no prior window' : `${rateChange >= 0 ? '+' : ''}${rateChange.toFixed(1)} pts ${compareLabel}`;
 
   // 3. Services card
   const serviceValue = serviceView === 'PM2' ? pm2Count : serviceView === 'Static' ? staticCount : totalServices;
@@ -155,7 +153,7 @@ export default function DashboardPeakCards({
     runtime.entries.slice(0, 12).map((e) => e.service.name),
     runtime.online ? 100 : 0,
   );
-  const healthCaption = `${runtime.errored ? `${runtime.errored} erroring · ` : ''}${runtime.stopped ? `${runtime.stopped} stopped · ` : ''}${runtime.unknown ? `${runtime.unknown} awaiting` : 'all reporting'}${runtime.staticTotal ? ` · ${runtime.staticTotal} static` : ''}`;
+  const healthCaption = `${runtime.errored ? `${runtime.errored} erroring · ` : ''}${runtime.stopped ? `${runtime.stopped} stopped · ` : ''}${runtime.unknown ? `${runtime.unknown} awaiting status` : 'all processes reporting'}${runtime.staticTotal ? ` · ${runtime.staticTotal} static` : ''}`;
 
   // 5. Agents online card
   const agentValue = agentView === 'Total' ? agents.length : onlineAgents;
@@ -177,6 +175,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              height={224}
               theme={surfaceTheme}
               accent="#4f8ef7"
               title={`Deployments (${range})`}
@@ -185,7 +184,7 @@ export default function DashboardPeakCards({
               data={deploySeries.data}
               labels={deploySeries.labels}
               updatedText={deployDelta}
-              caption={`${currentSuccessful} ok · ${currentFailed} fail${currentRunning ? ` · ${currentRunning} run` : ''}`}
+              caption={`${currentSuccessful} successful · ${currentFailed} failed${currentRunning ? ` · ${currentRunning} running` : ''}`}
               trend={totalChange === null ? 'none' : totalChange >= 0 ? 'up' : 'down'}
               periods={['24h', '7d', '30d']}
               period={range}
@@ -199,6 +198,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              height={224}
               theme={surfaceTheme}
               accent="#2ec99a"
               title="Success rate"
@@ -207,7 +207,7 @@ export default function DashboardPeakCards({
               data={rateSeries.data}
               labels={rateSeries.labels}
               updatedText={rateDelta}
-              caption={`${currentSuccessful} of ${completed} completed`}
+              caption={`${currentSuccessful} of ${completed} completed deployments`}
               trend={rateChange === null ? 'none' : rateChange >= 0 ? 'up' : 'down'}
               periods={['24h', '7d', '30d']}
               period={range}
@@ -221,6 +221,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              height={224}
               theme={surfaceTheme}
               accent="#7c5cff"
               title="Services"
@@ -229,7 +230,7 @@ export default function DashboardPeakCards({
               data={serviceSeries.data}
               labels={serviceSeries.labels}
               updatedText={`${enabledServices} enabled`}
-              caption={`${pm2Count} PM2 · ${staticCount} static`}
+              caption={`${pm2Count} PM2 · ${staticCount} static frontend`}
               trend={enabledServices > 0 ? 'up' : 'none'}
               periods={['All', 'PM2', 'Static']}
               period={serviceView}
@@ -243,6 +244,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              height={224}
               theme={surfaceTheme}
               accent="#14b8a6"
               title="Service health"
@@ -250,7 +252,7 @@ export default function DashboardPeakCards({
               valueSuffix=""
               data={healthSeries.data}
               labels={healthSeries.labels}
-              updatedText={runtime.total ? `of ${runtime.total} running` : 'no services'}
+              updatedText={runtime.total ? `of ${runtime.total} running` : 'no services yet'}
               caption={healthCaption}
               trend={runtime.errored || runtime.stopped ? 'down' : runtime.online > 0 ? 'up' : 'none'}
               periods={['Online', 'All']}
@@ -265,6 +267,7 @@ export default function DashboardPeakCards({
           {(w) => (
             <PeakChart
               width={w}
+              height={224}
               theme={surfaceTheme}
               accent="#f59e0b"
               title="Agents online"
@@ -272,8 +275,8 @@ export default function DashboardPeakCards({
               valueSuffix=""
               data={agentSeries.data}
               labels={agentSeries.labels}
-              updatedText={agents.length ? `of ${agents.length} reporting` : 'no agents'}
-              caption={agents.length ? 'VPS node heartbeats' : 'Assign an agent'}
+              updatedText={agents.length ? `of ${agents.length} reporting` : 'no agents assigned'}
+              caption={agents.length ? 'Live heartbeat status across managed VPS nodes' : 'Add an agent to manage runtime services'}
               trend={agents.length && onlineAgents === agents.length ? 'up' : agents.length ? 'down' : 'none'}
               periods={['Online', 'Total']}
               period={agentView}
