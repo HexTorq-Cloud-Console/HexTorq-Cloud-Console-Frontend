@@ -11,7 +11,7 @@ export interface Point {
 }
 
 const EASE = 'power3.out';
-const FADE_OUT = 0.15;
+const FADE_OUT = 0.22;
 const RESIZE_DEBOUNCE_MS = 250;
 /** CSS cross-fade used without WebGL2 or before snapshots are ready. */
 const CSS_FADE_S = 0.45;
@@ -302,7 +302,7 @@ export class InkTransition {
     this.spread = null;
     if (!canvas) return;
     this.fade = gsap
-      .to(canvas, { opacity: 0, duration: FADE_OUT, ease: 'none', onComplete: () => this.hide() })
+      .to(canvas, { opacity: 0, duration: FADE_OUT, ease: 'power1.out', onComplete: () => this.hide() })
       .timeScale(inkParams.timeScale);
   }
 
@@ -311,7 +311,7 @@ export class InkTransition {
     this.frame = null;
     this.renderer?.canvas.classList.remove('is-active');
     document.documentElement.removeAttribute('data-ink-active');
-    if (this.captureQueued) this.scheduleCapture(0);
+    if (this.captureQueued) this.scheduleCapture(500);
   }
 
   private cancel(): void {

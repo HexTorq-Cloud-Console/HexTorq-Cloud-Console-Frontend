@@ -114,11 +114,35 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
       doc.querySelectorAll<HTMLElement>('.ar-overlay').forEach((el) => {
         el.style.visibility = 'hidden';
       });
+      resolveSvgCssVars(doc);
       flattenGradientText(doc);
     },
   });
 
   return { theme, canvas, scale: safeScale, key, originX, originY, fullDoc, ms: performance.now() - t0 };
+}
+
+/**
+ * html2canvas doesn't resolve CSS custom properties inside SVG presentation attributes
+ * (`stroke="var(--ht-chart-1)"`, `stop-color="var(--ht-chart-2)"`). Resolve them in the
+ * clone using the target theme's computed root styles so charts match the live DOM.
+ */
+function resolveSvgCssVars(doc: Document): void {
+  const view = doc.defaultView;
+  if (!view) return;
+  const rootStyle = view.getComputedStyle(doc.documentElement);
+  const attrs = ['stroke', 'fill', 'stop-color'] as const;
+  doc.querySelectorAll('svg *').forEach((el) => {
+    for (const attr of attrs) {
+      const val = el.getAttribute(attr);
+      if (!val || !val.includes('var(')) continue;
+      const resolved = val.replace(/var\(\s*(--[^,\s)]+)\s*(?:,[^)]*)?\)/g, (match, name: string) => {
+        const value = rootStyle.getPropertyValue(name).trim();
+        return value || match;
+      });
+      if (resolved !== val) el.setAttribute(attr, resolved);
+    }
+  });
 }
 
 /**

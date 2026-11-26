@@ -15,6 +15,8 @@
   height: 100%;
   pointer-events: none;
   visibility: hidden;
+  will-change: opacity;
+  transform: translateZ(0);
 }
 
 .ink-canvas.is-active {
@@ -36,6 +38,8 @@
      matching the reference demo where the nav toggle floats above the ink. */
 html[data-ink-active='1'] .shell-topbar {
   z-index: auto;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 html[data-ink-active='1'] .shell-top-actions .theme-toggle,
