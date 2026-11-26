@@ -1609,8 +1609,21 @@
 }
 
 .kpi-grid--peak {
-  gap: 18px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
   align-items: center;
+}
+
+@media (max-width: 1199px) {
+  .kpi-grid--peak {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .kpi-grid--peak {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .kpi-peak-slot {
@@ -1628,17 +1641,18 @@
 
 .kpi-grid--peak [data-peak-chart] [data-part='updated'] {
   max-width: 52%;
-  font-size: clamp(9.5px, 0.72vw, 13px) !important;
+  font-size: clamp(9px, 0.7vw, 12.5px) !important;
 }
 
 .kpi-grid--peak [data-peak-chart] [data-part='title'] {
-  padding: 0 12px;
-  font-size: clamp(10.5px, 0.8vw, 15px) !important;
+  padding: 0 10px;
+  font-size: clamp(10px, 0.78vw, 14px) !important;
 }
 
 .kpi-grid--peak [data-peak-chart] [data-part='caption'] {
-  padding: 0 12px;
-  font-size: clamp(9.5px, 0.65vw, 11.5px) !important;
+  padding: 0 10px;
+  margin-top: 2px !important;
+  font-size: clamp(8.5px, 0.65vw, 11px) !important;
 }
 
 @media (max-width: 560px) {
