@@ -107,17 +107,29 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
       doc.querySelectorAll<HTMLElement>('.ar-overlay').forEach((el) => {
         el.style.visibility = 'hidden';
       });
+      // html2canvas injects <html2canvaspseudoelement> inside void <input> toggles
+      // (e.g. .notify-card__events input::after), where Chromium leaves computed styles
+      // empty and triggers "unexpected EOF" in html2canvas's CSS parser.
+      const view = doc.defaultView;
+      if (view) {
+        doc.querySelectorAll('html2canvaspseudoelement').forEach((pseudo) => {
+          if (!view.getComputedStyle(pseudo).backgroundColor) {
+            pseudo.remove();
+          }
+        });
+      }
       // html2canvas chokes on large inset :autofill box-shadows (rendering the input
-      // solid blue). Normalize input surface colors cleanly for the target theme.
+      // solid blue). Normalize text/email/password input surface colors cleanly.
       const inputBg = theme === 'dark' ? '#0b0d14' : '#fbfbf9';
       const inputFg = theme === 'dark' ? '#f4f5fa' : '#17181b';
-      doc.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
+      doc.querySelectorAll<HTMLInputElement>('input:not([type="checkbox"]):not([type="radio"])').forEach((input) => {
         input.style.setProperty('box-shadow', 'none', 'important');
         input.style.setProperty('background-color', inputBg, 'important');
         input.style.setProperty('color', inputFg, 'important');
         input.style.setProperty('-webkit-text-fill-color', inputFg, 'important');
       });
 
+      sanitizeUnsupportedColors(doc);
       resolveSvgCssVars(doc, theme);
       flattenGradientText(doc);
     },
@@ -152,6 +164,64 @@ const SVG_THEME_TOKENS: Record<Theme, Record<string, string>> = {
     '--ht-text-muted': '#949db5',
   },
 };
+
+const COLOR4_RE = /\b(?:color|oklch|oklab|lab|lch)\([^)]+\)/gi;
+
+const COLOR_PROPS = [
+  ['color', 'color'],
+  ['backgroundColor', 'background-color'],
+  ['backgroundImage', 'background-image'],
+  ['borderTopColor', 'border-top-color'],
+  ['borderRightColor', 'border-right-color'],
+  ['borderBottomColor', 'border-bottom-color'],
+  ['borderLeftColor', 'border-left-color'],
+  ['boxShadow', 'box-shadow'],
+  ['textShadow', 'text-shadow'],
+  ['textDecorationColor', 'text-decoration-color'],
+  ['webkitTextStrokeColor', '-webkit-text-stroke-color'],
+] as const;
+
+/**
+ * Chromium computes `color-mix()` / wide-gamut colors to `color(srgb ...)` or
+ * `oklch(...)`, which html2canvas 1.4.1 cannot parse. Rasterize any offending
+ * CSS Color 4 token via a lazy 1x1 canvas into standard `rgba(...)`.
+ */
+function sanitizeUnsupportedColors(doc: Document): void {
+  const view = doc.defaultView;
+  if (!view) return;
+  const cache = new Map<string, string>();
+  let ctx: CanvasRenderingContext2D | null = null;
+
+  const toRgba = (token: string): string => {
+    const cached = cache.get(token);
+    if (cached) return cached;
+    if (!ctx) {
+      const c = doc.createElement('canvas');
+      c.width = 1;
+      c.height = 1;
+      ctx = c.getContext('2d', { willReadFrequently: true });
+    }
+    if (!ctx) return 'transparent';
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = token;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    const rgba = `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`;
+    cache.set(token, rgba);
+    return rgba;
+  };
+
+  doc.querySelectorAll<HTMLElement>('*').forEach((el) => {
+    const cs = view.getComputedStyle(el);
+    for (const [camel, kebab] of COLOR_PROPS) {
+      const val = cs[camel];
+      if (!val || !COLOR4_RE.test(val)) continue;
+      COLOR4_RE.lastIndex = 0;
+      const fixed = val.replace(COLOR4_RE, (m) => toRgba(m));
+      el.style.setProperty(kebab, fixed, 'important');
+    }
+  });
+}
 
 /**
  * html2canvas serializes inline <svg> elements into data-URI images where external
