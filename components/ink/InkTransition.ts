@@ -109,6 +109,14 @@ export class InkTransition {
     this.disposers.push(() => {
       for (const event of interactions) window.removeEventListener(event, markInteraction);
     });
+
+    // When the user scrolls to a new position and pauses, refresh the viewport snapshot.
+    const onScroll = (): void => {
+      this.lastInteraction = performance.now();
+      this.scheduleCapture(600);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    this.disposers.push(() => window.removeEventListener('scroll', onScroll));
   }
 
   get isAnimating(): boolean {

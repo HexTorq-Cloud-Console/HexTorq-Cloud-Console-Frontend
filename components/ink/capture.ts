@@ -45,20 +45,11 @@ export function documentSize(): { width: number; height: number } {
 }
 
 /**
- * Above this document height we capture a viewport-sized window instead of the
- * full scrollHeight so html2canvas stays snappy and never exceeds GPU texture limits.
- */
-export const MAX_FULL_CAPTURE_HEIGHT = 4500;
-
-/**
- * Identifies the layout a snapshot depends on. Viewport height is deliberately
- * excluded for full-doc captures (mobile URL-bar show/hide changes it without reflowing).
+ * Captures the active viewport window so sticky elements (.shell-sidebar, .shell-topbar)
+ * always align with the scrolled viewport and html2canvas stays fast on tall pages.
  */
 export function layoutKey(scale: number): string {
-  const { width, height } = documentSize();
-  if (height <= MAX_FULL_CAPTURE_HEIGHT) {
-    return `full:${width}x${height}@${scale}`;
-  }
+  const { width } = documentSize();
   return `view:${width}x${document.documentElement.clientHeight}@${scale}`;
 }
 
@@ -66,12 +57,10 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
   const t0 = performance.now();
   const key = layoutKey(scale);
   const { width, height: docHeight } = documentSize();
-  const fullDoc = docHeight <= MAX_FULL_CAPTURE_HEIGHT;
+  const fullDoc = false;
   const originX = 0;
-  const originY = fullDoc ? 0 : Math.max(0, Math.floor(window.scrollY));
-  const captureHeight = fullDoc
-    ? docHeight
-    : Math.min(docHeight - originY, document.documentElement.clientHeight);
+  const originY = Math.max(0, Math.floor(window.scrollY));
+  const captureHeight = Math.min(Math.max(1, docHeight - originY), document.documentElement.clientHeight);
 
   // Never exceed what the GPU can hold; the shader handles scale != canvas DPR.
   const safeScale = Math.min(scale, maxTextureSize / width, maxTextureSize / Math.max(1, captureHeight));
