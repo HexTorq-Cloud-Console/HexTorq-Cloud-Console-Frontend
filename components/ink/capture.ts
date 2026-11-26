@@ -94,10 +94,11 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
     logging: false,
     useCORS: true,
     onclone: (doc) => {
-      // Disable all CSS transitions/animations in the clone BEFORE flipping data-theme
-      // so html2canvas never captures elements mid-140ms transition.
+      // Disable CSS transitions in the clone BEFORE flipping data-theme so html2canvas
+      // never captures elements mid-140ms color transition. Keep animations intact so
+      // elements with `animation: ... forwards` don't revert to opacity: 0.
       const noTrans = doc.createElement('style');
-      noTrans.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+      noTrans.textContent = '*, *::before, *::after { transition: none !important; }';
       doc.head.appendChild(noTrans);
 
       doc.documentElement.dataset.theme = theme;
