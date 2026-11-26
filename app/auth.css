@@ -27,6 +27,8 @@
 .auth-shell,
 .auth-center-card,
 .auth-loading {
+  position: relative;
+  z-index: 1;
   margin-block: auto;
 }
 

@@ -1121,3 +1121,34 @@ sakuga-toast.ht-sakuga-toast[data-open='true'] {
     outline: 2px solid ButtonText;
   }
 }
+
+/* ------------------------------------------------------------ Flow Field */
+
+.bg-flow-field-root {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(90% 70% at 62% 34%, rgba(56, 130, 246, 0.14) 0%, rgba(56, 130, 246, 0) 60%),
+    radial-gradient(70% 60% at 22% 80%, rgba(20, 184, 166, 0.12) 0%, rgba(20, 184, 166, 0) 62%),
+    linear-gradient(180deg, #f8fafd 0%, #f1f5fb 46%, #ebf1fa 74%, #e6edf8 100%);
+  transition: background 0.45s ease;
+}
+
+.bg-flow-field-root[data-theme='dark'],
+:root[data-theme='dark'] .bg-flow-field-root {
+  background:
+    radial-gradient(90% 70% at 62% 34%, rgba(24, 58, 96, 0.42) 0%, rgba(24, 58, 96, 0) 58%),
+    radial-gradient(70% 60% at 22% 80%, rgba(16, 74, 82, 0.34) 0%, rgba(16, 74, 82, 0) 62%),
+    linear-gradient(180deg, #05070c 0%, #070b14 46%, #060a11 74%, #04060a 100%);
+}
+
+.bg-flow-field-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}

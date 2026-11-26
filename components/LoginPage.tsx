@@ -8,6 +8,7 @@ import AuthFooter from './AuthFooter';
 import Reveal from './Reveal';
 import PasswordChange from './PasswordChange';
 import ThemeToggle from './ThemeToggle';
+import { FlowField } from './ui/flow-field';
 import { apiUrl, errorMessage, TOKEN_KEY, responseJson } from '../lib/api';
 import { clearConsoleCache } from '../lib/consoleCache';
 import { FAILURE_ALERTS_KEY, SECTION_PATHS, sectionFromLegacyHash } from '../lib/sections';
@@ -168,6 +169,7 @@ export default function LoginPage() {
   if (!sessionChecked || (token && !forcePasswordChange)) {
     return (
       <main className="auth-page">
+        <FlowField />
         <div className="auth-glow auth-glow--blue" aria-hidden="true" />
         <div className="auth-glow auth-glow--violet" aria-hidden="true" />
         <ThemeToggle className="auth-theme-toggle" />
@@ -193,6 +195,7 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page">
+      <FlowField />
       <div className="auth-glow auth-glow--blue" aria-hidden="true" />
       <div className="auth-glow auth-glow--violet" aria-hidden="true" />
       <ThemeToggle className="auth-theme-toggle" />
