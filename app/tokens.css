@@ -126,6 +126,8 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
+  accent-color: #4f7cff;
+  scrollbar-color: #4a5575 #0b0d14;
 
   --ht-canvas: #07080d;
   --ht-nav: #0b0d14;
@@ -133,13 +135,13 @@
   --ht-elevated: #161a26;
   --ht-overlay: #1d2232;
 
-  --ht-line-subtle: #181c28;
-  --ht-line: #232838;
-  --ht-line-focus: #38405a;
+  --ht-line-subtle: #1d2232;
+  --ht-line: #2d3448;
+  --ht-line-focus: #4a5575;
 
   --ht-text: #f4f5fa;
-  --ht-text-secondary: #9aa1b5;
-  --ht-text-muted: #646b80;
+  --ht-text-secondary: #b8c0d4;
+  --ht-text-muted: #949db5;
 
   --ht-gradient: linear-gradient(135deg, #1f5eff 0%, #4f46e5 50%, #8a3ffc 100%);
   --ht-gradient-cta: linear-gradient(135deg, #1f5eff 0%, #8a3ffc 100%);

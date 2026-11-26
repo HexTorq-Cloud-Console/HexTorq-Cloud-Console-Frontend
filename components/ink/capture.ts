@@ -144,11 +144,11 @@ const SVG_THEME_TOKENS: Record<Theme, Record<string, string>> = {
     '--ht-chart-3': '#8a3ffc',
     '--ht-chart-4': '#f5b83d',
     '--ht-danger': '#ff5c6c',
-    '--ht-line': '#232838',
+    '--ht-line': '#2d3448',
     '--ht-card': '#10131c',
     '--ht-text': '#f4f5fa',
-    '--ht-text-secondary': '#9aa1b5',
-    '--ht-text-muted': '#646b80',
+    '--ht-text-secondary': '#b8c0d4',
+    '--ht-text-muted': '#949db5',
   },
 };
 

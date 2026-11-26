@@ -1142,3 +1142,30 @@ html:has(.auth-page) {
 .auth-field-error.is-visible {
   display: block;
 }
+
+/* Modern Web Guidance: dark-mode typography & readability polish */
+.auth-headline,
+.auth-title {
+  text-wrap: balance;
+}
+
+.auth-lede,
+.auth-sub,
+.auth-feature p,
+.auth-brand__foot,
+.auth-foot,
+.auth-footer__description {
+  text-wrap: pretty;
+  line-height: 1.5;
+}
+
+.auth-feature p {
+  font-size: 0.75rem;
+}
+
+.auth-brand__foot,
+.auth-foot,
+.auth-footer__description,
+.auth-footer__copyright {
+  font-size: 0.75rem;
+}
