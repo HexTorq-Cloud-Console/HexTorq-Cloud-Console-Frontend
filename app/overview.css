@@ -1595,14 +1595,16 @@
 /* PeakChart showcase framing for the 5 dashboard KPI cards */
 .kpi-peak-stage {
   position: relative;
-  padding: 4px 0;
+  margin: -10px;
+  padding: 14px 10px;
   border: 0;
   background: transparent;
   box-shadow: none;
-  overflow: visible;
+  overflow: clip;
 }
 
 :root[data-theme='dark'] .kpi-peak-stage {
+  margin: 0;
   padding: 16px;
   border-radius: 20px;
   border: 1px solid rgba(140, 170, 230, 0.12);

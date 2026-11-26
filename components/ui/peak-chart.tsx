@@ -519,6 +519,8 @@ export function PeakChart({
     suffix: valueSuffix,
     decimals,
     loop,
+    clock: 0,
+    started: false,
     kick: () => {},
   })
   live.current.labels = pointLabels
@@ -594,8 +596,10 @@ export function PeakChart({
     const dotBottom = isLight ? "#dbeafe" : DOT_BOTTOM
     const tLand = (frac: number) => T_DRAW0 + T_DRAW * inverseEase(frac)
 
-    let clock = reduce ? T_REST + 0.01 : 0
-    let started = reduce
+    if (reduce) {
+      L.clock = T_REST + 0.01
+      L.started = true
+    }
     let visible = true
     let raf = 0
     let last = performance.now()
@@ -614,13 +618,13 @@ export function PeakChart({
       const loopS = L.loop > 0 ? Math.max(6, L.loop) : 0
       const hovering = L.hover !== null
       // clock: hold still while hovered during the rest window
-      if (started && !reduce) {
-        const tl = loopS ? clock % loopS : clock
+      if (L.started && !reduce) {
+        const tl = loopS ? L.clock % loopS : L.clock
         const frozen = hovering && tl >= T_REST && (!loopS || tl < loopS - 2.2)
-        if (!frozen) clock += dt
+        if (!frozen) L.clock += dt
       }
-      const t = loopS ? clock % loopS : clock
-      const F = started ? frameAt(t, loopS) : frameAt(0, 0)
+      const t = loopS ? L.clock % loopS : L.clock
+      const F = L.started ? frameAt(t, loopS) : frameAt(0, 0)
       if (reduce) { F.breath = 0 }
 
       // morph
@@ -764,7 +768,7 @@ export function PeakChart({
     }
 
     const busy = () => {
-      if (!started) return false
+      if (!L.started) return false
       if (reduce) return L.morph < 1 || Math.abs(L.hoverMix - (L.hover !== null ? 1 : 0)) > 0.001
       return true
     }
@@ -786,7 +790,7 @@ export function PeakChart({
     draw(0)
     const io = new IntersectionObserver(([e]) => {
       visible = e.isIntersecting
-      if (visible) { started = true; kick() }
+      if (visible) { L.started = true; kick() }
       else if (raf) { cancelAnimationFrame(raf); raf = 0 }
     })
     io.observe(card)
