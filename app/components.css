@@ -636,3 +636,32 @@ h4 {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+.ht-logo__img {
+  display: block;
+  width: auto;
+  height: 20px;
+  max-width: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+
+.ht-logo--sm .ht-logo__img {
+  height: 16px;
+}
+
+.ht-logo--lg .ht-logo__img {
+  height: 26px;
+}
+
+.ht-logo__img--dark {
+  display: none;
+}
+
+html[data-theme='dark'] .ht-logo__img--light {
+  display: none;
+}
+
+html[data-theme='dark'] .ht-logo__img--dark {
+  display: block;
+}
