@@ -1,8 +1,8 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import type { AnalyticsData, Deployment, Incident, MetricRange, Pm2Status, Service, WebhookHealthData } from '../types/api';
+import type { AnalyticsData, CustomDateRange, Deployment, Incident, MetricRange, Pm2Status, Service, WebhookHealthData } from '../types/api';
 import {
   bucketSum,
   buildBuckets,
@@ -30,6 +30,8 @@ type OverviewViewProps = {
   role: string;
   range: MetricRange;
   onRangeChange: (range: MetricRange) => void;
+  customRange: CustomDateRange;
+  onCustomRangeChange: (range: CustomDateRange) => void;
   incidents: Incident[];
   failureAlerts: Array<{ id: string; title: string; timestamp: string; details: string }>;
   onDeploy: (serviceId: string, force?: boolean) => void;
@@ -54,9 +56,36 @@ const RANGE_CONFIG: Record<MetricRange, { label: string; short: string; granular
   '24h': { label: 'Last 24 hours', short: '24h', granularity: 'hour', compare: 'vs prev 24h' },
   '7d': { label: 'Last 7 days', short: '7d', granularity: 'day', compare: 'vs prev 7d' },
   '30d': { label: 'Last 30 days', short: '30d', granularity: 'day', compare: 'vs prev 30d' },
+  '3m': { label: 'Last 3 months', short: '3m', granularity: 'day', compare: 'vs prev 3m' },
+  custom: { label: 'Custom range', short: 'Custom', granularity: 'day', compare: 'vs prev window' },
 };
 
-const RANGE_KEYS: MetricRange[] = ['24h', '7d', '30d'];
+const RANGE_KEYS: MetricRange[] = ['24h', '7d', '30d', '3m', 'custom'];
+
+function isoDateOffset(offsetDays: number) {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
+function shiftIsoDate(dateStr: string, offsetDays: number) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
+function buildDateRangeBuckets(source: Bucket[], from: string, to: string): Bucket[] {
+  const map = new Map(source.map((bucket) => [bucket.date, bucket]));
+  const result: Bucket[] = [];
+  let cursor = from;
+  for (let count = 0; count < 90 && cursor <= to; count += 1) {
+    result.push(map.get(cursor) ?? { date: cursor, total: 0, successful: 0, failed: 0, running: 0 });
+    cursor = shiftIsoDate(cursor, 1);
+  }
+  return result;
+}
 
 function shortHash(value?: string | null) {
   return value ? value.slice(0, 8) : '—';
@@ -80,12 +109,12 @@ function weekdayLabel(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' });
 }
 
-/** Axis label for a bucket: the hour for hourly windows, the weekday for daily ones. */
-function bucketLabel(value: string, granularity: Granularity) {
+// Axis label for a bucket: hour for 24h, weekday for short ranges, or short date for 30d/3m/custom.
+function bucketLabel(value: string, granularity: Granularity, dense = false) {
   if (granularity === 'hour') {
     return new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
   }
-  return weekdayLabel(value);
+  return dense ? displayDate(value) : weekdayLabel(value);
 }
 
 /** Full label used in the chart tooltip. */
@@ -213,8 +242,17 @@ function ActivityChart({ buckets, metric, granularity }: { buckets: Bucket[]; me
   const area = `${line} L ${padLeft + innerWidth} ${padTop + innerHeight} L ${padLeft} ${padTop + innerHeight} Z`;
   const ticks = [0, 1, 2, 3, 4];
   const empty = values.every((value) => value === 0);
-  // Hourly windows carry 24 labels — show every third one so the axis stays readable.
-  const labelStep = granularity === 'hour' ? 3 : 1;
+  const denseDaily = granularity === 'day' && values.length > 10;
+  const labelStep =
+    granularity === 'hour'
+      ? 3
+      : values.length > 45
+        ? 14
+        : values.length > 14
+          ? 5
+          : values.length > 8
+            ? 2
+            : 1;
   const slot = innerWidth / Math.max(1, values.length);
   const hoveredPoint = hovered !== null ? points[hovered] : null;
   const hoveredBucket = hovered !== null ? buckets[hovered] : null;
@@ -261,7 +299,7 @@ function ActivityChart({ buckets, metric, granularity }: { buckets: Bucket[]; me
             </circle>
             {(index % labelStep === 0 || index === points.length - 1) && (
               <text x={point.x} y={height - 10} textAnchor="middle" className="chart-axis-text">
-                {bucketLabel(buckets[index].date, granularity)}
+                {bucketLabel(buckets[index].date, granularity, denseDaily)}
               </text>
             )}
           </g>
@@ -377,6 +415,8 @@ export default function OverviewView({
   role,
   range,
   onRangeChange,
+  customRange,
+  onCustomRangeChange,
   incidents,
   failureAlerts,
   onDeploy,
@@ -387,15 +427,51 @@ export default function OverviewView({
   onDeployment,
 }: OverviewViewProps) {
   const [metric, setMetric] = useState<ChartMetric>('total');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [draftFrom, setDraftFrom] = useState(customRange.from);
+  const [draftTo, setDraftTo] = useState(customRange.to);
+  const [rangeError, setRangeError] = useState('');
+  const popoverId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const minAllowedDate = isoDateOffset(-89);
+  const maxAllowedDate = isoDateOffset(0);
+
+  useEffect(() => {
+    setDraftFrom(customRange.from);
+    setDraftTo(customRange.to);
+  }, [customRange.from, customRange.to]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const node = event.target as Node;
+      if (popoverRef.current?.contains(node) || triggerRef.current?.contains(node)) return;
+      setPickerOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPickerOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [pickerOpen]);
+
   const isClient = role === 'CLIENT';
   const rangeConfig = RANGE_CONFIG[range];
 
   const analyticsBuckets: Bucket[] = analytics?.daily?.length
     ? analytics.daily
-    : buildBuckets(deployments, range === '30d' ? 30 : 14);
+    : buildBuckets(deployments, range === '3m' || range === 'custom' ? 90 : range === '30d' ? 30 : 14);
 
   // Hourly windows are counted from the deployment history; daily windows come from
-  // the buckets the backend already aggregates.
+  // the buckets the backend already aggregates (up to 90 days / 3 months).
   let currentBuckets: Bucket[];
   let previousBuckets: Bucket[];
   if (range === '24h') {
@@ -403,8 +479,23 @@ export default function OverviewView({
     previousBuckets = buildHourlyBuckets(deployments, 24, 24);
   } else if (range === '30d') {
     currentBuckets = analyticsBuckets.slice(-30);
-    // The backend caps its window at 30 days, so there is no earlier window to compare against.
-    previousBuckets = [];
+    previousBuckets = analytics?.previousDaily?.length ? analytics.previousDaily.slice(-30) : [];
+  } else if (range === '3m') {
+    currentBuckets = analyticsBuckets.slice(-90);
+    previousBuckets = analytics?.previousDaily?.length ? analytics.previousDaily.slice(-90) : [];
+  } else if (range === 'custom') {
+    const safeFrom = customRange.from <= customRange.to ? customRange.from : customRange.to;
+    const safeTo = customRange.from <= customRange.to ? customRange.to : customRange.from;
+    const clampedFrom = safeFrom < minAllowedDate ? minAllowedDate : safeFrom;
+    const clampedTo = safeTo > maxAllowedDate ? maxAllowedDate : safeTo;
+    currentBuckets = buildDateRangeBuckets(analyticsBuckets, clampedFrom, clampedTo);
+    const earliestKnown = analyticsBuckets[0]?.date;
+    const prevTo = shiftIsoDate(clampedFrom, -1);
+    const prevFrom = shiftIsoDate(clampedFrom, -currentBuckets.length);
+    previousBuckets =
+      currentBuckets.length > 0 && earliestKnown && prevFrom >= earliestKnown
+        ? buildDateRangeBuckets(analyticsBuckets, prevFrom, prevTo)
+        : [];
   } else {
     currentBuckets = analyticsBuckets.slice(-7);
     previousBuckets = analyticsBuckets.length > 7 ? analyticsBuckets.slice(0, -7) : [];
@@ -457,6 +548,48 @@ export default function OverviewView({
   const averagePerBucket = currentBuckets.length ? Math.round((currentTotal / currentBuckets.length) * 10) / 10 : 0;
   const latestRun = health?.latestRun;
 
+  function openRangePopover() {
+    setRangeError('');
+    if (range === 'custom') {
+      setDraftFrom(customRange.from);
+      setDraftTo(customRange.to);
+    } else if (currentBuckets.length && range !== '24h') {
+      const start = currentBuckets[0].date;
+      setDraftFrom(start < minAllowedDate ? minAllowedDate : start);
+      setDraftTo(currentBuckets[currentBuckets.length - 1].date);
+    } else {
+      setDraftFrom(isoDateOffset(-29));
+      setDraftTo(maxAllowedDate);
+    }
+    setPickerOpen((open) => !open);
+  }
+
+  function applyQuickPreset(preset: '7d' | '30d' | '3m') {
+    setRangeError('');
+    setPickerOpen(false);
+    onRangeChange(preset);
+  }
+
+  function handleCustomSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draftFrom || !draftTo) {
+      setRangeError('Select both start and end dates.');
+      return;
+    }
+    if (draftFrom < minAllowedDate || draftTo > maxAllowedDate) {
+      setRangeError('Choose dates within the past 3 months.');
+      return;
+    }
+    if (draftFrom > draftTo) {
+      setRangeError('Start date must be on or before end date.');
+      return;
+    }
+    setRangeError('');
+    onCustomRangeChange({ from: draftFrom, to: draftTo });
+    onRangeChange('custom');
+    setPickerOpen(false);
+  }
+
   return (
     <div className="overview-page">
       <header className="dash-header">
@@ -475,13 +608,99 @@ export default function OverviewView({
                 aria-selected={range === key}
                 title={RANGE_CONFIG[key].label}
                 className={`chart-tab${range === key ? ' is-active' : ''}`}
-                onClick={() => onRangeChange(key)}
+                onClick={() => {
+                  onRangeChange(key);
+                  if (key === 'custom') {
+                    setRangeError('');
+                    setPickerOpen(true);
+                  } else {
+                    setPickerOpen(false);
+                  }
+                }}
               >
                 {RANGE_CONFIG[key].short}
               </button>
             ))}
           </div>
-          <span className="dash-chip">{rangeLabel}</span>
+          <div className="dash-filter-popover-wrap">
+            <button
+              ref={triggerRef}
+              type="button"
+              className={`dash-chip dash-chip--interactive${pickerOpen ? ' is-open' : ''}`}
+              aria-expanded={pickerOpen}
+              aria-controls={popoverId}
+              aria-haspopup="dialog"
+              onClick={openRangePopover}
+              title="Select custom date range (up to 3 months past)"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              <span>{rangeLabel}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            {pickerOpen && (
+              <div ref={popoverRef} id={popoverId} className="dash-range-popover" role="dialog" aria-label="Custom date range filter">
+                <form className="dash-range-form" onSubmit={handleCustomSubmit} noValidate>
+                  <div className="dash-range-head">
+                    <strong>Custom range</strong>
+                    <span>Past 3 months max</span>
+                  </div>
+                  <div className="dash-range-presets">
+                    <button type="button" className="dash-range-preset" onClick={() => applyQuickPreset('7d')}>Past 7 days</button>
+                    <button type="button" className="dash-range-preset" onClick={() => applyQuickPreset('30d')}>Past 30 days</button>
+                    <button type="button" className="dash-range-preset" onClick={() => applyQuickPreset('3m')}>Past 3 months</button>
+                  </div>
+                  <div className="dash-range-fields">
+                    <div className="dash-range-field">
+                      <label htmlFor={`${popoverId}-from`}>From</label>
+                      <input
+                        id={`${popoverId}-from`}
+                        name="from"
+                        type="date"
+                        min={minAllowedDate}
+                        max={draftTo || maxAllowedDate}
+                        value={draftFrom}
+                        required
+                        onChange={(e) => {
+                          setRangeError('');
+                          setDraftFrom(e.target.value);
+                        }}
+                      />
+                    </div>
+                    <div className="dash-range-field">
+                      <label htmlFor={`${popoverId}-to`}>To</label>
+                      <input
+                        id={`${popoverId}-to`}
+                        name="to"
+                        type="date"
+                        min={draftFrom || minAllowedDate}
+                        max={maxAllowedDate}
+                        value={draftTo}
+                        required
+                        onChange={(e) => {
+                          setRangeError('');
+                          setDraftTo(e.target.value);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {rangeError ? (
+                    <p className="dash-range-error" role="alert">{rangeError}</p>
+                  ) : (
+                    <p className="dash-range-hint">Selectable window: {displayDate(minAllowedDate)} – {displayDate(maxAllowedDate)}</p>
+                  )}
+                  <div className="dash-range-foot">
+                    <button type="button" className="ht-btn ht-btn--ghost ht-btn--sm" onClick={() => setPickerOpen(false)}>Cancel</button>
+                    <button type="submit" className="ht-btn ht-btn--primary ht-btn--sm">Apply range</button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
           {isClient ? (
             <button className="ht-btn ht-btn--primary" type="button" onClick={onRunHealth} disabled={healthRunLoading || !services.length}>
               {healthRunLoading ? 'Running checks...' : 'Run health checks'}
@@ -494,8 +713,6 @@ export default function OverviewView({
 
       <DashboardPeakCards
         range={range}
-        onRangeChange={onRangeChange}
-        rangeLabel={rangeLabel}
         compareLabel={rangeConfig.compare}
         currentTotal={currentTotal}
         currentSuccessful={currentSuccessful}
@@ -590,7 +807,7 @@ export default function OverviewView({
             <div><span>{range === '24h' ? 'Hourly average' : 'Daily average'}</span><strong>{averagePerBucket}</strong></div>
             <div>
               <span>{range === '24h' ? 'Busiest hour' : 'Best day'}</span>
-              <strong>{bestBucket && bestBucket.total ? `${bucketLabel(bestBucket.date, rangeConfig.granularity)} · ${bestBucket.total}` : '—'}</strong>
+              <strong>{bestBucket && bestBucket.total ? `${bucketLabel(bestBucket.date, rangeConfig.granularity, rangeConfig.granularity === 'day' && currentBuckets.length > 10)} · ${bestBucket.total}` : '—'}</strong>
             </div>
           </div>
           <ActivityChart buckets={currentBuckets} metric={metric} granularity={rangeConfig.granularity} />

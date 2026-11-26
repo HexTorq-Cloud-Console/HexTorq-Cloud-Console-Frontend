@@ -59,6 +59,7 @@ export type AnalyticsData = {
   window: { from: string; to: string; days: number };
   summary: { total: number; successful: number; failed: number; running: number; successRate: number | null };
   daily: DailyDeploymentBucket[];
+  previousDaily?: DailyDeploymentBucket[];
   services: { total: number; enabled: number; disabled: number; pm2: number; static: number };
 };
 
@@ -141,7 +142,10 @@ export type Pm2Status = {
 };
 
 /** Time window used by the dashboard metrics, chart and cards. */
-export type MetricRange = '24h' | '7d' | '30d';
+export type MetricRange = '24h' | '7d' | '30d' | '3m' | 'custom';
+
+/** Custom calendar date range (`YYYY-MM-DD`, inclusive) within the past 3 months. */
+export type CustomDateRange = { from: string; to: string };
 
 /** A live problem (or recovery) observed while the console was open. */
 export type IncidentSeverity = 'danger' | 'warning' | 'success';

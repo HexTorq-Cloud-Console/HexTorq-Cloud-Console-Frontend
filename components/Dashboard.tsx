@@ -26,6 +26,7 @@ import { clearSessionCache } from '../lib/sessionCache';
 import type {
   AnalyticsData,
   ClientAccess,
+  CustomDateRange,
   Deployment,
   DeploymentLog,
   FailureAlert,
@@ -41,6 +42,13 @@ import type {
 const LIVE_SEED_WINDOW_MS = 10 * 60 * 1000; // failures newer than this are shown on first load
 const LIVE_DEPLOYMENT_POLL_MS = 15000;
 const LIVE_SERVICE_POLL_MS = 30000;
+
+function isoDateOffset(offsetDays: number) {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
 
 function Dashboard({ token, role, email, section }: { token: string; role: string; email?: string; section: ConsoleSection }) {
   const [services, setServices] = useState<Service[]>(() => readConsoleCache(token)?.services ?? []);
@@ -77,6 +85,10 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   const [deploymentLogFilter, setDeploymentLogFilter] = useState('');
   const [deploymentLogCopied, setDeploymentLogCopied] = useState<'all' | 'errors' | null>(null);
   const [range, setRange] = useState<MetricRange>('7d');
+  const [customRange, setCustomRange] = useState<CustomDateRange>(() => ({
+    from: isoDateOffset(-29),
+    to: isoDateOffset(0),
+  }));
   const [deployMetrics, setDeployMetrics] = useState<AnalyticsData['summary'] | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [pm2LogService, setPm2LogService] = useState<Service | null>(null);
@@ -142,11 +154,10 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
     }
   }, [role, token]);
 
-  // The metrics window drives which aggregate the backend returns: 14 days keeps a
-  // comparison window for 7d, 30 days covers the long view, 2 days covers "today".
+  // The metrics window drives which aggregate the backend returns (backend supports up to 90d / 3 months).
   useEffect(() => {
     let cancelled = false;
-    const days = range === '30d' ? 30 : range === '24h' ? 2 : 14;
+    const days = range === '24h' ? 2 : range === '7d' ? 14 : range === '30d' ? 30 : 90;
     const load = async () => {
       try {
         const response = await fetch(`${apiUrl}/analytics?days=${days}`, {
@@ -915,6 +926,8 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
         role={role}
         range={range}
         onRangeChange={setRange}
+        customRange={customRange}
+        onCustomRangeChange={setCustomRange}
         incidents={incidents}
         failureAlerts={failureAlerts}
         onDeploy={deploy}

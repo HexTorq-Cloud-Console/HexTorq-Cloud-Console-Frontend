@@ -122,6 +122,8 @@ export interface PeakChartProps {
   defaultPeriod?: string
   /** Called with the period the user picked from the dropdown. Swap `data` here to show that period. */
   onPeriodChange?: (period: string) => void
+  /** Show the top-right period selector button. Set false when cards share an external filter bar. */
+  showPeriodFilter?: boolean
   /** Glow colour. The glow, grid, line and dot are hue-shifted to it; the default is the reference blue. */
   accent?: string
   /** Surface theme: dark (default) or white card surface for light dashboards. */
@@ -496,6 +498,7 @@ export function PeakChart({
   period,
   defaultPeriod = "Monthly",
   onPeriodChange,
+  showPeriodFilter = true,
   accent = BASE_ACCENT,
   theme = "dark",
   width = 420,
@@ -934,110 +937,118 @@ export function PeakChart({
           zIndex: 2,
         }}
       >
-        <p
-          data-part="updated"
-          style={{
-            margin: 0,
-            minWidth: 0,
-            flex: 1,
-            fontFamily: font,
-            fontSize: 11,
-            fontWeight: isLightTheme ? 500 : 300,
-            lineHeight: 1.35,
-            color: isLightTheme ? "#5f646d" : "#99a3b6",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            textAlign: "left",
-          }}
-        >
-          {updatedText}
-        </p>
-
-        <button
-          ref={pillRef}
-          type="button"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-          style={{
-            flex: "0 0 auto",
-            height: 24,
-            borderRadius: 999,
-            border: isLightTheme ? "1px solid rgba(23,24,27,0.1)" : "1px solid rgba(255,255,255,0.1)",
-            padding: "0 9px",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            background: isLightTheme ? "rgba(23,24,27,0.05)" : "rgba(255,255,255,0.12)",
-            cursor: "pointer",
-            color: isLightTheme ? "#334155" : "#acc1e7",
-            fontFamily: font,
-            outlineOffset: 2,
-          }}
-        >
-          <span
-            data-part="period"
+        {updatedText ? (
+          <p
+            data-part="updated"
             style={{
-              display: "block",
+              margin: 0,
+              minWidth: 0,
+              flex: 1,
               fontFamily: font,
               fontSize: 11,
-              fontWeight: 500,
-              lineHeight: 1.2,
-              color: isLightTheme ? "#334155" : "#acc1e7",
+              fontWeight: isLightTheme ? 500 : 300,
+              lineHeight: 1.35,
+              color: isLightTheme ? "#5f646d" : "#99a3b6",
               whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              textAlign: "left",
             }}
           >
-            {current}
-          </span>
-          <svg viewBox="0 0 12 7" aria-hidden style={{ flex: "none", width: 8, height: 5, overflow: "visible", transition: "transform .2s ease", transform: open ? "rotate(180deg)" : "none" }}>
-            <path d="M0.8 0.8 L6 6 L11.2 0.8" fill="none" stroke={isLightTheme ? "#475569" : "#9fb7e0"} strokeWidth={1.35} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-          </svg>
-        </button>
+            {updatedText}
+          </p>
+        ) : (
+          <span style={{ flex: 1 }} />
+        )}
+
+        {showPeriodFilter && periods.length > 0 && (
+          <button
+            ref={pillRef}
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+            style={{
+              flex: "0 0 auto",
+              height: 24,
+              borderRadius: 999,
+              border: isLightTheme ? "1px solid rgba(23,24,27,0.1)" : "1px solid rgba(255,255,255,0.1)",
+              padding: "0 9px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              background: isLightTheme ? "rgba(23,24,27,0.05)" : "rgba(255,255,255,0.12)",
+              cursor: "pointer",
+              color: isLightTheme ? "#334155" : "#acc1e7",
+              fontFamily: font,
+              outlineOffset: 2,
+            }}
+          >
+            <span
+              data-part="period"
+              style={{
+                display: "block",
+                fontFamily: font,
+                fontSize: 11,
+                fontWeight: 500,
+                lineHeight: 1.2,
+                color: isLightTheme ? "#334155" : "#acc1e7",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {current}
+            </span>
+            <svg viewBox="0 0 12 7" aria-hidden style={{ flex: "none", width: 8, height: 5, overflow: "visible", transition: "transform .2s ease", transform: open ? "rotate(180deg)" : "none" }}>
+              <path d="M0.8 0.8 L6 6 L11.2 0.8" fill="none" stroke={isLightTheme ? "#475569" : "#9fb7e0"} strokeWidth={1.35} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      <div
-        ref={menuRef}
-        role="listbox"
-        aria-label="Period"
-        style={{
-          position: "absolute", right: 14, top: 40, minWidth: 108, padding: 5, borderRadius: 12, zIndex: 4,
-          background: isLightTheme ? "rgba(255,255,255,0.96)" : "rgba(20,34,64,0.88)",
-          border: isLightTheme ? "1px solid rgba(23,24,27,0.12)" : "1px solid rgba(255,255,255,0.14)",
-          boxShadow: isLightTheme ? "0 14px 32px -10px rgba(23,24,27,0.18)" : "0 18px 40px -12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
-          backdropFilter: "blur(18px) saturate(150%)", WebkitBackdropFilter: "blur(18px) saturate(150%)",
-          transformOrigin: "top right", transition: "opacity .18s ease, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility .22s",
-          opacity: open ? 1 : 0, transform: open ? "none" : "translateY(-4px) scale(0.96)", visibility: open ? "visible" : "hidden",
-        }}
-      >
-        {periods.map((p) => (
-          <button
-            key={p}
-            type="button"
-            role="option"
-            aria-selected={p === current}
-            onClick={() => choose(p)}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", height: 28, padding: "0 9px",
-              border: 0, borderRadius: 8,
-              background: p === current ? (isLightTheme ? "rgba(37,99,235,0.08)" : "rgba(255,255,255,0.09)") : "transparent",
-              cursor: "pointer",
-              color: isLightTheme ? (p === current ? "#1d4ed8" : "#334155") : (p === current ? "#e6eeff" : "#aebcd6"),
-              fontFamily: font, fontSize: 12, fontWeight: 500, textAlign: "left",
-            }}
-            onPointerEnter={(e) => { if (p !== current) e.currentTarget.style.background = isLightTheme ? "rgba(23,24,27,0.04)" : "rgba(255,255,255,0.06)" }}
-            onPointerLeave={(e) => { if (p !== current) e.currentTarget.style.background = "transparent" }}
-          >
-            {p}
-            {p === current && (
-              <svg viewBox="0 0 12 9" aria-hidden style={{ width: 10, height: 8 }}>
-                <path d="M1 4.6 L4.4 8 L11 1" fill="none" stroke={isLightTheme ? "#2563eb" : "#9fc0ff"} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-              </svg>
-            )}
-          </button>
-        ))}
-      </div>
+      {showPeriodFilter && periods.length > 0 && (
+        <div
+          ref={menuRef}
+          role="listbox"
+          aria-label="Period"
+          style={{
+            position: "absolute", right: 14, top: 40, minWidth: 108, padding: 5, borderRadius: 12, zIndex: 4,
+            background: isLightTheme ? "rgba(255,255,255,0.96)" : "rgba(20,34,64,0.88)",
+            border: isLightTheme ? "1px solid rgba(23,24,27,0.12)" : "1px solid rgba(255,255,255,0.14)",
+            boxShadow: isLightTheme ? "0 14px 32px -10px rgba(23,24,27,0.18)" : "0 18px 40px -12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
+            backdropFilter: "blur(18px) saturate(150%)", WebkitBackdropFilter: "blur(18px) saturate(150%)",
+            transformOrigin: "top right", transition: "opacity .18s ease, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility .22s",
+            opacity: open ? 1 : 0, transform: open ? "none" : "translateY(-4px) scale(0.96)", visibility: open ? "visible" : "hidden",
+          }}
+        >
+          {periods.map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="option"
+              aria-selected={p === current}
+              onClick={() => choose(p)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", height: 28, padding: "0 9px",
+                border: 0, borderRadius: 8,
+                background: p === current ? (isLightTheme ? "rgba(37,99,235,0.08)" : "rgba(255,255,255,0.09)") : "transparent",
+                cursor: "pointer",
+                color: isLightTheme ? (p === current ? "#1d4ed8" : "#334155") : (p === current ? "#e6eeff" : "#aebcd6"),
+                fontFamily: font, fontSize: 12, fontWeight: 500, textAlign: "left",
+              }}
+              onPointerEnter={(e) => { if (p !== current) e.currentTarget.style.background = isLightTheme ? "rgba(23,24,27,0.04)" : "rgba(255,255,255,0.06)" }}
+              onPointerLeave={(e) => { if (p !== current) e.currentTarget.style.background = "transparent" }}
+            >
+              {p}
+              {p === current && (
+                <svg viewBox="0 0 12 9" aria-hidden style={{ width: 10, height: 8 }}>
+                  <path d="M1 4.6 L4.4 8 L11 1" fill="none" stroke={isLightTheme ? "#2563eb" : "#9fc0ff"} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* hover readout */}
       <div

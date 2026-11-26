@@ -17,8 +17,6 @@ type RuntimeSummary = {
 
 type DashboardPeakCardsProps = {
   range: MetricRange;
-  onRangeChange: (range: MetricRange) => void;
-  rangeLabel: string;
   compareLabel: string;
   currentTotal: number;
   currentSuccessful: number;
@@ -90,8 +88,6 @@ function ensureSeries(values: number[], labels: string[], fallback = 0): { data:
 
 export default function DashboardPeakCards({
   range,
-  onRangeChange,
-  rangeLabel,
   compareLabel,
   currentTotal,
   currentSuccessful,
@@ -112,9 +108,6 @@ export default function DashboardPeakCards({
   onlineAgents,
 }: DashboardPeakCardsProps) {
   const surfaceTheme = useConsoleTheme();
-  const [serviceView, setServiceView] = useState<'All' | 'PM2' | 'Static'>('All');
-  const [healthView, setHealthView] = useState<'Online' | 'All'>('Online');
-  const [agentView, setAgentView] = useState<'Online' | 'Total'>('Online');
 
   // 1. Deployments card
   const deploySeries = ensureSeries(
@@ -123,7 +116,8 @@ export default function DashboardPeakCards({
     currentTotal,
   );
   const deployDelta =
-    totalChange === null ? rangeLabel : `${totalChange >= 0 ? '+' : ''}${totalChange.toFixed(1)}% ${compareLabel}`;
+    totalChange === null ? '' : `${totalChange >= 0 ? '+' : ''}${totalChange.toFixed(1)}% ${compareLabel}`;
+  const deployWindowTag = range === 'custom' ? 'Custom' : range;
 
   // 2. Success rate card
   const rateSeries = ensureSeries(
@@ -132,22 +126,15 @@ export default function DashboardPeakCards({
     successRate ?? 100,
   );
   const rateDelta =
-    rateChange === null ? 'no prior window' : `${rateChange >= 0 ? '+' : ''}${rateChange.toFixed(1)} pts ${compareLabel}`;
+    rateChange === null ? '' : `${rateChange >= 0 ? '+' : ''}${rateChange.toFixed(1)} pts ${compareLabel}`;
 
   // 3. Services card
-  const serviceValue = serviceView === 'PM2' ? pm2Count : serviceView === 'Static' ? staticCount : totalServices;
-  const serviceSeries =
-    serviceView === 'PM2'
-      ? { data: [0, Math.round(pm2Count * 0.65), pm2Count], labels: ['Base', 'Active', 'PM2'] }
-      : serviceView === 'Static'
-        ? { data: [0, Math.round(staticCount * 0.7), staticCount], labels: ['Base', 'Edge', 'Static'] }
-        : {
-            data: [pm2Count, staticCount, enabledServices, totalServices],
-            labels: ['PM2', 'Static', 'Enabled', 'Total'],
-          };
+  const serviceSeries = {
+    data: [pm2Count, staticCount, enabledServices, totalServices],
+    labels: ['PM2', 'Static', 'Enabled', 'Total'],
+  };
 
   // 4. Service health card
-  const healthValue = healthView === 'All' ? runtime.total : runtime.online;
   const healthSeries = ensureSeries(
     runtime.entries.slice(0, 12).map((e) => (e.status === 'online' ? 100 : e.status === 'stopped' ? 25 : 0)),
     runtime.entries.slice(0, 12).map((e) => e.service.name),
@@ -156,7 +143,6 @@ export default function DashboardPeakCards({
   const healthCaption = `${runtime.errored ? `${runtime.errored} erroring · ` : ''}${runtime.stopped ? `${runtime.stopped} stopped · ` : ''}${runtime.unknown ? `${runtime.unknown} awaiting status` : 'all processes reporting'}${runtime.staticTotal ? ` · ${runtime.staticTotal} static` : ''}`;
 
   // 5. Agents online card
-  const agentValue = agentView === 'Total' ? agents.length : onlineAgents;
   const agentSeries =
     agents.length >= 2
       ? {
@@ -178,7 +164,7 @@ export default function DashboardPeakCards({
               height={224}
               theme={surfaceTheme}
               accent="#4f8ef7"
-              title={`Deployments (${range})`}
+              title={`Deployments (${deployWindowTag})`}
               value={currentTotal}
               valueSuffix=""
               data={deploySeries.data}
@@ -186,9 +172,7 @@ export default function DashboardPeakCards({
               updatedText={deployDelta}
               caption={`${currentSuccessful} successful · ${currentFailed} failed${currentRunning ? ` · ${currentRunning} running` : ''}`}
               trend={totalChange === null ? 'none' : totalChange >= 0 ? 'up' : 'down'}
-              periods={['24h', '7d', '30d']}
-              period={range}
-              onPeriodChange={(p) => onRangeChange(p as MetricRange)}
+              showPeriodFilter={false}
               formatValue={(v) => `${Math.round(v)}`}
             />
           )}
@@ -209,9 +193,7 @@ export default function DashboardPeakCards({
               updatedText={rateDelta}
               caption={`${currentSuccessful} of ${completed} completed deployments`}
               trend={rateChange === null ? 'none' : rateChange >= 0 ? 'up' : 'down'}
-              periods={['24h', '7d', '30d']}
-              period={range}
-              onPeriodChange={(p) => onRangeChange(p as MetricRange)}
+              showPeriodFilter={false}
               formatValue={(v) => `${Math.round(v)}%`}
             />
           )}
@@ -225,16 +207,14 @@ export default function DashboardPeakCards({
               theme={surfaceTheme}
               accent="#7c5cff"
               title="Services"
-              value={serviceValue}
+              value={totalServices}
               valueSuffix=""
               data={serviceSeries.data}
               labels={serviceSeries.labels}
               updatedText={`${enabledServices} enabled`}
               caption={`${pm2Count} PM2 · ${staticCount} static frontend`}
               trend={enabledServices > 0 ? 'up' : 'none'}
-              periods={['All', 'PM2', 'Static']}
-              period={serviceView}
-              onPeriodChange={(p) => setServiceView(p as 'All' | 'PM2' | 'Static')}
+              showPeriodFilter={false}
               formatValue={(v) => `${Math.round(v)}`}
             />
           )}
@@ -248,16 +228,14 @@ export default function DashboardPeakCards({
               theme={surfaceTheme}
               accent="#14b8a6"
               title="Service health"
-              value={healthValue}
+              value={runtime.online}
               valueSuffix=""
               data={healthSeries.data}
               labels={healthSeries.labels}
               updatedText={runtime.total ? `of ${runtime.total} running` : 'no services yet'}
               caption={healthCaption}
               trend={runtime.errored || runtime.stopped ? 'down' : runtime.online > 0 ? 'up' : 'none'}
-              periods={['Online', 'All']}
-              period={healthView}
-              onPeriodChange={(p) => setHealthView(p as 'Online' | 'All')}
+              showPeriodFilter={false}
               formatValue={(v) => (v >= 80 ? 'Online' : v >= 20 ? 'Stopped' : 'Offline')}
             />
           )}
@@ -271,16 +249,14 @@ export default function DashboardPeakCards({
               theme={surfaceTheme}
               accent="#f59e0b"
               title="Agents online"
-              value={agentValue}
+              value={onlineAgents}
               valueSuffix=""
               data={agentSeries.data}
               labels={agentSeries.labels}
               updatedText={agents.length ? `of ${agents.length} reporting` : 'no agents assigned'}
               caption={agents.length ? 'Live heartbeat status across managed VPS nodes' : 'Add an agent to manage runtime services'}
               trend={agents.length && onlineAgents === agents.length ? 'up' : agents.length ? 'down' : 'none'}
-              periods={['Online', 'Total']}
-              period={agentView}
-              onPeriodChange={(p) => setAgentView(p as 'Online' | 'Total')}
+              showPeriodFilter={false}
               formatValue={(v) => (v >= 50 ? 'Online' : 'Offline')}
             />
           )}
