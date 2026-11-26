@@ -236,7 +236,7 @@
 
 .kpi-meta {
   min-height: 18px;
-  margin: 7px 0 0;
+  margin: 7px 0 10px;
   color: var(--ht-text-muted);
   font: 400 12px/18px var(--ht-font-body);
 }
@@ -244,14 +244,14 @@
 .kpi-spark {
   display: block;
   width: 100%;
-  height: 42px;
+  height: 32px;
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 0;
   overflow: visible;
 }
 
 .kpi-spark--empty {
-  height: 42px;
+  height: 32px;
 }
 
 .kpi-split {
