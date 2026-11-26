@@ -23,6 +23,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [revealPassword, setRevealPassword] = useState(false);
+  const [emailError, setEmailError] = useState(false);
+  const [passwordError, setPasswordError] = useState(false);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -185,12 +187,7 @@ export default function LoginPage() {
             <span className="auth-brand__chip">Cloud Console</span>
           </Reveal>
 
-          <Reveal as="p" className="auth-tagline" delay={70}>
-            Code <span className="is-sep">•</span> <span className="is-accent">Innovate</span>{' '}
-            <span className="is-sep">•</span> Elevate
-          </Reveal>
-
-          <Reveal as="h1" className="auth-headline" delay={130}>
+          <Reveal as="h1" className="auth-headline" delay={100}>
             HexTorq Cloud Console
           </Reveal>
 
@@ -294,15 +291,30 @@ export default function LoginPage() {
                 </svg>
                 <input
                   id="auth-email"
+                  name="email"
                   className="auth-input"
                   type="email"
                   autoComplete="username"
+                  spellCheck={false}
+                  enterKeyHint="next"
                   placeholder="you@company.com"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  aria-invalid={emailError ? 'true' : 'false'}
+                  aria-describedby={emailError ? 'auth-email-error' : undefined}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (emailError && event.target.validity.valid) setEmailError(false);
+                  }}
+                  onBlur={(event) => {
+                    if (event.target.value) setEmailError(!event.target.validity.valid);
+                  }}
+                  onInvalid={() => setEmailError(true)}
                   required
                 />
               </div>
+              <p id="auth-email-error" className={`auth-field-error${emailError ? ' is-visible' : ''}`}>
+                Enter an email address in the format you@company.com.
+              </p>
             </div>
 
             <div className="auth-field">
@@ -318,11 +330,22 @@ export default function LoginPage() {
                 </svg>
                 <input
                   id="auth-password"
+                  name="password"
                   className="auth-input auth-input--with-action"
                   type={revealPassword ? 'text' : 'password'}
                   autoComplete="current-password"
+                  enterKeyHint="done"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  aria-invalid={passwordError ? 'true' : 'false'}
+                  aria-describedby={passwordError ? 'auth-password-error' : undefined}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (passwordError && event.target.validity.valid) setPasswordError(false);
+                  }}
+                  onBlur={(event) => {
+                    if (event.target.value) setPasswordError(!event.target.validity.valid);
+                  }}
+                  onInvalid={() => setPasswordError(true)}
                   required
                 />
                 <button
@@ -345,6 +368,9 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+              <p id="auth-password-error" className={`auth-field-error${passwordError ? ' is-visible' : ''}`}>
+                Enter your account password to sign in.
+              </p>
             </div>
 
             <button className="auth-submit" type="submit" disabled={submitting}>

@@ -163,22 +163,28 @@ function resolveSvgCssVars(doc: Document, theme: Theme): void {
   const tokens = SVG_THEME_TOKENS[theme];
   const attrs = ['stroke', 'fill', 'stop-color'] as const;
   doc.querySelectorAll('svg *').forEach((el) => {
+    const styled = el as unknown as { style?: CSSStyleDeclaration };
     for (const attr of attrs) {
       const val = el.getAttribute(attr);
       if (!val || !val.includes('var(')) continue;
       const resolved = val.replace(/var\(\s*(--[^,\s)]+)\s*(?:,[^)]*)?\)/g, (match, name: string) => {
         return tokens[name] || rootStyle?.getPropertyValue(name).trim() || match;
       });
-      if (resolved !== val) el.setAttribute(attr, resolved);
+      if (resolved !== val) {
+        el.setAttribute(attr, resolved);
+        styled.style?.setProperty(attr, resolved, 'important');
+      }
     }
     if (el.classList.contains('donut-total')) {
       el.setAttribute('fill', tokens['--ht-text']);
+      styled.style?.setProperty('fill', tokens['--ht-text'], 'important');
     } else if (
       el.classList.contains('donut-label') ||
       el.classList.contains('chart-axis-text') ||
       el.classList.contains('chart-empty-text')
     ) {
       el.setAttribute('fill', tokens['--ht-text-muted']);
+      styled.style?.setProperty('fill', tokens['--ht-text-muted'], 'important');
     }
   });
 }
