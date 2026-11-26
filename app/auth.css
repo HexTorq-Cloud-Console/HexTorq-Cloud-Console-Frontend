@@ -643,13 +643,16 @@ html:has(.auth-page) {
 }
 
 .auth-google {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   min-height: 44px;
-  padding: 4px;
-  border: 1px solid var(--ht-line);
+  padding: 0;
+  border: 0;
   border-radius: var(--ht-radius);
-  background: var(--ht-nav);
+  background: transparent;
+  overflow: hidden;
 }
 
 .auth-google-fallback {

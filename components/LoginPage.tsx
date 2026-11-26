@@ -102,6 +102,22 @@ export default function LoginPage() {
     }
   }
 
+  function renderGoogleButton() {
+    const element = document.getElementById('google-button');
+    if (!element || !window.google || !googleClientId) return;
+    element.innerHTML = '';
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const boxWidth = element.parentElement?.clientWidth || 400;
+    const width = Math.max(240, Math.min(400, Math.round(boxWidth)));
+    window.google.accounts.id.renderButton(element, {
+      theme: isDark ? 'filled_black' : 'outline',
+      size: 'large',
+      shape: 'rectangular',
+      text: 'continue_with',
+      width: String(width),
+    });
+  }
+
   function initializeGoogle() {
     const element = document.getElementById('google-button');
     if (!element || !window.google || !googleClientId) return;
@@ -109,14 +125,15 @@ export default function LoginPage() {
       client_id: googleClientId,
       callback: ({ credential }) => signInWithGoogle(credential),
     });
-    window.google.accounts.id.renderButton(element, {
-      theme: 'outline',
-      size: 'large',
-      shape: 'rectangular',
-      text: 'continue_with',
-      width: '360',
-    });
+    renderGoogleButton();
   }
+
+  useEffect(() => {
+    if (!googleClientId) return;
+    const onTheme = () => renderGoogleButton();
+    window.addEventListener('hextorq-theme-change', onTheme);
+    return () => window.removeEventListener('hextorq-theme-change', onTheme);
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
