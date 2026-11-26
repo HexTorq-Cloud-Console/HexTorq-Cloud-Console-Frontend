@@ -12,6 +12,8 @@ export interface InkParams {
   softness: number;
   /** Speed at which the shape evolves during the spread. */
   drift: number;
+  /** Global playback rate (1 = normal, <1 = slow motion). */
+  timeScale: number;
 }
 
 export const inkParams: InkParams = {
@@ -20,6 +22,7 @@ export const inkParams: InkParams = {
   noiseScale: 1,
   softness: 1.4,
   drift: 1,
+  timeScale: 1,
 };
 
 /**

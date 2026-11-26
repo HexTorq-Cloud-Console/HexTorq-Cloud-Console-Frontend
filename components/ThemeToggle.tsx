@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { requestInkThemeToggle } from './ink/InkThemeLayer';
+import { useEffect, useRef, useState } from 'react';
+import { registerInkToggle, requestInkThemeToggle } from './ink/InkThemeLayer';
 
 type Theme = 'light' | 'dark';
 
@@ -14,16 +14,30 @@ function currentTheme(): Theme {
 
 export default function ThemeToggle({ className }: { className?: string }) {
   const [theme, setTheme] = useState<Theme>('light');
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setTheme(currentTheme());
+    const button = buttonRef.current;
+    registerInkToggle(button);
+
+    const onThemeChange = (e: Event): void => {
+      const next = (e as CustomEvent<Theme>).detail;
+      if (next === 'light' || next === 'dark') {
+        setTheme(next);
+      }
+    };
+    window.addEventListener('hextorq-theme-change', onThemeChange);
+    return () => {
+      window.removeEventListener('hextorq-theme-change', onThemeChange);
+      registerInkToggle(null);
+    };
   }, []);
 
   function toggleTheme(event: React.MouseEvent<HTMLButtonElement>) {
     // Read the live theme, not the rendered state: the ink transition owns the DOM flip,
     // so a second click during a spread must reverse the theme that is actually applied.
     const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';
-    setTheme(next);
 
     // The ink spreads from the pointer; a keyboard activation spreads from the button.
     const rect = event.currentTarget.getBoundingClientRect();
@@ -32,10 +46,11 @@ export default function ThemeToggle({ className }: { className?: string }) {
         ? { x: event.clientX, y: event.clientY }
         : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 
-    // The ink layer flips the DOM itself; it reports false when it can't (no WebGL2,
-    // not mounted yet) and we fall back to an instant swap.
+    // The ink layer flips the DOM and morphs the icon itself; it returns false only
+    // before hydration or if the layer isn't mounted.
     if (requestInkThemeToggle(point)) return;
 
+    setTheme(next);
     document.documentElement.dataset.theme = next;
     try {
       window.localStorage.setItem(THEME_KEY, next);
@@ -46,27 +61,33 @@ export default function ThemeToggle({ className }: { className?: string }) {
     if (meta) meta.setAttribute('content', next === 'dark' ? '#07080d' : '#f5f5f2');
   }
 
-  const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+  const label = theme === 'dark' ? 'Switch to light theme (T)' : 'Switch to dark theme (T)';
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       className={`theme-toggle${className ? ` ${className}` : ''}`}
       onClick={toggleTheme}
       aria-label={label}
+      aria-pressed={theme === 'dark'}
       title={label}
       data-ink-live="true"
     >
-      {theme === 'dark' ? (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
-        </svg>
-      ) : (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-        </svg>
-      )}
+      <svg className="theme-toggle__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        {/* Sun body; morphed into the moon crescent by components/ink/ThemeIcon.ts */}
+        <path className="theme-toggle__body" d="M12 7a5 5 0 1 1 0 10a5 5 0 1 1 0-10z" />
+        <g className="theme-toggle__rays">
+          <line x1="12" y1="1.5" x2="12" y2="3.5" />
+          <line x1="12" y1="20.5" x2="12" y2="22.5" />
+          <line x1="1.5" y1="12" x2="3.5" y2="12" />
+          <line x1="20.5" y1="12" x2="22.5" y2="12" />
+          <line x1="4.58" y1="4.58" x2="6" y2="6" />
+          <line x1="18" y1="18" x2="19.42" y2="19.42" />
+          <line x1="4.58" y1="19.42" x2="6" y2="18" />
+          <line x1="18" y1="6" x2="19.42" y2="4.58" />
+        </g>
+      </svg>
     </button>
   );
 }

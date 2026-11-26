@@ -21,6 +21,14 @@
   visibility: visible;
 }
 
+.theme-toggle__icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Only while the ink is spreading (never interferes with normal stacking):
    - shell-topbar drops its stacking context so the toggle's z-index can climb out
      (it keeps its sticky positioning);

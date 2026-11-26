@@ -1,12 +1,13 @@
 import type { Theme } from './theme';
 
 /**
- * Full-document snapshots of the page in a given theme.
+ * Full-document (or viewport-windowed on ultra-tall pages) snapshots of the page
+ * in a given theme.
  *
- * We capture the whole document (not just the viewport) so a snapshot stays valid
+ * We capture the whole document up to MAX_FULL_CAPTURE_HEIGHT so a snapshot stays valid
  * while the user scrolls; the shader picks the visible window using the live scroll
- * offset. The theme is applied to html2canvas' *cloned* document via `onclone`, so the
- * live page never flickers during capture.
+ * offset. For ultra-tall pages, we capture the active viewport window so html2canvas
+ * stays fast and within GPU texture limits.
  */
 
 export interface Snapshot {
@@ -16,6 +17,11 @@ export interface Snapshot {
   scale: number;
   /** Layout this snapshot is valid for; see {@link layoutKey}. */
   key: string;
+  /** Document CSS px origin of this snapshot (0,0 for full-doc captures). */
+  originX: number;
+  originY: number;
+  /** Whether this snapshot covers the full document. */
+  fullDoc: boolean;
   ms: number;
 }
 
@@ -39,45 +45,46 @@ export function documentSize(): { width: number; height: number } {
 }
 
 /**
- * A long page is expensive to snapshot: html2canvas clones and re-renders the
- * whole document twice (once per theme), which blocks the main thread for
- * hundreds of milliseconds and competes with everything else on screen.
- *
- * Pages above this height skip the snapshot and use the short CSS cross-fade
- * for the theme switch instead.
+ * Above this document height we capture a viewport-sized window instead of the
+ * full scrollHeight so html2canvas stays snappy and never exceeds GPU texture limits.
  */
-export const HEAVY_DOCUMENT_HEIGHT = 2200;
-
-export function isHeavyDocument(): boolean {
-  return document.documentElement.scrollHeight > HEAVY_DOCUMENT_HEIGHT;
-}
+export const MAX_FULL_CAPTURE_HEIGHT = 4500;
 
 /**
  * Identifies the layout a snapshot depends on. Viewport height is deliberately
- * excluded (mobile URL-bar show/hide changes it without reflowing the document).
+ * excluded for full-doc captures (mobile URL-bar show/hide changes it without reflowing).
  */
 export function layoutKey(scale: number): string {
   const { width, height } = documentSize();
-  return `${width}x${height}@${scale}`;
+  if (height <= MAX_FULL_CAPTURE_HEIGHT) {
+    return `full:${width}x${height}@${scale}`;
+  }
+  return `view:${width}x${document.documentElement.clientHeight}@${scale}`;
 }
 
 export async function capturePage(theme: Theme, scale: number, maxTextureSize: number): Promise<Snapshot> {
   const t0 = performance.now();
   const key = layoutKey(scale);
-  const { width, height } = documentSize();
+  const { width, height: docHeight } = documentSize();
+  const fullDoc = docHeight <= MAX_FULL_CAPTURE_HEIGHT;
+  const originX = 0;
+  const originY = fullDoc ? 0 : Math.max(0, Math.floor(window.scrollY));
+  const captureHeight = fullDoc
+    ? docHeight
+    : Math.min(docHeight - originY, document.documentElement.clientHeight);
 
   // Never exceed what the GPU can hold; the shader handles scale != canvas DPR.
-  const safeScale = Math.min(scale, maxTextureSize / width, maxTextureSize / height);
+  const safeScale = Math.min(scale, maxTextureSize / width, maxTextureSize / Math.max(1, captureHeight));
 
   // Lazy-loaded: html2canvas is ~200 KB and only needed after first paint.
   const { default: html2canvas } = await import('html2canvas');
   const canvas = await html2canvas(document.body, {
     scale: safeScale,
     backgroundColor: BACKGROUND[theme],
-    x: 0,
-    y: 0,
+    x: originX,
+    y: originY,
     width,
-    height,
+    height: captureHeight,
     scrollX: 0,
     scrollY: 0,
     // The clone iframe renders without a scrollbar, so give it the live page's
@@ -88,6 +95,13 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
     useCORS: true,
     onclone: (doc) => {
       doc.documentElement.dataset.theme = theme;
+      // If capturing a scrolled viewport slice on a tall page, keep sticky chrome
+      // aligned with the captured window.
+      if (!fullDoc && originY > 0) {
+        doc.querySelectorAll<HTMLElement>('.shell-sidebar, .shell-topbar').forEach((el) => {
+          el.style.transform = `translateY(${originY}px)`;
+        });
+      }
       // The live toggles are drawn above the overlay, so leave holes for them.
       // `visibility` (not data-html2canvas-ignore) keeps their box in the layout
       // so the topbar doesn't shift.
@@ -104,7 +118,7 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
     },
   });
 
-  return { theme, canvas, scale: safeScale, key, ms: performance.now() - t0 };
+  return { theme, canvas, scale: safeScale, key, originX, originY, fullDoc, ms: performance.now() - t0 };
 }
 
 /**

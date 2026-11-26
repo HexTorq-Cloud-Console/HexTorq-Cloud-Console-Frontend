@@ -11,6 +11,9 @@ interface ThemeTexture {
   height: number;
   scale: number;
   key: string;
+  originX: number;
+  originY: number;
+  fullDoc: boolean;
 }
 
 /** Offscreen copy of what the overlay showed when a transition was interrupted. */
@@ -151,7 +154,16 @@ export class InkRenderer {
     const gl = this.gl;
     let entry = this.textures.get(snapshot.theme);
     if (!entry) {
-      entry = { texture: this.createTexture(), width: 0, height: 0, scale: 0, key: '' };
+      entry = {
+        texture: this.createTexture(),
+        width: 0,
+        height: 0,
+        scale: 0,
+        key: '',
+        originX: 0,
+        originY: 0,
+        fullDoc: true,
+      };
       this.textures.set(snapshot.theme, entry);
     }
     gl.bindTexture(gl.TEXTURE_2D, entry.texture);
@@ -160,11 +172,18 @@ export class InkRenderer {
     entry.height = snapshot.canvas.height;
     entry.scale = snapshot.scale;
     entry.key = snapshot.key;
+    entry.originX = snapshot.originX;
+    entry.originY = snapshot.originY;
+    entry.fullDoc = snapshot.fullDoc;
   }
 
-  /** True when a snapshot for `theme` exists and matches the current layout. */
+  /** True when a snapshot for `theme` exists and matches the current layout & viewport. */
   hasValid(theme: Theme, key: string): boolean {
-    return !this.lost && this.textures.get(theme)?.key === key;
+    if (this.lost) return false;
+    const entry = this.textures.get(theme);
+    if (!entry || entry.key !== key) return false;
+    if (!entry.fullDoc && Math.abs(window.scrollY - entry.originY) > 4) return false;
+    return true;
   }
 
   /**
@@ -250,8 +269,8 @@ export class InkRenderer {
       width: t.width,
       height: t.height,
       ratio: t.scale / this.canvasScale,
-      offsetX: Math.floor(window.scrollX * t.scale + 0.5),
-      offsetY: Math.floor(window.scrollY * t.scale + 0.5),
+      offsetX: Math.floor((window.scrollX - t.originX) * t.scale + 0.5),
+      offsetY: Math.floor((window.scrollY - t.originY) * t.scale + 0.5),
       flipY: false,
     };
   }
