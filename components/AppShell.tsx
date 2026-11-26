@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { AsciiReveal } from 'ascii-reveal';
@@ -190,12 +190,17 @@ const CLIENT_GROUPS: NavGroup[] = [
 // The sidebar remounts with every route, so it only decodes in once per browser session
 // instead of flashing on each navigation click.
 let sidebarRevealed = false;
+const RAIL_BAR_HEIGHT = 32;
+let lastSidebarRailY: number | null = null;
+let pendingRailClick: { fromY: number; toY: number; at: number } | null = null;
 
 export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpenPalette, loading = false, children }: AppShellProps) {
   const [revealSidebar] = useState(() => !sidebarRevealed);
   useEffect(() => {
     sidebarRevealed = true;
   }, []);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const railBarRef = useRef<HTMLSpanElement | null>(null);
   const isAdmin = role === 'SUPER_ADMIN';
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -285,9 +290,88 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
 
   const roleLabel = isAdmin ? 'Super Admin' : 'Client';
 
+  const measureRailTarget = useCallback((linkEl?: HTMLElement | null) => {
+    const navEl = sidebarRef.current?.querySelector<HTMLElement>('.shell-nav');
+    const barEl = railBarRef.current;
+    const target =
+      linkEl ?? navEl?.querySelector<HTMLElement>('.shell-link[aria-current="page"], .shell-link.is-active');
+    if (!navEl || !barEl || !target) return null;
+
+    const navRect = navEl.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    if (targetRect.height <= 0) return null;
+
+    return Math.round(
+      targetRect.top - navRect.top + navEl.scrollTop + (targetRect.height - RAIL_BAR_HEIGHT) / 2
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    const navEl = sidebarRef.current?.querySelector<HTMLElement>('.shell-nav');
+    const barEl = railBarRef.current;
+    if (!navEl || !barEl) return;
+
+    const nextY = measureRailTarget();
+    if (nextY === null) return;
+
+    const prevY = lastSidebarRailY;
+    const clickMeta = pendingRailClick;
+    pendingRailClick = null;
+    let rafId = 0;
+
+    if (clickMeta && Math.abs(clickMeta.toY - nextY) <= 1 && Math.abs(clickMeta.fromY - nextY) > 0.5) {
+      const elapsed = Math.min(380, Math.max(0, Math.round(performance.now() - clickMeta.at)));
+      barEl.style.transition = 'none';
+      barEl.style.transform = `translateY(${clickMeta.fromY}px)`;
+      barEl.style.opacity = '1';
+      void barEl.offsetHeight;
+      barEl.style.transition = '';
+      barEl.style.transitionDelay = elapsed > 0 ? `-${elapsed}ms` : '';
+      rafId = window.requestAnimationFrame(() => {
+        barEl.style.transform = `translateY(${nextY}px)`;
+        lastSidebarRailY = nextY;
+      });
+    } else if (prevY !== null && Math.abs(prevY - nextY) > 0.5) {
+      barEl.style.transition = 'none';
+      barEl.style.transform = `translateY(${prevY}px)`;
+      barEl.style.opacity = '1';
+      void barEl.offsetHeight;
+      barEl.style.transition = '';
+      barEl.style.transitionDelay = '';
+      rafId = window.requestAnimationFrame(() => {
+        barEl.style.transform = `translateY(${nextY}px)`;
+        lastSidebarRailY = nextY;
+      });
+    } else {
+      barEl.style.transitionDelay = '';
+      barEl.style.transform = `translateY(${nextY}px)`;
+      barEl.style.opacity = '1';
+      lastSidebarRailY = nextY;
+    }
+
+    const observer =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            const resizedY = measureRailTarget();
+            if (resizedY !== null && railBarRef.current) {
+              railBarRef.current.style.transform = `translateY(${resizedY}px)`;
+              railBarRef.current.style.opacity = '1';
+              lastSidebarRailY = resizedY;
+            }
+          })
+        : null;
+
+    observer?.observe(navEl);
+
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      observer?.disconnect();
+    };
+  }, [pathname, collapsed, mobileOpen, isAdmin, loading, measureRailTarget]);
+
   return (
     <div className={`shell${collapsed ? ' is-collapsed' : ''}${mobileOpen ? ' is-open' : ''}`}>
-      <aside className="shell-sidebar" data-lenis-prevent aria-label="Primary navigation">
+      <aside ref={sidebarRef} className="shell-sidebar" data-lenis-prevent aria-label="Primary navigation">
         <div className="shell-brand">
           <span className="shell-brand__mark" aria-hidden="true">
             H
@@ -298,6 +382,8 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
         </div>
 
         <AsciiReveal as="nav" className="shell-nav" {...ASCII_REVEAL_SHELL} revealOnMount={revealSidebar}>
+          <span className="shell-rail-track" aria-hidden="true" data-ascii="skip" />
+          <span ref={railBarRef} className="shell-rail-bar" aria-hidden="true" data-ascii="skip" />
           {groups.map((group) => (
             <div className="shell-group" key={group.label}>
               <p className="shell-group__label">
@@ -312,7 +398,19 @@ export default function AppShell({ role, email, alertCount = 0, onSignOut, onOpe
                       className={`shell-link${isActive(item) ? ' is-active' : ''}`}
                       aria-current={isActive(item) ? 'page' : undefined}
                       title={collapsed ? item.label : undefined}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={(event) => {
+                        setMobileOpen(false);
+                        const clickedY = measureRailTarget(event.currentTarget);
+                        if (clickedY !== null && railBarRef.current && lastSidebarRailY !== null) {
+                          pendingRailClick = {
+                            fromY: lastSidebarRailY,
+                            toY: clickedY,
+                            at: performance.now(),
+                          };
+                          railBarRef.current.style.transitionDelay = '';
+                          railBarRef.current.style.transform = `translateY(${clickedY}px)`;
+                        }
+                      }}
                     >
                       <span className="shell-link__icon">
                         <Icon name={item.icon} />

@@ -684,3 +684,92 @@ sakuga-toast.ht-sakuga-toast[data-open='true'] {
     bottom: 18px;
   }
 }
+
+/* ----------------------------------------------------- Rail Accent Slide */
+
+.nv-rl {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px 10px 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nv-rl[data-surface='auto'] {
+  border-right-color: var(--ht-line-subtle);
+}
+
+.nv-rl-bar {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 2px;
+  height: 32px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #7c5cff, #23d3ff);
+  box-shadow: 0 0 10px rgba(124, 92, 255, 0.6);
+  transition: transform 0.42s cubic-bezier(0.5, 1.6, 0.4, 1);
+  pointer-events: none;
+}
+
+.nv-rl-i {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  border-radius: 10px;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 0.3s,
+    background 0.3s;
+}
+
+.nv-rl-i:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nv-rl-i.is-on {
+  color: #fff;
+}
+
+.nv-rl-i:focus-visible {
+  outline: 2px solid #23d3ff;
+  outline-offset: 2px;
+}
+
+.nv-rl[data-surface='auto'] .nv-rl-i {
+  color: var(--ht-text-muted);
+}
+
+.nv-rl[data-surface='auto'] .nv-rl-i:hover,
+.nv-rl[data-surface='auto'] .nv-rl-i.is-on {
+  color: var(--ht-text);
+}
+
+.nv-rl[data-surface='auto'] .nv-rl-i:hover {
+  background: var(--ht-elevated);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nv-rl-bar,
+  .nv-rl-i {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .nv-rl-bar {
+    border-inline-start: 2px solid Highlight;
+  }
+
+  .nv-rl-i.is-on {
+    outline: 1px solid Highlight;
+  }
+}
