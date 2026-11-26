@@ -773,3 +773,351 @@ sakuga-toast.ht-sakuga-toast[data-open='true'] {
     outline: 1px solid Highlight;
   }
 }
+
+/* ---------------------------------------------------------- Theme Switch */
+
+.tts-switch {
+  --tts-ease: cubic-bezier(0.34, 1.28, 0.42, 1);
+  --tts-scale: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  user-select: none;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tts-switch--no-caption {
+  gap: 0;
+}
+
+/* accessible but visually hidden checkbox, still focusable */
+.tts-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tts-track-frame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(196px * var(--tts-scale));
+  height: calc(80px * var(--tts-scale));
+}
+
+/* ---- pill track ---- */
+.tts-track {
+  position: relative;
+  flex: none;
+  width: 196px;
+  height: 80px;
+  border-radius: 40px;
+  overflow: hidden;
+  transform: scale(var(--tts-scale));
+  transform-origin: center;
+  background: linear-gradient(180deg, #58baff 0%, #8ed3ff 55%, #c7ecff 100%);
+  box-shadow:
+    inset 0 3px 8px rgba(20, 60, 120, 0.28),
+    inset 0 -2px 6px rgba(255, 255, 255, 0.5),
+    0 12px 26px rgba(30, 80, 150, 0.3);
+  transition: background 0.6s ease, box-shadow 0.4s ease;
+}
+
+.tts-input:checked ~ .tts-track-frame .tts-track {
+  background: linear-gradient(180deg, #0b1330 0%, #14204c 55%, #1f2f63 100%);
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.45),
+    inset 0 -2px 6px rgba(120, 150, 230, 0.25),
+    0 12px 26px rgba(4, 10, 30, 0.5);
+}
+
+/* focus ring driven by the hidden checkbox */
+.tts-input:focus-visible ~ .tts-track-frame .tts-track {
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.45),
+    0 0 0 3px #0b1120,
+    0 0 0 6px #7db4ff;
+}
+
+/* ---- stars (night only) ---- */
+.tts-stars {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.tts-input:checked ~ .tts-track-frame .tts-stars {
+  opacity: 1;
+}
+
+.tts-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.9);
+  animation: tts-twinkle 3s ease-in-out infinite;
+}
+
+.tts-star:nth-child(1) { top: 20px; left: 26px; animation-delay: 0s;   transform: scale(1); }
+.tts-star:nth-child(2) { top: 46px; left: 40px; animation-delay: 0.5s; transform: scale(0.7); }
+.tts-star:nth-child(3) { top: 30px; left: 60px; animation-delay: 1s;   transform: scale(0.8); }
+.tts-star:nth-child(4) { top: 56px; left: 74px; animation-delay: 1.5s; transform: scale(0.6); }
+.tts-star:nth-child(5) { top: 16px; left: 84px; animation-delay: 0.8s; transform: scale(0.7); }
+.tts-star:nth-child(6) { top: 60px; left: 30px; animation-delay: 2s;   transform: scale(0.55); }
+
+@keyframes tts-twinkle {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
+
+/* ---- clouds (day only) ---- */
+.tts-clouds {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+.tts-input:checked ~ .tts-track-frame .tts-clouds {
+  opacity: 0;
+}
+
+.tts-cloud {
+  position: absolute;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 14px 4px 0 -3px #ffffff, -12px 5px 0 -2px #f4fbff;
+}
+
+.tts-cloud-a {
+  width: 26px;
+  height: 26px;
+  top: 40px;
+  left: 96px;
+  opacity: 0.95;
+  animation: tts-drift 8s ease-in-out infinite;
+}
+
+.tts-cloud-b {
+  width: 20px;
+  height: 20px;
+  top: 16px;
+  left: 128px;
+  opacity: 0.8;
+  animation: tts-drift 10s ease-in-out infinite reverse;
+}
+
+.tts-cloud-c {
+  width: 16px;
+  height: 16px;
+  top: 52px;
+  left: 150px;
+  opacity: 0.7;
+  animation: tts-drift 12s ease-in-out infinite;
+}
+
+@keyframes tts-drift {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(-10px); }
+}
+
+/* ---- knob: sun by day, moon by night ---- */
+.tts-knob {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 36% 32%, #fff3ba, #ffd23f 46%, #ffb01f 78%, #ff9a12 100%);
+  box-shadow:
+    0 4px 12px rgba(180, 110, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  transform: translateX(0);
+  transition:
+    transform 0.6s var(--tts-ease),
+    background 0.6s ease,
+    box-shadow 0.6s ease;
+}
+
+.tts-input:checked ~ .tts-track-frame .tts-knob {
+  transform: translateX(116px);
+  background: radial-gradient(circle at 36% 32%, #ffffff, #dde7fb 55%, #b4c6ee 100%);
+  box-shadow:
+    0 4px 14px rgba(4, 10, 30, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* warm glow halo behind the sun */
+.tts-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 205, 70, 0.55), rgba(255, 205, 70, 0) 68%);
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+.tts-input:checked ~ .tts-track-frame .tts-knob .tts-glow {
+  opacity: 0;
+}
+
+/* craters (moon only) */
+.tts-crater {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(150, 168, 205, 0.55);
+  box-shadow: inset 1px 1px 2px rgba(90, 110, 155, 0.7);
+  opacity: 0;
+  transition: opacity 0.5s ease 0.1s;
+}
+
+.tts-input:checked ~ .tts-track-frame .tts-knob .tts-crater {
+  opacity: 1;
+}
+
+.tts-crater-1 { width: 14px; height: 14px; top: 14px; left: 30px; }
+.tts-crater-2 { width: 9px;  height: 9px;  top: 34px; left: 16px; }
+.tts-crater-3 { width: 7px;  height: 7px;  top: 38px; left: 38px; }
+
+/* shadow that slides in to carve the crescent */
+.tts-knob-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #14204c;
+  transform: translate(40px, -40px) scale(0.6);
+  opacity: 0;
+  transition: transform 0.6s var(--tts-ease), opacity 0.5s ease, background 0.6s ease;
+}
+
+.tts-input:checked ~ .tts-track-frame .tts-knob-shadow {
+  transform: translate(18px, -16px) scale(1);
+  opacity: 1;
+}
+
+/* ---- caption ---- */
+.tts-caption {
+  position: relative;
+  width: 80px;
+  height: 22px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.tts-cap {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.tts-cap-light {
+  color: #1c6fb8;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tts-cap-dark {
+  color: #cdd9ff;
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.tts-input:checked ~ .tts-caption .tts-cap-light {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.tts-input:checked ~ .tts-caption .tts-cap-dark {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Compact topbar integration keeps exact proportions without overflowing 58px chrome */
+.tts-switch--topbar {
+  --tts-scale: 0.42;
+}
+
+.tts-switch--topbar .tts-track {
+  box-shadow:
+    inset 0 3px 8px rgba(20, 60, 120, 0.24),
+    inset 0 -2px 6px rgba(255, 255, 255, 0.5),
+    0 4px 14px rgba(30, 80, 150, 0.22);
+}
+
+.tts-switch--topbar .tts-input:checked ~ .tts-track-frame .tts-track {
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.45),
+    inset 0 -2px 6px rgba(120, 150, 230, 0.25),
+    0 4px 14px rgba(4, 10, 30, 0.38);
+}
+
+.theme-toggle.theme-toggle--pill {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 40px;
+  background: transparent;
+  padding: 0;
+}
+
+.theme-toggle.theme-toggle--pill:hover,
+.theme-toggle.theme-toggle--pill:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+@media (max-width: 480px) {
+  .tts-switch--topbar {
+    --tts-scale: 0.37;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tts-star,
+  .tts-cloud-a,
+  .tts-cloud-b,
+  .tts-cloud-c {
+    animation: none !important;
+  }
+
+  .tts-track,
+  .tts-stars,
+  .tts-clouds,
+  .tts-knob,
+  .tts-glow,
+  .tts-crater,
+  .tts-knob-shadow,
+  .tts-cap {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .tts-track {
+    outline: 1px solid ButtonText;
+  }
+
+  .tts-knob {
+    outline: 2px solid ButtonText;
+  }
+}
