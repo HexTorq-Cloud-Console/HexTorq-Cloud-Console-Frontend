@@ -12,13 +12,13 @@
 export const ASCII_REVEAL = {
   preset: 'dither',
   origin: 'top-left',
-  speed: 0.45,
+  speed: 0.22,
 } as const;
 
-// The sidebar is a small surface, so a full ASCII decode there stays cheap
-// and gives the console its signature reveal.
+// The sidebar is a small surface, so a smooth slow ASCII decode there stays
+// readable and gives the console its signature reveal.
 export const ASCII_REVEAL_SHELL = {
   preset: 'dither',
   origin: 'top-left',
-  speed: 0.55,
+  speed: 0.30,
 } as const;

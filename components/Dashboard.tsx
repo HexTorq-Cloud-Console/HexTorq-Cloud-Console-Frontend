@@ -56,7 +56,7 @@ function Dashboard({ token, role, email, section }: { token: string; role: strin
   // always has something to decode from, even when cached data is ready instantly.
   const [skeletonWarmup, setSkeletonWarmup] = useState(true);
   useEffect(() => {
-    const timer = window.setTimeout(() => setSkeletonWarmup(false), 260);
+    const timer = window.setTimeout(() => setSkeletonWarmup(false), 750);
     return () => window.clearTimeout(timer);
   }, []);
   const showSkeleton = loading || skeletonWarmup;

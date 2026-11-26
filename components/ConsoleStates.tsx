@@ -209,16 +209,22 @@ function AccessSkeleton() {
         right={<div className="state-sk-pill state-sk-pill--xl" />}
       />
       <div className="access-page__grid">
-        {[1, 2, 3, 4].map((card) => (
+        {[1, 2].map((card) => (
           <div className="state-skeleton-card state-skeleton-card--access" data-ascii="skip" key={card}>
             <div className="state-sk-row-between">
               <div className="state-sk-pill state-sk-pill--sm" />
               <AsciiSkeleton lines={1} widths={[70]} seed={510 + card} />
             </div>
             <AsciiSkeleton lines={1} widths={['56%']} seed={520 + card} />
-            <AsciiSkeleton rows={2} width="100%" seed={530 + card} />
-            <AsciiSkeleton rows={2} width="100%" seed={540 + card} />
-            <AsciiSkeleton rows={2} width="100%" seed={550 + card} />
+            <div className="state-sk-two-col">
+              <AsciiSkeleton rows={2} width="100%" seed={530 + card} />
+              <AsciiSkeleton rows={2} width="100%" seed={535 + card} />
+              <AsciiSkeleton rows={2} width="100%" seed={540 + card} />
+              <AsciiSkeleton rows={2} width="100%" seed={545 + card} />
+              <AsciiSkeleton rows={2} width="100%" seed={550 + card} />
+              <AsciiSkeleton rows={2} width="100%" seed={555 + card} />
+            </div>
+            <AsciiSkeleton lines={1} widths={['100%']} seed={560 + card} />
           </div>
         ))}
       </div>

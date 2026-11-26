@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ClientAccess } from '../types/api';
+import { showSakugaToast } from '../lib/sakugaToast';
 
 const REVEAL_AUTO_HIDE_MS = 30 * 1000;
 
@@ -12,29 +13,38 @@ function postgresConnectionUri(entry: ClientAccess) {
   return `postgresql://${username}@${entry.host}:${entry.port}/${database}?sslmode=${sslMode}`;
 }
 
-function AccessEntryCard({ entry, onReveal }: { entry: ClientAccess; onReveal?: (accessId: string) => Promise<string | null> }) {
+function AccessEntryCard({
+  entry,
+  onReveal,
+}: {
+  entry: ClientAccess;
+  onReveal?: (accessId: string) => Promise<string | null>;
+}) {
   const [secretVisible, setSecretVisible] = useState(false);
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [loadingSecret, setLoadingSecret] = useState(false);
   const [revealError, setRevealError] = useState('');
   const [copied, setCopied] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
   const autoHideRef = useRef<number | null>(null);
+  const copyTimerRef = useRef<number | null>(null);
+  const statusId = useId();
 
-  const fields: Array<{ label: string; value: string }> = [
-    { label: 'Host', value: entry.host },
-    { label: 'Port', value: String(entry.port) },
+  const fields: Array<{ label: string; value: string; mono?: boolean }> = [
+    { label: 'Host', value: entry.host, mono: true },
+    { label: 'Port', value: String(entry.port), mono: true },
   ];
 
   if (entry.type === 'SFTP') {
     fields.push(
       { label: 'Protocol', value: 'SFTP' },
-      { label: 'Username', value: entry.username },
-      { label: 'Path', value: entry.path || '/' },
+      { label: 'Username', value: entry.username, mono: true },
+      { label: 'Path', value: entry.path || '/', mono: true },
     );
   } else {
     fields.push(
-      { label: 'Maintenance database', value: entry.databaseName || '' },
-      { label: 'Username', value: entry.username },
+      { label: 'Database', value: entry.databaseName || '', mono: true },
+      { label: 'Username', value: entry.username, mono: true },
       { label: 'SSL mode', value: entry.sslMode || 'Prefer' },
     );
   }
@@ -52,18 +62,26 @@ function AccessEntryCard({ entry, onReveal }: { entry: ClientAccess; onReveal?: 
   useEffect(() => {
     return () => {
       if (autoHideRef.current !== null) window.clearTimeout(autoHideRef.current);
+      if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
     };
   }, []);
 
   async function copyField(label: string, value: string) {
     if (!value) return;
+    if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
     try {
       await navigator.clipboard.writeText(value);
       setCopied(label);
-      window.setTimeout(() => setCopied(''), 1500);
+      setCopyStatus(`${label} copied`);
+      showSakugaToast(`${label} copied`);
     } catch {
-      // Clipboard access can be blocked by the browser; the value remains selectable.
+      setCopied('');
+      setCopyStatus(`Unable to copy ${label.toLowerCase()}`);
     }
+    copyTimerRef.current = window.setTimeout(() => {
+      setCopied('');
+      setCopyStatus('');
+    }, 1800);
   }
 
   async function revealSecret() {
@@ -87,87 +105,116 @@ function AccessEntryCard({ entry, onReveal }: { entry: ClientAccess; onReveal?: 
   }
 
   const revealReady = Boolean(onReveal);
-  const connectionText = entry.type === 'SFTP'
-    ? `Host: ${entry.host}:${entry.port}\nUser: ${entry.username}\nPath: ${entry.path || '/'}`
-    : postgresConnectionUri(entry);
+  const isDb = entry.type === 'DATABASE';
+  const connectionText = isDb
+    ? postgresConnectionUri(entry)
+    : `sftp://${entry.username}@${entry.host}:${entry.port}${entry.path || '/'}`;
 
   return (
-    <article className={`access-card ${entry.type === 'DATABASE' ? 'database' : 'sftp'}`}>
-      <div className="access-card-head">
-        <span className={`access-type-badge ${entry.type === 'DATABASE' ? 'database' : 'sftp'}`}>
-          {entry.type === 'DATABASE' ? 'POSTGRESQL' : 'SFTP'}
-        </span>
-        <span className={`access-state ${entry.enabled ? 'enabled' : 'disabled'}`}>
-          <span className="ht-dot" /> {entry.enabled ? 'Active' : 'Disabled'}
-        </span>
-      </div>
-      <h3>{entry.label}</h3>
-      {entry.client && <p className="access-client">{entry.client.name}</p>}
-
-      <dl className="access-fields">
-        {fields.map((field) => (
-          <div className="access-field" key={field.label}>
-            <dt className="access-label">{field.label}</dt>
-            <dd className="access-value-row">
-              <code>{field.value || 'Not set'}</code>
-              {field.value && (
-                <button type="button" className="mini-button" onClick={() => copyField(field.label, field.value)}>
-                  {copied === field.label ? '✓ Copied' : 'Copy'}
-                </button>
-              )}
-            </dd>
+    <article className={`access-card access-card--compact ${isDb ? 'database' : 'sftp'}`}>
+      <header className="access-card__top">
+        <div className="access-card__title-wrap">
+          <div className="access-card__badges">
+            <span className={`access-type-badge ${isDb ? 'database' : 'sftp'}`}>
+              {isDb ? 'POSTGRESQL' : 'SFTP'}
+            </span>
+            <span className={`access-state ${entry.enabled ? 'enabled' : 'disabled'}`}>
+              <span className="ht-dot" /> {entry.enabled ? 'Active' : 'Disabled'}
+            </span>
           </div>
-        ))}
-        <div className="access-field access-field--secret">
+          <h3>{entry.label}</h3>
+          {entry.client && <p className="access-client">{entry.client.name}</p>}
+        </div>
+        <span id={statusId} className="access-copy-live" role="status" aria-live="polite">
+          {copyStatus}
+        </span>
+      </header>
+
+      <dl className="access-grid-fields">
+        {fields.map((field) => {
+          const isCopied = copied === field.label;
+          return (
+            <div className="access-kv" key={field.label}>
+              <dt className="access-label">{field.label}</dt>
+              <dd className="access-kv__val">
+                <code className={field.mono ? 'is-mono' : undefined} title={field.value || undefined}>
+                  {field.value || 'Not set'}
+                </code>
+                {field.value && (
+                  <button
+                    type="button"
+                    className="mini-button access-copy-btn"
+                    data-copied={isCopied ? '' : undefined}
+                    aria-label={`Copy ${field.label}`}
+                    onClick={() => void copyField(field.label, field.value)}
+                  >
+                    {isCopied ? '✓' : 'Copy'}
+                  </button>
+                )}
+              </dd>
+            </div>
+          );
+        })}
+
+        <div className="access-kv access-kv--secret">
           <dt className="access-label">Password</dt>
-          <dd className="access-value-row">
-            <code className={secretVisible ? 'access-secret is-visible' : 'access-secret'}>
+          <dd className="access-kv__val">
+            <code className={secretVisible ? 'access-secret is-visible is-mono' : 'access-secret is-mono'}>
               {secretVisible ? revealedPassword || '—' : '••••••••••'}
             </code>
             {revealReady && (
-              <>
+              <span className="access-secret-actions">
                 {secretVisible ? (
                   <button type="button" className="mini-button" onClick={hideSecret}>Hide</button>
                 ) : (
-                  <button type="button" className="mini-button" onClick={() => void revealSecret()} disabled={loadingSecret}>
-                    {loadingSecret ? 'Revealing…' : 'Reveal'}
+                  <button
+                    type="button"
+                    className="mini-button"
+                    onClick={() => void revealSecret()}
+                    disabled={loadingSecret}
+                  >
+                    {loadingSecret ? '…' : 'Reveal'}
                   </button>
                 )}
                 {secretVisible && revealedPassword && (
-                  <button type="button" className="mini-button" onClick={() => copyField('Password', revealedPassword)}>
-                    {copied === 'Password' ? '✓ Copied' : 'Copy'}
+                  <button
+                    type="button"
+                    className="mini-button access-copy-btn"
+                    data-copied={copied === 'Password' ? '' : undefined}
+                    aria-label="Copy Password"
+                    onClick={() => void copyField('Password', revealedPassword)}
+                  >
+                    {copied === 'Password' ? '✓' : 'Copy'}
                   </button>
                 )}
-              </>
+              </span>
             )}
           </dd>
           {revealError && <span className="access-reveal-error">{revealError}</span>}
-          {!revealReady && (
-            <span className="access-hint">Password is not available in this view.</span>
-          )}
+          {!revealReady && <span className="access-hint">Unavailable here</span>}
         </div>
       </dl>
 
-      <div className="access-connection">
-        <div className="access-connection__head">
-          <span className="access-label">{entry.type === 'SFTP' ? 'FileZilla connection' : 'PostgreSQL connection'}</span>
-          <button type="button" className="mini-button" onClick={() => copyField('Connection', connectionText)}>
-            {copied === 'Connection' ? '✓ Copied' : 'Copy'}
-          </button>
-        </div>
-        <pre className="access-connection__text">{connectionText}</pre>
-        <p className="access-connection__note">
-          {entry.type === 'DATABASE'
-            ? 'Connection string does not include a password. Add it only when required.'
-            : 'Use these details in FileZilla with your password.'}
-        </p>
-      </div>
+      <footer className="access-conn-bar">
+        <span className="access-conn-bar__label">{isDb ? 'URI' : 'SFTP'}</span>
+        <code className="access-conn-bar__code" title={connectionText}>{connectionText}</code>
+        <button
+          type="button"
+          className="mini-button access-conn-bar__btn"
+          data-copied={copied === 'Connection' ? '' : undefined}
+          aria-label={`Copy ${isDb ? 'PostgreSQL URI' : 'SFTP connection'}`}
+          onClick={() => void copyField('Connection', connectionText)}
+        >
+          {copied === 'Connection' ? '✓ Copied' : 'Copy URI'}
+        </button>
+      </footer>
 
-      {entry.notes && <p className="access-notes">{entry.notes}</p>}
+      {entry.notes && <p className="access-notes access-notes--compact">{entry.notes}</p>}
       {copied === 'Password' && (
         <p className="access-clip-warning">Copied to clipboard — treat as sensitive.</p>
       )}
     </article>
   );
 }
+
 export default AccessEntryCard;
