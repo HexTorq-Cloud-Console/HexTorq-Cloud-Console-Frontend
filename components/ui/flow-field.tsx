@@ -308,6 +308,65 @@ export function FlowField({
       ctx.globalCompositeOperation = 'source-over';
     }
 
+    function paintThemeSnapshot(targetCanvas: HTMLCanvasElement, targetTheme: 'light' | 'dark') {
+      const tCtx = targetCanvas.getContext('2d');
+      if (!tCtx || !c) return;
+      targetCanvas.width = c.width;
+      targetCanvas.height = c.height;
+      tCtx.globalCompositeOperation = 'source-over';
+      tCtx.setTransform(1, 0, 0, 1, 0, 0);
+      tCtx.fillStyle = targetTheme === 'dark' ? '#060b13' : '#f2f6fc';
+      tCtx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+      tCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Clone particle coordinates so snapshotting never disturbs the live animation.
+      const snapParticles = particles.map((p) => ({ ...p }));
+      let snapT = t;
+      for (let step = 0; step < 18; step += 1) {
+        snapT += 0.025;
+        const snapRot = snapT * 0.024;
+        tCtx.globalCompositeOperation = 'source-over';
+        tCtx.fillStyle = targetTheme === 'dark' ? 'rgba(6, 11, 19, 0.044)' : 'rgba(242, 246, 252, 0.068)';
+        tCtx.fillRect(0, 0, W, H);
+        tCtx.globalCompositeOperation = targetTheme === 'dark' ? 'lighter' : 'source-over';
+        tCtx.lineCap = 'round';
+        for (let i = 0; i < snapParticles.length; i += 1) {
+          const p = snapParticles[i];
+          let n = vnoise3(p.x * detail, p.y * detail, snapT * 0.11);
+          n += 0.5 * vnoise3(p.x * detail * 2.2, p.y * detail * 2.2, snapT * 0.11 + 17.3);
+          const a = (n / 1.5) * TAU * curl + snapRot;
+          const svx = Math.cos(a) * p.spd;
+          const svy = Math.sin(a) * p.spd;
+          p.vx += (svx - p.vx) * 0.22;
+          p.vy += (svy - p.vy) * 0.22;
+          p.px = p.x;
+          p.py = p.y;
+          p.x += p.vx * 0.025;
+          p.y += p.vy * 0.025;
+          if (p.x < -30 || p.x > W + 30 || p.y < -30 || p.y > H + 30) continue;
+          const v = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+          let e = (v - 22) / 150;
+          if (e < 0) e = 0;
+          else if (e > 1) e = 1;
+          const e2 = e * e;
+          const r = targetTheme === 'dark' ? 26 + (74 - 26) * e2 : 18 + (37 - 18) * e2;
+          const g = targetTheme === 'dark' ? 86 + (157 - 86) * e : 116 + (99 - 116) * e;
+          const b = targetTheme === 'dark' ? 146 + (253 - 146) * e : 162 + (235 - 162) * e;
+          const alpha = (targetTheme === 'dark' ? 0.14 + e2 * 0.5 : 0.16 + e2 * 0.44) * p.bright;
+          tCtx.strokeStyle = `rgba(${r | 0},${g | 0},${b | 0},${alpha.toFixed(3)})`;
+          tCtx.lineWidth = thickness + e * 1.9;
+          tCtx.beginPath();
+          tCtx.moveTo(p.px, p.py);
+          tCtx.lineTo(p.x, p.y);
+          tCtx.stroke();
+        }
+      }
+      tCtx.globalCompositeOperation = 'source-over';
+    }
+
+    const win = window as unknown as { __hextorqFlowSnapshot?: typeof paintThemeSnapshot };
+    win.__hextorqFlowSnapshot = paintThemeSnapshot;
+
     function frame() {
       const now = Date.now();
       t = (now - start) / 1000;
@@ -344,6 +403,9 @@ export function FlowField({
     return () => {
       running = false;
       cancelAnimationFrame(raf);
+      if (win.__hextorqFlowSnapshot === paintThemeSnapshot) {
+        delete win.__hextorqFlowSnapshot;
+      }
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerleave', onPointerLeave);
       window.removeEventListener('resize', resize);

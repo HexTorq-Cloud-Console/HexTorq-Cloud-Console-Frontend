@@ -92,6 +92,17 @@ export async function capturePage(theme: Theme, scale: number, maxTextureSize: n
       doc.head.appendChild(noTrans);
 
       doc.documentElement.dataset.theme = theme;
+      doc.querySelectorAll<HTMLElement>('.bg-flow-field-root').forEach((el) => {
+        el.dataset.theme = theme;
+      });
+      const paintFlow = (
+        window as unknown as { __hextorqFlowSnapshot?: (canvas: HTMLCanvasElement, targetTheme: Theme) => void }
+      ).__hextorqFlowSnapshot;
+      if (paintFlow) {
+        doc.querySelectorAll<HTMLCanvasElement>('.bg-flow-field-canvas').forEach((clonedCanvas) => {
+          paintFlow(clonedCanvas, theme);
+        });
+      }
       void doc.documentElement.offsetHeight;
 
       // If capturing a scrolled viewport slice on a tall page, keep sticky chrome
