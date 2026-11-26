@@ -66,16 +66,16 @@ const GRID_Y0 = 468.7
 const GRID_COLOR = "#5a87e1"
 const GRID_ALPHA = 0.23
 
-/* Timeline (seconds) — crisp initial reveal so headline metrics appear quickly. */
-const T_GRID = 0.35
-const T_DRAW0 = 0.04
-const T_DRAW = 0.72
-const T_NUM0 = 0.06
-const T_NUM = 0.58
-const T_ARROW = 0.65
-const T_REST = 0.9
+/* Timeline (seconds) — numbers appear fast while the luminous curve draws smoothly across. */
+const T_GRID = 0.45
+const T_DRAW0 = 0.12
+const T_DRAW = 1.95
+const T_NUM0 = 0.08
+const T_NUM = 0.75
+const T_ARROW = 1.65
+const T_REST = 2.35
 const T_BREATH = 4.6
-const T_MORPH = 0.55
+const T_MORPH = 0.72
 
 /* The accent the artwork is drawn in; any other accent hue-shifts the canvas. */
 const BASE_ACCENT = "#4f8ef7"
